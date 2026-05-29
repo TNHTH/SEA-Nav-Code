@@ -1,0 +1,101 @@
+{
+  "route_id": "sea_nav_source_graph_parity_footprint_preserved_learned_policy_contract",
+  "source_repo": "/home/gwh/SEA-Nav-Code",
+  "source_commit": "fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96",
+  "adapter_root": "/home/gwh/SEA-Nav-Code/sea_nav_current_isaaclab_full_method",
+  "owned_paths": [
+    "/home/gwh/SEA-Nav-Code/sea_nav_current_isaaclab_full_method/**"
+  ],
+  "upstream_reference_paths": [
+    "/home/gwh/SEA-Nav-Code/training/rsl_rl/rsl_rl/modules/cbf_lse_layer.py",
+    "/home/gwh/SEA-Nav-Code/training/rsl_rl/rsl_rl/modules/cbf_actor_critic.py",
+    "/home/gwh/SEA-Nav-Code/training/rsl_rl/rsl_rl/algorithms/ppo.py",
+    "/home/gwh/SEA-Nav-Code/training/legged_gym/legged_gym/envs/base/legged_robot_pos.py",
+    "/home/gwh/SEA-Nav-Code/training/legged_gym/legged_gym/envs/go2/go2_pos_config.py"
+  ],
+  "formal_eval": {
+    "hard_room": true,
+    "seeds": 100,
+    "forbid_astar_policy_input": true,
+    "forbid_centerline_policy_input": true,
+    "forbid_privileged_full_map": true,
+    "collision_replay_enabled": false,
+    "actor_lse_cbf_enabled": true,
+    "target_success_rate_pct_min": 72.0,
+    "target_collision_rate_pct_max": 6.25,
+    "target_termination_rate_pct_max": 6.25
+  },
+  "runtime_contract": {
+    "action_chain_mode": "current_pre_delay_cbf",
+    "command_filter_mode": "source_alpha_only",
+    "cbf_fov_deg": 240.0,
+    "cbf_footprint_radius_m": 0.55,
+    "cbf_min_effective_clearance_m": 0.01,
+    "timeout_seconds": 40.0,
+    "source_perception_delay_enabled": true,
+    "source_reward_done_parity_enabled": true,
+    "source_stand_still_time_steps": 150,
+    "source_contact_termination_enabled": true,
+    "source_play_eval_terminal_semantics_enabled": true
+  },
+  "gate_a": {
+    "status": "passed",
+    "python": "/home/gwh/NeuPAN/.venv/bin/python",
+    "torch": "2.11.0+cu130",
+    "command": "/home/gwh/NeuPAN/.venv/bin/python SEA-Nav-Code/sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py",
+    "passed_tests": [
+      "test_observation_contract",
+      "test_cbf_synthetic_cases",
+      "test_cbf_gamma_min_is_inactive",
+      "test_footprint_clearance_contract",
+      "test_footprint_aware_cbf_layer_contract",
+      "test_command_delay_filter",
+      "test_command_delay_zero_queue_contract",
+      "test_action_chain_mode_semantics",
+      "test_collision_replay_buffer",
+      "test_collision_replay_buffer_four_env_timelines",
+      "test_manifest_and_trace_schema",
+      "test_cbf_defaults_are_240_degrees",
+      "test_actor_noise_std_and_post_sample_projection",
+      "test_trainer_surface_contract"
+    ]
+  },
+  "runtime_smoke": {
+    "status": "passed_runtime_contract_not_metric",
+    "completed_at": "2026-05-17T16:59:30+0800",
+    "run_dir": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_runtime_smoke_20260517_1658",
+    "command": "timeout 900s SEA-Nav-Code/sea_nav_current_isaaclab_full_method/run_full_method_runtime_smoke.sh",
+    "exit_code": 0,
+    "result": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_runtime_smoke_20260517_1658/result.json",
+    "trace": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_runtime_smoke_20260517_1658/full_method_trace.jsonl",
+    "trace_rows": 16,
+    "scope": "actor+LSE-CBF command chain, source_alpha_only filter with no queue delay, collision replay recording, trace schema, current IsaacLab hard-room carrier smoke; not SR/CR/TR metric evidence"
+  },
+  "checkpoint_init_and_load_smoke": {
+    "status": "passed_checkpoint_load_contract_not_metric",
+    "completed_at": "2026-05-17T17:08:17+0800",
+    "checkpoint_init_run_dir": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_checkpoint_init_20260517_1704",
+    "checkpoint": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_checkpoint_init_20260517_1704/full_method_init_seed42.pt",
+    "checkpoint_metadata": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_checkpoint_init_20260517_1704/checkpoint_metadata.json",
+    "checkpoint_sha256": "02d30cdc9207201f52d2c91e273bf88dfe6715a5bb370e96d0769abd9889007a",
+    "load_smoke_run_dir": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_checkpoint_load_smoke_20260517_1704",
+    "load_smoke_exit_code": 0,
+    "load_smoke_result": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_checkpoint_load_smoke_20260517_1704/result.json",
+    "load_smoke_trace": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_checkpoint_load_smoke_20260517_1704/full_method_trace.jsonl",
+    "load_smoke_trace_rows": 16,
+    "weights_only_regression_run_dir": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_checkpoint_load_smoke_weights_only_20260517_1707",
+    "weights_only_regression_exit_code": 0,
+    "weights_only_regression_trace_rows": 1,
+    "scope": "initialized/random full-method actor checkpoint load contract only; not SR/CR/TR metric evidence"
+  },
+  "notes": {
+    "result_class": "original_reproduction",
+    "eval_replay": "collision replay disabled during formal eval",
+    "cbf_alpha": "strict path uses upstream F.softplus(alpha_raw) without additive gamma_min floor",
+    "command_filter": "source alpha filter only; no action queue delay",
+    "terminal_defaults": "source stay_time=150 and contact termination enabled by default",
+    "training_status": "checkpoint_initialized_not_trained",
+    "gate_b_status": "not_started",
+    "gate_c_status": "not_started"
+  }
+}
