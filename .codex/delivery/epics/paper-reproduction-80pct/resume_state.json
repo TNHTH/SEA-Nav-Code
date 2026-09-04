@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "coord_rev": 1,
+  "repository": "TNHTH/SEA-Nav-Code",
+  "branch": "test",
+  "head": "22fa4260ef07c3ed53d2476d0b653900887c5859",
+  "phase": "serial_implementation",
+  "next_action": "commit the reviewed plan and coordination files, then dispatch Task 1 from a detached worktree",
+  "strict_batch_order": [1, 2, 3, 4, 5, 6, 7],
+  "active_write_owner": "controller",
+  "active_owned_paths": [
+    ".codex/delivery/epics/paper-reproduction-80pct",
+    "docs/superpowers/plans/2026-09-04-sea-nav-reproduction-recovery.md"
+  ],
+  "highest_verified_rung": 0,
+  "candidate_oid": null,
+  "remote_mutated": false,
+  "blocked": [
+    "isaac_gym_preview4_runtime",
+    "isaaclab_runtime",
+    "formal_100_trial_metrics",
+    "real_robot_validation",
+    "public_redistribution_rights"
+  ]
+}
