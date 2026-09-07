@@ -93,3 +93,7 @@ Task 5: registered; BASE will be the coordination-only successor of a660d74, det
 Task 5: active; BASE=5b99f456fbfb9eb2e6fc8eae5a03a1aa584e2b43; detached ../SEA-Nav-Code-batch5 clean before registration and full CPU baseline 169 passed in 10.71s. Fresh implementer `/root/implement_batch5` owns the registered compact replay/ACSI/lifecycle/reset/filter paths. Source implementation remains serial.
 
 Final-review input (not pre-graded/parked): cbf-hotpath-observation.md confirms five eager-CPU scalar extractions in ordinary core/adapter CBF forward versus zero in _compute. Final whole-branch review must judge deterministic validation versus hot-path synchronization constraints; no GPU timing claim or concurrent source change.
+
+Task 5: worker milestone, not completion — 19 pure tests reported GREEN after missing-module and lifecycle RED; actual Gym/base/adapter consumers still in progress. Runtime capability hook and missing-context behavior must be documented for Task 6; missing prerequisites cannot be relabeled applied replay.
+
+Task 5: implementation received at 53c479dea2a2ff43fcfe5aa718da29395c5df191, full range 5b99f45..53c479d, 17 registered paths. Report records fresh 202 passed, staged portable Gate A five CPU/static passes with Gym blocked, eight Python 3.8 grammar files and explicit unsupported real-physics contracts. Complete task-5-review.diff assigned to independent `/root/review_batch5`; no integration or Task 6 source work yet.

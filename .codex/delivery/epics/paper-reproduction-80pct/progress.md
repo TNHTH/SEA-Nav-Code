@@ -2,6 +2,16 @@
 
 ## Session: 2026-09-07
 
+- Task 5 full report/commit received at `53c479dea2a2ff43fcfe5aa718da29395c5df191`, 17 files, 1476 insertions/769 deletions. Portable staged Gate A compiled 72 tracked Python files, retained 65 baseline paths, passed five CPU/static cases and explicitly blocked Gym. Prepared complete 164955-character range package and dispatched independent `/root/review_batch5` for spec/quality review. Runtime-contract prerequisites are documented, not counted as completed physical integration. No cherry-pick yet.
+
+- Independent reward-cpu-oracles.md provides eight fixed scalar cases for Task 6, including one-time dt totals (paper diagnostic .8/.4; upstream .38/.19) and a Torch 2.6 probe confirming bool addition acts as OR. Controller checked these against the recorded formulas; the cases use zero contact counts and establish no simulator-body equivalence or accepted paper identity. Added as Task 6 test-input reference only.
+
+- Task 5 worker fresh full explicit CPU suite reports **202 passed in 11.62s**, including 33 new replay/ACSI/lifecycle/wiring cases; inherited static script 16 checks and Python 3.8 grammar check of 8 changed core/runtime files passed. Portable tools/gate_a.py staged-file evidence requested before commit; independent review and primary integration are still pending.
+
+- Task 5 next checkpoint reports 40 focused replay/inherited-gate tests GREEN and explicit projection-to-replay configuration wiring. Controller checked the old owned trainer's `run_forced_replay_reset_smoke`: its loop called only capture, never physics advance, before reporting sample/reset success. Worker replaces that loop with an explicit real-harness-required blocker within the already owned trainer file; no separate smoke entrypoint was edited. This migration remains part of the forthcoming independent Task 5 review, not a new runtime pass.
+
+- Task 5 implementer reports pure ring/selection/partition/ACSI RED→GREEN 10 tests, then lifecycle failure/bootstrap/operator coverage RED→GREEN 9 tests. These are unreviewed worker milestones, not integrated or final evidence. Gym/base pre-reset capture, masked reconstruction and post-reset epilogue integration is now active. Requested explicit runtime capability/activation handoff so unavailable simulator support cannot silently become a claimed full-method replay result.
+
 - Task 6 bounded preparation completed in runtime-preflight-harness.md, with exact fresh-process projection/discovery and no-import AST command/output transcripts. Confirmed all three adapter launchers execute before main and Gym imports precede preflight; recommendations are not implementation evidence. Corrected report terminology to distinguish projection accessors from constructors. Added this acceptance reference to Task 6 brief; Task 5 remains the only source writer.
 
 - Added final-verification-protocol.md as a future checklist, not a pass record: A-bound committed evidence is distinguished from the final frozen E checkout's external, persistent raw report. The definitive E run remains mandatory; this avoids relabeling earlier output or an impossible self-referential commit. Remote artifact visibility remains separate from local report existence.
