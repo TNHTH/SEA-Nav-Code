@@ -118,3 +118,28 @@ already-owned test_runner_checkpoint.py, without assigning another writer.
 CPU model/optimizer continuation does not restore RNG, environments or
 trajectories, and is not simulator optimizer-resume evidence. All existing
 runtime, accepted-paper, CBF follow-up, frozen-candidate and remote gates remain.
+
+## Partial helper summary and failed handoff
+
+The original reviewer's helper `checkpoint_fd_edge` had a completed summary
+visible through list_agents before the controller requested results handoff.
+It reported an externally writable same-inode payload changing after hashing
+could yield loaded weight9.0 while the manifest still carried the digest of
+weight1.0; weights_only remained enabled. The necessary precondition is an
+external writer to that inode, not merely renaming its path. The summary also
+mentioned a synthetic fstat exception leaking a descriptor (no real OS failure
+demonstrated),90 ordinary rejected loads without FD growth, and four publication
+fault points keeping a readable old generation with no temporary leftovers.
+
+Its detailed commands had been sent to its failed parent, not this controller.
+A request to relay only those completed observations also ended with the same
+service safety error. No further retry was attempted. The controller therefore
+has only the earlier compact summary, not the full command/output needed to
+independently certify it. These are **reported partial observations/candidates**,
+not additional executed controller results or a substitute review verdict.
+
+The sole writer was told to examine the ordinary concurrent-write identity
+boundary and descriptor exception cleanup inside the existing checkpoint path.
+If it applies a fix, that fix needs its own ordinary regression evidence and
+fixed review. No new adversarial artifact or restriction bypass is requested;
+the complete core review remains incomplete.
