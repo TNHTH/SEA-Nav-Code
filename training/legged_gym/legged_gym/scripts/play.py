@@ -104,7 +104,6 @@ def play(args, request, resources):
         }
     
     if env_cfg.env.num_envs == 1:
-        env_cfg.terrain.num_rows = 1 # level  
         env_cfg.terrain.num_cols = 1 # type
         env_cfg.terrain.curriculum = True
         env_cfg.terrain.max_init_terrain_level = 3

@@ -82,6 +82,83 @@ assert not r.paths.run_root.exists()
     assert run.returncode == 0, run.stdout + run.stderr
 
 
+@pytest.mark.parametrize("mismatched_rows", [False, True])
+def test_actual_gym_play_preparation_preserves_bound_terrain_receipt(tmp_path, mismatched_rows):
+    """Real config/play/registry CPU statements, without simulator construction."""
+    import inspect
+    from types import SimpleNamespace
+    import numpy as np
+    from rsl_rl.environment_profile import (
+        apply_gym_environment, materialize_config, reconcile_environment_receipt)
+
+    argv = cli(tmp_path)
+    manifest = input_checkpoint(tmp_path, stack="isaac_gym_preview4")
+    gym = ROOT / "training/legged_gym/legged_gym"
+    script = gym / "scripts/play.py"
+    spec = importlib.util.spec_from_file_location("play_terrain_entry", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    request = module.preflight(argv + ["--checkpoint-manifest", str(manifest)])
+    assert request.arguments.checkpoint_mode == "inference"
+    assert request.arguments.source_max_goal_level == 10.0
+    assert request.environment["asset_prerequisites"]["runtime_ready"] is False
+
+    namespace = {"inspect": inspect, "np": np}
+    for relative, class_name in (
+        ("envs/base/base_config.py", "BaseConfig"),
+        ("envs/base/legged_robot_config.py", "LeggedRobotCfg"),
+        ("envs/base/legged_robot_pos_config.py", "LeggedRobotPosCfg"),
+        ("envs/go2/go2_pos_config.py", "Go2PosRoughCfg"),
+    ):
+        path = gym / relative
+        node = next(n for n in ast.parse(path.read_text()).body
+                    if isinstance(n, ast.ClassDef) and n.name == class_name)
+        exec(compile(ast.Module(body=[node], type_ignores=[]), str(path), "exec"), namespace)
+    namespace["env_cfg"] = materialize_config(namespace["Go2PosRoughCfg"]())
+    assert namespace["env_cfg"].terrain.num_rows == 10
+
+    play = next(n for n in ast.parse(script.read_text()).body
+                if isinstance(n, ast.FunctionDef) and n.name == "play")
+    start = next(i for i, n in enumerate(play.body) if isinstance(n, ast.Assign)
+                 and any(ast.unparse(t) == "env_cfg.env.num_envs" for t in n.targets))
+    stop = next(i for i, n in enumerate(play.body) if isinstance(n, ast.Assign)
+                and isinstance(n.value, ast.Call) and ast.unparse(n.value.func) == "task_registry.make_env")
+    exec(compile(ast.Module(body=play.body[start:stop], type_ignores=[]), str(script), "exec"), namespace)
+    assert namespace["env_cfg"].env.num_envs == 1
+    assert namespace["env_cfg"].terrain.num_cols == 1
+
+    registry = gym / "utils/task_registry.py"
+    make_env = next(n for n in ast.walk(ast.parse(registry.read_text()))
+                    if isinstance(n, ast.FunctionDef) and n.name == "make_env")
+    start = next(i for i, n in enumerate(make_env.body)
+                 if isinstance(n, ast.If) and ast.unparse(n.test) == "resolved_config is None")
+    stop = next(i for i, n in enumerate(make_env.body) if isinstance(n, ast.Expr)
+                and isinstance(n.value, ast.Call) and ast.unparse(n.value.func) == "set_seed")
+    prefix = compile(ast.Module(body=make_env.body[start:stop], type_ignores=[]), str(registry), "exec")
+    namespace.update(args=SimpleNamespace(runtime_request=request), resolved_config=request.resolved_config,
+        materialize_config=materialize_config, apply_gym_environment=apply_gym_environment,
+        reconcile_environment_receipt=reconcile_environment_receipt)
+    if mismatched_rows:
+        namespace["env_cfg"].terrain.num_rows = 9
+        with pytest.raises(ValueError, match="source_max_goal_level must match the actual Gym terrain row bound"):
+            exec(prefix, namespace)
+        assert "receipt" not in namespace
+    else:
+        exec(prefix, namespace)
+        cfg, receipt = namespace["env_cfg"], namespace["receipt"]
+        assert cfg.terrain.num_rows == request.arguments.source_max_goal_level == 10
+        assert cfg.terrain.max_init_terrain_level == 3 < cfg.terrain.num_rows
+        assert receipt["replay"]["stored_level_bounds"] == [0.0, 10.0]
+        assert receipt == {key: value for key, value in request.environment.items()
+                           if key not in ("constructor_settings", "asset_prerequisites")}
+        assert cfg.environment_receipt == receipt
+        assert cfg.env.num_envs == request.arguments.num_envs
+        assert cfg.controller_root == request.paths.asset_root / "ctrl_model"
+    assert request.environment["asset_prerequisites"]["runtime_ready"] is False
+    assert not request.paths.run_root.exists()
+    assert not any(name == "isaacgym" or name.startswith("isaacgym.") for name in sys.modules)
+
+
 def test_changed_checkpoint_after_preflight_rejected_before_model_application(tmp_path):
     from rsl_rl.runtime_preflight import apply_model_checkpoint
     argv = cli(tmp_path) + ["--producer-commit", COMMIT]
