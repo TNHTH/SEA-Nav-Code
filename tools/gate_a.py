@@ -9,6 +9,7 @@ import contextlib
 import importlib
 import io
 import json
+import stat
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -100,20 +101,41 @@ def _check_complete_legged_gym_tree(repo_root: Path) -> GateCase:
         required_paths = _load_legged_gym_baseline_inventory()
         missing = []
         empty = []
+        non_regular = []
+        symlink_substitutions = set()
         for relative in required_paths:
-            path = repo_root / relative
-            if not path.is_file():
-                missing.append(relative)
-            elif path.stat().st_size == 0:
+            current = repo_root
+            entry_stat = None
+            for component in Path(relative).parts:
+                current = current / component
+                try:
+                    entry_stat = current.lstat()
+                except FileNotFoundError:
+                    entry_stat = None
+                    break
+                if stat.S_ISLNK(entry_stat.st_mode):
+                    symlink_substitutions.add(current.relative_to(repo_root).as_posix())
+                    entry_stat = None
+                    break
+            if entry_stat is None:
+                if not any(relative.startswith(link + "/") or relative == link for link in symlink_substitutions):
+                    missing.append(relative)
+            elif not stat.S_ISREG(entry_stat.st_mode):
+                non_regular.append(relative)
+            elif entry_stat.st_size == 0:
                 empty.append(relative)
     except Exception as exc:
         return GateCase("legged_gym_complete_tree", "failed", "{}: {}".format(type(exc).__name__, exc))
-    if missing or empty:
+    if missing or empty or non_regular or symlink_substitutions:
         details = []
         if missing:
             details.append("missing: {}".format(", ".join(missing)))
         if empty:
             details.append("empty: {}".format(", ".join(empty)))
+        if non_regular:
+            details.append("non-regular: {}".format(", ".join(non_regular)))
+        if symlink_substitutions:
+            details.append("symlink substitutions: {}".format(", ".join(sorted(symlink_substitutions))))
         return GateCase("legged_gym_complete_tree", "failed", "; ".join(details))
     return GateCase(
         "legged_gym_complete_tree",

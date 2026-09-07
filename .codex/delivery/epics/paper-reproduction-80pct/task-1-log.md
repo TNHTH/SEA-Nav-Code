@@ -26,3 +26,11 @@
 - GREEN: corrected Task 1 review suite -> `13 passed in 2.41s`.
 - GREEN: full versioned inventory exactly matches all 65 `training/legged_gym` paths from base `1259bae`; focused combined suite -> `29 passed in 2.58s`; Gate A -> five passed cases plus real Isaac Gym blocked.
 - Status: all three review findings fixed; fresh pre-commit verification pending.
+
+## Review-fix round 2
+
+- Rereview source: primary checkout `.codex/delivery/epics/paper-reproduction-80pct/task-1-rereview-1.md`.
+- RED: parameterized leaf and directory substitutions using non-empty targets outside the candidate root both returned `legged_gym_complete_tree=passed` (`2 failed in 1.41s`).
+- Root cause: `Path.is_file()` and `Path.stat()` followed both the inventoried leaf symlink and any symlinked intermediate directory.
+- GREEN: the gate now walks every inventoried path component using `lstat`, rejects symlinks before traversal, distinguishes missing/empty/non-regular/symlink findings, and reports the substituted component; targeted regression -> `2 passed in 1.37s`.
+- Status: round-2 implementation complete; fresh full `tests/test_gate_a_portable.py` verification pending.

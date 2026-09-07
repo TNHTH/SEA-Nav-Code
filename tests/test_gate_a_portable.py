@@ -67,6 +67,34 @@ def test_complete_tree_rejects_missing_baseline_xacro(tmp_path: Path) -> None:
     ].detail
 
 
+@pytest.mark.parametrize("substitution", ["leaf", "directory"])
+def test_complete_tree_rejects_external_symlink_substitution(tmp_path: Path, substitution: str) -> None:
+    source = ROOT / "training" / "legged_gym"
+    target = tmp_path / "candidate" / "training" / "legged_gym"
+    shutil.copytree(source, target)
+    xacro_dir = target / "resources" / "go2_description" / "xacro"
+
+    if substitution == "leaf":
+        external = tmp_path / "external-robot.xacro"
+        external.write_text("<robot name='external'/>\n", encoding="utf-8")
+        substituted = xacro_dir / "robot.xacro"
+        substituted.unlink()
+        substituted.symlink_to(external)
+        expected_path = "training/legged_gym/resources/go2_description/xacro/robot.xacro"
+    else:
+        external = tmp_path / "external-xacro"
+        shutil.copytree(xacro_dir, external)
+        shutil.rmtree(xacro_dir)
+        xacro_dir.symlink_to(external, target_is_directory=True)
+        expected_path = "training/legged_gym/resources/go2_description/xacro"
+
+    cases = {case.name: case for case in run_cpu_gate(tmp_path / "candidate")}
+
+    assert cases["legged_gym_complete_tree"].status == "failed"
+    assert "symlink" in cases["legged_gym_complete_tree"].detail
+    assert expected_path in cases["legged_gym_complete_tree"].detail
+
+
 def test_missing_isaac_gym_is_blocked(monkeypatch: pytest.MonkeyPatch) -> None:
     def missing(name: str):
         raise ModuleNotFoundError(name)
