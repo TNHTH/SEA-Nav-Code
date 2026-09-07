@@ -30,7 +30,6 @@ def build_parser():
     parser.add_argument("--result", type=str, default="")
     parser.add_argument("--trace", type=str, default="")
     parser.add_argument("--manifest-out", type=str, default="")
-    parser.add_argument("--checkpoint", type=str, default="")
     parser.add_argument("--stop-on-first-done", action="store_true")
     parser.add_argument("--cbf-footprint-radius-m", type=float, default=0.0)
     parser.add_argument("--cbf-min-effective-clearance-m", type=float, default=1.0e-4)
@@ -280,8 +279,10 @@ def main(request):
     from rsl_rl.policy_factory import build_actor_critic
     high_level = build_actor_critic(request.resolved_config,
         **request.environment["constructor_settings"]["policy"],num_actions=3,num_props=12).to(device).eval()
-    checkpoint_loaded = False
-    checkpoint_path = None
+    from rsl_rl.runtime_preflight import apply_model_checkpoint
+    checkpoint = apply_model_checkpoint(request, high_level, map_location=device)
+    checkpoint_loaded = checkpoint is not None
+    checkpoint_path = str(request.paths.checkpoint_manifest) if checkpoint_loaded else None
     cbf_shield = ExactLSECBFShield(
         CBFShieldConfig(
             fov_deg=args.cbf_fov_deg,
@@ -998,7 +999,7 @@ def main(request):
         "asset_resolution": asset_resolution,
         "full_method_chain": {
             "actor": "DifferentiableSafeActorCritic encoder/backbone/nav_head/alpha_head",
-            "checkpoint": checkpoint_path,
+            "checkpoint_manifest": checkpoint_path,
             "checkpoint_loaded": checkpoint_loaded,
             "cbf": "adapter ExactLSECBFShield with configurable FOV over 41 rays and optional finite-footprint clearance",
             "cbf_fov_deg": args.cbf_fov_deg,
@@ -1163,7 +1164,7 @@ def main(request):
             "ang_vel_xy",
         ],
         "known_caveats": [
-            "High-level policy is randomly initialized because no official SEA-Nav high-level checkpoint exists in the local repo.",
+            "High-level weights came from a verified inference manifest." if checkpoint_loaded else "High-level policy uses fresh random initialization; no trained policy quality is claimed.",
             "This smoke ports full-method action-chain, reward/done semantics, and trace contracts onto current IsaacLab signals; it is not a 100-episode Hard SR/CR/TR metric run.",
             "This diagnostic smoke neither records nor restores collision replay; formal eval keeps replay disabled.",
         ],

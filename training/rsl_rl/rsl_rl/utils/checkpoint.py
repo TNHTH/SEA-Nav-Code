@@ -2,7 +2,9 @@
 
 The manifest is the publication commit point. Payload generations are immutable
 and retained, so readers of an older manifest keep a usable generation. Loads
-hash and deserialize one pinned no-follow descriptor. Model/optimizer continuation
+pin a no-follow input, then hash and deserialize the same kernel-sealed private
+snapshot descriptor, including protection from concurrent in-place writes.
+Model/optimizer continuation
 does not restore RNG, environment state or physical trajectories.
 """
 from __future__ import annotations
@@ -45,6 +47,7 @@ class LoadedCheckpoint:
     model_state_dict: dict
     optimizer_state_dict: Optional[dict]
     iteration: int
+    manifest_sha256: str
 
 
 SCHEMA = "sea_nav_checkpoint_v2"
@@ -224,10 +227,45 @@ def _manifest_directory(path, artifact_root):
 
 def _open_file(fd, name):
     file_fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK, dir_fd=fd)
-    if not stat.S_ISREG(os.fstat(file_fd).st_mode):
+    try:
+        if not stat.S_ISREG(os.fstat(file_fd).st_mode):
+            raise CheckpointError("checkpoint requires regular files")
+        return os.fdopen(file_fd, "rb")
+    except BaseException:
         os.close(file_fd)
-        raise CheckpointError("checkpoint requires regular files")
-    return os.fdopen(file_fd, "rb")
+        raise
+
+
+@contextmanager
+def _sealed_snapshot(source, byte_size):
+    """Stable bytes even when another writer changes the pinned source inode."""
+    import fcntl
+    if not all(hasattr(os, name) for name in ("memfd_create", "MFD_ALLOW_SEALING", "MFD_CLOEXEC")) or not all(
+            hasattr(fcntl, name) for name in ("F_ADD_SEALS", "F_GET_SEALS", "F_SEAL_WRITE", "F_SEAL_GROW", "F_SEAL_SHRINK", "F_SEAL_SEAL")):
+        raise CheckpointError("safe checkpoint load blocked: kernel-sealed snapshots unavailable")
+    snapshot_fd = os.memfd_create("sea-nav-checkpoint", os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+    try:
+        snapshot = os.fdopen(snapshot_fd, "w+b")
+    except BaseException:
+        os.close(snapshot_fd)
+        raise
+    with snapshot:
+        remaining = byte_size
+        while remaining:
+            block = source.read(min(remaining, 1024 * 1024))
+            if not block:
+                raise CheckpointError("checkpoint changed size while snapshotting")
+            snapshot.write(block)
+            remaining -= len(block)
+        if source.read(1):
+            raise CheckpointError("checkpoint changed size while snapshotting")
+        snapshot.flush()
+        seals = fcntl.F_SEAL_WRITE | fcntl.F_SEAL_GROW | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_SEAL
+        fcntl.fcntl(snapshot.fileno(), fcntl.F_ADD_SEALS, seals)
+        if fcntl.fcntl(snapshot.fileno(), fcntl.F_GET_SEALS) & seals != seals:
+            raise CheckpointError("safe checkpoint snapshot seal verification failed")
+        snapshot.seek(0)
+        yield snapshot
 
 
 def _hash_file(file):
@@ -255,19 +293,24 @@ def load_checkpoint_v2(manifest_path, *, artifact_root, map_location="cpu", expe
             with _open_file(fd, name) as file:
                 if os.fstat(file.fileno()).st_size > 65536:
                     raise CheckpointError("manifest exceeds size limit")
-                manifest = _manifest(json.loads(file.read(65537), object_pairs_hook=_unique_json))
+                manifest_bytes = file.read(65537)
+                manifest = _manifest(json.loads(manifest_bytes, object_pairs_hook=_unique_json))
             if expected_resolved_config_sha256 is not None and manifest.resolved_config_sha256 != expected_resolved_config_sha256:
                 raise CheckpointError("checkpoint resolved config hash mismatch")
             with _open_file(fd, manifest.artifact_path) as file:
                 if os.fstat(file.fileno()).st_size != manifest.byte_size:
                     raise CheckpointError("checkpoint byte size mismatch")
-                if _hash_file(file) != manifest.sha256:
-                    raise CheckpointError("checkpoint SHA-256 mismatch")
-                value = torch.load(file, map_location=map_location, weights_only=True)
+                with _sealed_snapshot(file, manifest.byte_size) as snapshot:
+                    if os.fstat(snapshot.fileno()).st_size != manifest.byte_size:
+                        raise CheckpointError("checkpoint snapshot byte size mismatch")
+                    if _hash_file(snapshot) != manifest.sha256:
+                        raise CheckpointError("checkpoint SHA-256 mismatch")
+                    value = torch.load(snapshot, map_location=map_location, weights_only=True)
             _payload(value)
             if value["iteration"] != manifest.iteration or set(value) != set(manifest.allowed_sections):
                 raise CheckpointError("manifest/payload iteration or allowed_sections mismatch")
-            return LoadedCheckpoint(manifest, value["model_state_dict"], value.get("optimizer_state_dict"), value["iteration"])
+            return LoadedCheckpoint(manifest, value["model_state_dict"], value.get("optimizer_state_dict"), value["iteration"],
+                                    hashlib.sha256(manifest_bytes).hexdigest())
     except CheckpointError:
         raise
     except Exception as exc:

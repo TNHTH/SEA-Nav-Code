@@ -1,78 +1,68 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
+"""CPU model-only initialization; this does not certify a simulator runtime."""
 import argparse
+from dataclasses import asdict
 import json
-import sys
-from datetime import datetime, timezone, timedelta
 from pathlib import Path
+import sys
 
-import torch
-
-
-parser = argparse.ArgumentParser()
-parser.add_argument("--output", required=True)
-parser.add_argument("--seed", type=int, default=42)
-parser.add_argument("--metadata-out", default="")
-args = parser.parse_args()
-
-SEA_ROOT = Path("/home/gwh/SEA-Nav-Code")
+SEA_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SEA_ROOT / "training/rsl_rl"))
-from rsl_rl.modules.cbf_actor_critic import DifferentiableSafeActorCritic
 
 
-def main() -> dict:
+def build_parser():
+    parser = argparse.ArgumentParser(allow_abbrev=False)
+    parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--runtime-stack", choices=("isaaclab_adapter", "isaac_gym_preview4"), required=True)
+    parser.add_argument("--producer-commit", required=True)
+    parser.add_argument("--output-manifest", type=Path, required=True)
+    parser.add_argument("--seed", type=int, default=42)
+    return parser
+
+
+def main(argv=None):
+    args = build_parser().parse_args(argv)
+    import re
+    import yaml
+    from rsl_rl.experiment_config import resolve_run_config
+    from rsl_rl.runtime_preflight import _canonical
+    if not re.fullmatch(r"[0-9a-f]{40}", args.producer_commit):
+        raise ValueError("producer_commit must be an explicit full lowercase commit SHA")
+    if not 0 <= args.seed <= 2**32 - 1:
+        raise ValueError("seed must be in uint32 range")
+    config_path = _canonical(args.config)
+    document = yaml.safe_load(config_path.read_text())
+    if not isinstance(document, dict) or set(document) != {"schema_version", "algorithm_profile", "implementation_delta", "runtime"} or type(document["schema_version"]) is not int or document["schema_version"] != 1:
+        raise ValueError("runtime YAML schema/unknown fields")
+    resolved = resolve_run_config(registry_path=SEA_ROOT / "configs/parity_registry.yaml",
+        algorithm_profile=document["algorithm_profile"], runtime_stack=args.runtime_stack,
+        implementation_delta=document["implementation_delta"])
+    output = _canonical(args.output_manifest)
+    metadata_path = output.with_name(output.name + ".metadata.json")
+    for target in (output, metadata_path):
+        if target.exists() or target == config_path or target in config_path.parents:
+            raise ValueError("initialization output already exists or conflicts with input")
+    import torch
+    from rsl_rl.policy_factory import build_actor_critic
+    from rsl_rl.utils.checkpoint import save_checkpoint_v2
     torch.manual_seed(args.seed)
-    model = DifferentiableSafeActorCritic(
-        num_actions=3,
-        actor_hidden_dims=[512, 256, 128],
-        critic_hidden_dims=[512, 256, 128],
-        encoder_hidden_dims=[512, 256, 128],
-        activation="elu",
-        init_noise_std=1.5,
-        num_props=12,
-        num_rays=41,
-        cbf_fov_deg=240.0,
-        his_len=10,
-    )
-    created_at = datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%dT%H:%M:%S%z")
-    output = Path(args.output)
+    model = build_actor_critic(resolved, num_actions=3, num_props=12,
+        actor_hidden_dims=[512, 256, 128], critic_hidden_dims=[512, 256, 128],
+        encoder_hidden_dims=[512, 256, 128], activation="elu", init_noise_std=1.5)
     output.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "route_id": "sea_nav_full_method_current_isaaclab_adapter_20260517_1649",
-        "checkpoint_type": "initialized_full_method_actor_critic",
-        "created_at": created_at,
-        "source_repo": str(SEA_ROOT),
-        "source_commit": "fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96",
-        "seed": args.seed,
-        "model_state_dict": model.state_dict(),
-        "contract": {
-            "num_actions": 3,
-            "num_props": 12,
-            "num_rays": 41,
-            "cbf_fov_deg": 240.0,
-            "his_len": 10,
-            "num_obs_one_step": 55,
-            "num_observations": 550,
-            "actor": "DifferentiableSafeActorCritic",
-            "cbf": "ExactLSECBFLayer via actor graph with 240.0-degree FOV; runtime adapter also defaults to 240.0-degree CBF wrapper",
-        },
-    }
-    torch.save(payload, output)
-    metadata = {
-        key: value
-        for key, value in payload.items()
-        if key != "model_state_dict"
-    }
-    metadata["checkpoint"] = str(output)
-    metadata["parameter_tensors"] = len(model.state_dict())
-    metadata["parameter_count"] = int(sum(t.numel() for t in model.state_dict().values()))
-    if args.metadata_out:
-        metadata_path = Path(args.metadata_out)
-        metadata_path.parent.mkdir(parents=True, exist_ok=True)
-        metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    manifest = save_checkpoint_v2(output, model_state_dict=model.state_dict(), iteration=0,
+        producer_commit=args.producer_commit, resolved_config_sha256=resolved.resolved_sha256)
+    metadata = dict(checkpoint_manifest=str(output), producer_commit=args.producer_commit,
+        resolved_config_sha256=resolved.resolved_sha256, runtime_stack=args.runtime_stack,
+        algorithm_profile=resolved.identity.algorithm_profile,
+        implementation_delta=list(resolved.identity.implementation_delta), seed=args.seed,
+        upstream_commit="fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96",
+        checkpoint=asdict(manifest), runtime_verified=False,
+        scope="model-only initialization at zero completed PPO updates; no simulator evidence")
+    with metadata_path.open("x", encoding="utf-8") as handle:
+        handle.write(json.dumps(metadata, indent=2, sort_keys=True) + "\n")
     return metadata
 
 
 if __name__ == "__main__":
-    print(json.dumps(main(), ensure_ascii=False, indent=2))
+    print(json.dumps(main(), sort_keys=True))

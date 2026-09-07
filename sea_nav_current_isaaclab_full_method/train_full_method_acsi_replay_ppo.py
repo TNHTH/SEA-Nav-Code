@@ -32,7 +32,6 @@ def build_parser():
     parser.add_argument("--result", type=str, default="")
     parser.add_argument("--trace", type=str, default=None, help="Opt in to per-environment JSONL tracing at this output path")
     parser.add_argument("--log-dir", type=str, default="")
-    parser.add_argument("--init-checkpoint", type=str, default="")
     parser.add_argument("--cbf-fov-deg", type=float, default=180.0)
     parser.add_argument("--cbf-footprint-radius-m", type=float, default=0.0)
     parser.add_argument("--cbf-min-effective-clearance-m", type=float, default=1.0e-4)
@@ -1637,21 +1636,21 @@ def main(request):
         raise ValueError("actual constructor settings differ from preflight")
     from rsl_rl.environment_profile import runner_config_for_environment
     runner_cfg = runner_config_for_environment(train_cfg,request.resolved_config,adapter_env)
-    runner = OnPolicyRunner(adapter_env, runner_cfg, log_dir=str(log_dir), args=SimpleNamespace(wandb=False), device=adapter_env.device)
-    init_checkpoint_loaded = False
-    init_checkpoint_path = None
+    runner = OnPolicyRunner(adapter_env, runner_cfg, log_dir=str(log_dir), args=SimpleNamespace(wandb=False), device=adapter_env.device,
+        producer_commit=args.producer_commit, resolved_config_sha256=request.resolved_config.resolved_sha256)
+    from rsl_rl.runtime_preflight import apply_runner_checkpoint
+    input_checkpoint = apply_runner_checkpoint(request, runner)
     from adapters.trace_logger import JsonlTraceLogger
     active_trace = JsonlTraceLogger(args.trace) if args.trace is not None else None
     adapter_env.trace_logger = active_trace
     adapter_env.trace_policy = (lambda: runner.alg.actor_critic) if active_trace is not None else None
-    runner.learn(
+    final_manifest = runner.learn(
         num_learning_iterations=args.iterations,
         init_at_random_ep_len=False,
         config={"scope": "current-env-full-method-ppo-source-contract-surface"},
     )
 
-    checkpoints = sorted(log_dir.glob("model_*.pt"))
-    final_checkpoint = str(checkpoints[-1]) if checkpoints else None
+    final_checkpoint = str(final_manifest)
     result = {
         "ok": bool(final_checkpoint),
         "scope": "current-environment SEA-Nav PPO training contract surface with source graph parity locks; not a SEA-Nav paper metric result",
@@ -1665,8 +1664,9 @@ def main(request):
         "iterations": args.iterations,
         "rollout_steps": args.rollout_steps,
         "num_envs": args.num_envs,
-        "init_checkpoint": init_checkpoint_path,
-        "init_checkpoint_loaded": init_checkpoint_loaded,
+        "checkpoint_mode": args.checkpoint_mode,
+        "input_checkpoint_manifest": str(request.paths.checkpoint_manifest) if input_checkpoint else None,
+        "completed_ppo_updates": runner.current_learning_iteration,
         "cbf_fov_deg": args.cbf_fov_deg,
         "cbf_footprint_radius_m": args.cbf_footprint_radius_m,
         "cbf_min_effective_clearance_m": args.cbf_min_effective_clearance_m,
@@ -1720,7 +1720,7 @@ def main(request):
         },
         "contract_locks": trainer_contract_locks(args, adapter_env),
         "history_bootstrap_matches_original": True,
-        "final_checkpoint": final_checkpoint,
+        "final_checkpoint_manifest": final_checkpoint,
         "checkpoint_bytes": Path(final_checkpoint).stat().st_size if final_checkpoint else 0,
         "hard_room_mesh_collision_api": collision_api_applied,
         "sea_obs_shape": list(adapter_env.obs_buf.shape),

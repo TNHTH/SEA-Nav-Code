@@ -304,10 +304,12 @@ class OnPolicyRunner:
                                   producer_commit=self.producer_commit,
                                   resolved_config_sha256=self.resolved_config_sha256)
 
-    def load(self, path, *, artifact_root, mode="resume"):
+    def load(self, path, *, artifact_root, mode="resume", expected_manifest_sha256=None):
         loaded = validate_checkpoint_mode(load_checkpoint_v2(
             path, artifact_root=artifact_root, map_location=self.device,
             expected_resolved_config_sha256=self.resolved_config_sha256), mode)
+        if expected_manifest_sha256 is not None and loaded.manifest_sha256 != expected_manifest_sha256:
+            raise CheckpointError("checkpoint changed since preflight")
         if mode == "resume":
             rates = {group["lr"] for group in loaded.optimizer_state_dict["param_groups"]}
             if len(rates) != 1:

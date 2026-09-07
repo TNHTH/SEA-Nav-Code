@@ -149,3 +149,55 @@ def test_directory_swap_after_manifest_open_stays_in_pinned_directory(tmp_path, 
     monkeypatch.setattr(checkpoint, "_manifest", swap)
     loaded = checkpoint.load_checkpoint_v2(path, artifact_root=root)
     assert torch.equal(loaded.model_state_dict["weight"], model.weight)
+
+
+def test_same_inode_equal_size_write_after_hash_cannot_change_loaded_weights(tmp_path, monkeypatch):
+    import io
+    path = tmp_path / "model.json"
+    model = torch.nn.Linear(1, 1)
+    manifest = save(path, model)
+    artifact = tmp_path / manifest.artifact_path
+    value = torch.load(artifact, weights_only=True)
+    value["model_state_dict"]["weight"].fill_(777)
+    replacement = io.BytesIO()
+    torch.save(value, replacement)
+    assert len(replacement.getvalue()) == artifact.stat().st_size
+    inode = artifact.stat().st_ino
+    original = checkpoint._hash_file
+    def mutate(file):
+        result = original(file)
+        with artifact.open("r+b") as target:
+            target.write(replacement.getvalue())
+        assert artifact.stat().st_ino == inode
+        return result
+    monkeypatch.setattr(checkpoint, "_hash_file", mutate)
+    loaded = checkpoint.load_checkpoint_v2(path, artifact_root=tmp_path)
+    assert torch.equal(loaded.model_state_dict["weight"], model.weight)
+
+
+def test_size_hash_and_load_share_the_sealed_snapshot_descriptor(tmp_path, monkeypatch):
+    import fcntl
+    path = tmp_path / "model.json"
+    save(path, torch.nn.Linear(1, 1))
+    seen = []
+    hash_file, torch_load = checkpoint._hash_file, torch.load
+    def hashed(file):
+        seen.append(file.fileno())
+        assert fcntl.fcntl(file.fileno(), fcntl.F_GET_SEALS) & fcntl.F_SEAL_WRITE
+        return hash_file(file)
+    def loaded(file, *, map_location, weights_only):
+        assert file.fileno() == seen[-1] and weights_only is True
+        with pytest.raises(OSError):
+            os.write(file.fileno(), b"cannot modify sealed snapshot")
+        return torch_load(file, map_location=map_location, weights_only=weights_only)
+    monkeypatch.setattr(checkpoint, "_hash_file", hashed)
+    monkeypatch.setattr(torch, "load", loaded)
+    checkpoint.load_checkpoint_v2(path, artifact_root=tmp_path)
+
+
+def test_unavailable_snapshot_seals_fail_closed_before_load(tmp_path, monkeypatch):
+    path = tmp_path / "model.json"
+    save(path, torch.nn.Linear(1, 1))
+    monkeypatch.delattr(os, "memfd_create")
+    with pytest.raises(checkpoint.CheckpointError, match="sealed snapshots unavailable"):
+        checkpoint.load_checkpoint_v2(path, artifact_root=tmp_path)

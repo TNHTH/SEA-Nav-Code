@@ -102,3 +102,28 @@ def test_warm_start_resume_and_inference_have_distinct_state_effects(tmp_path):
     assert target.current_learning_iteration == 0 and not target.alg.optimizer.state
     target.load(final, artifact_root=tmp_path, mode="inference")
     assert target.current_learning_iteration == 0 and not target.alg.optimizer.state
+
+
+def test_actual_102_updates_all_save_boundaries_and_adaptive_resume(tmp_path):
+    first = runner(tmp_path / "first")
+    observed = []
+    original_save = first.save
+    def persisted(path):
+        result = original_save(path)
+        loaded = load_checkpoint_v2(path, artifact_root=tmp_path)
+        observed.append(loaded.iteration)
+        assert loaded.iteration == first.current_learning_iteration
+        assert path.name == "model_%d.manifest.json" % loaded.iteration
+        return result
+    first.save = persisted
+    first.alg.optimizer.param_groups[0]["lr"] = 0.0023
+    final = first.learn(102)
+    assert observed == list(range(1, 103)) + [102]
+    resumed = runner(tmp_path / "resumed")
+    resumed.load(final, artifact_root=tmp_path)
+    resumed.alg.schedule = "adaptive"
+    resumed.alg.desired_kl = 0.01
+    resumed.learn(1)
+    assert resumed.current_learning_iteration == 103
+    assert resumed.alg.learning_rate == pytest.approx(0.00345)
+    assert resumed.alg.optimizer.param_groups[0]["lr"] == pytest.approx(0.00345)

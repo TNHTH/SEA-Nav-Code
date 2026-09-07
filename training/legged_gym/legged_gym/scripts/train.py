@@ -63,12 +63,14 @@ def main(argv=None):
         env,env_cfg=task_registry.make_env(name=args.task,args=args,resolved_config=request.resolved_config)
         runner,train_cfg=task_registry.make_alg_runner(env=env,name=args.task,args=args,
             log_root=str(request.paths.run_root/"training"),resolved_config=request.resolved_config)
-        runner.learn(num_learning_iterations=train_cfg.runner.max_iterations,init_at_random_ep_len=True,
+        final_manifest=runner.learn(num_learning_iterations=train_cfg.runner.max_iterations,init_at_random_ep_len=True,
                      config=env_cfg.environment_receipt)
         output=blocked_result("isaac_gym_preview4","runtime acceptance not established",
                               "complete real controller/reset and lifecycle validation")
         output["effective_environment"]=env_cfg.environment_receipt
         output["applied_shapes"]=train_cfg.applied_shapes
+        output["final_checkpoint_manifest"]=str(final_manifest)
+        output["completed_ppo_updates"]=runner.current_learning_iteration
     except (ModuleNotFoundError,ImportError) as exc:
         output=blocked_result("isaac_gym_preview4",exc,"install and lock Isaac Gym Preview 4",
                               dependency_status="unavailable")
