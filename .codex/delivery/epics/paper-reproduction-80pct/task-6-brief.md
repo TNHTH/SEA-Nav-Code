@@ -58,6 +58,12 @@ Task 6 may parse and validate checkpoint-manifest paths, but loading (resume, wa
 
 The existing manifest RuntimeContract defaults (240-degree actor geometry, .55 footprint, 40 s) and trace required-fields list are not trustworthy effective settings. Generate application receipts from actual validated constructor/environment values, enforce all four action-stage names at the trace writer and producers, and bind physical row counts only after closing traces. Old future_task_* configuration metadata may remain historical projection status; it cannot become runtime-passed merely by editing strings. Masked reset reconstruction must include new perception timestamps and held-state, preserve neighboring rows and expose synthetic step-0 provenance. Simulator, controller-context and accepted paper identity remain blocked.
 
+### Narrow test-scope extension: executable YAML migration
+
+Permit only the adapter YAML portion of `tests/test_experiment_config.py::test_committed_adapter_examples_are_identity_bound_and_not_original_claims` to migrate from historical `run_identity`/precomputed hash/`inactive_until_task_6_runtime_wiring` assertions to actual typed YAML-loader/resolver input and explicit-delta assertions. Controller verified lines 598–600 bind the obsolete inactive metadata schema. Preserve the independent historical adapter_manifest.json identity/hash/unverified/no-original-reproduction assertions and all other resolver integrity/immutability tests. The new YAML is executable input, not a claim of runtime execution. Register this exact extension in worker task_plan/resume before editing.
+
+Read `gym-import-order-boundary.md`: real Gym startup has an additional import-order constraint, corroborated by the official project's public issue trace and entrypoint. The Gym parent must not transitively load Torch through shared preflight before real isaacgym import. Preserve early pure rejection using a Torch-free metadata phase or separate CPU preflight process, and bind/recheck exact effective configuration across phases. CPU fresh-process/AST tests must prove this without fake Isaac modules. New torch._assert_async usage also needs a precise real-runtime capability blocker; Torch2.6 CPU behavior is not old-Gym compatibility.
+
 ## Global Constraints
 
 - Working branches must remain exactly `main`, `stable`, and `test`; all repair commits land only on `test`.

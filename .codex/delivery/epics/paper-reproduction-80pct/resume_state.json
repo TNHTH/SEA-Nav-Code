@@ -7,7 +7,7 @@
   "head_semantics": "last observed primary HEAD; a coordination-only successor may exist; verify git rev-parse HEAD on recovery",
   "phase": "serial_implementation",
   "next_action": "Task 6 implementation active; review full result before integration, then fresh primary suite before Task 7; bounded CBF hotpath review is read-only; remote authorization questions remain pending",
-  "active_implementation": {"task": 6, "agent": "/root/implement_batch6", "base": "65dcbbc2b13c92af99a9e7d4cba4110880f9b509", "head": null, "worktree": "../SEA-Nav-Code-batch6", "status": "implementing", "open_findings": 0},
+  "active_implementation": {"task": 6, "agent": "/root/implement_batch6", "base": "65dcbbc2b13c92af99a9e7d4cba4110880f9b509", "head": "6e097ac3d87554a8baf537aa733d72b3c7e70b33", "worktree": "../SEA-Nav-Code-batch6", "status": "implementing_later_slices_and_fixing_slice1", "open_findings": 1, "slice1_reviewer": "/root/review_batch6_slice1", "slice1_review": "task-6-slice1-review.md", "head_semantics": "last worker commit observed, later uncommitted slices exist"},
   "completed_tasks": [1, 2, 3, 4, 5],
   "strict_batch_order": [1, 2, 3, 4, 5, 6, 7],
   "active_write_owner": "controller",

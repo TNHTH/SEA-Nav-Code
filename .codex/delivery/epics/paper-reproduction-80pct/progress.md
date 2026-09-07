@@ -2,6 +2,14 @@
 
 ## Session: 2026-09-07
 
+- Bounded Task 6 startup check found current shared preflight transitively loading Torch before Gym; fresh process confirmed torch=True/isaacgym=False. Read official IsaacGymEnvs train source plus public issue175 traceback for the Gym import-order restriction and saved provenance/limitations in gym-import-order-boundary.md. Added a binding Task 6 correction: keep Gym parent Torch-free before real Gym import while retaining early identity/input rejection; no proprietary source downloaded or executed, no additional source writer.
+
+- Independent Task 6 slice-1 review returned limited Spec/Quality NEEDS FIX, one P2: accepted float32 per-env clocks silently skip sensor acquisition/refresh after rounding and deadline rebasing (1000 upstream ticks: 420 missed pushes, 189/200 nominal refresh-age mismatches; float64 0/0). Controller read full report and checked the deadline/cast sites; assigned a same-worker RED/GREEN fix and scoped re-review. The 17-test pure slice pass does not close this finding, and Task 6 has not been integrated.
+
+- Read root/Gym/adapter READMEs after a bounded current-command search. Assigned their narrow startup/checkpoint usage updates to Task 7 because the new mandatory CLI/manifest boundary will invalidate the published legacy examples. Historical attribution/setup remains labeled, and parser-only example verification must not start simulation. No README or production source changed yet.
+
+- Task 6 worker fixed slice 1 at `6e097ac3d87554a8baf537aa733d72b3c7e70b33`: shared reward/perception plus two tests/log, reported missing-module RED then 17 GREEN. Registered a detached read-only snapshot for incremental independent review while the same worker continues later Task 6 source. This is not Task 6 full wiring or final acceptance; no primary source integration yet.
+
 - Independent bounded cbf-hotpath-review.md received/read in full: one P2 confirmed on ordinary core/adapter forward, with real actor/PPO counts and scripted invalid-input checks. Final whole-branch review must handle this open item after Tasks 6–7. Controller did not accept a documentation-only performance exception or dynamic input-check bypass as closure; no CBF source changed and no GPU throughput claim.
 
 - Bounded Task 7 preparation ran the actual OnPolicyRunner and PPO for 102 CPU updates using a toy transition fixture; save/log-directory boundaries alone were observed/suppressed. Confirmed stale intermediate iteration 0 versus 102 completed updates and model_101.pt filename, plus real nonempty Adam moments. Saved exact command/output in checkpoint-runner-cpu-harness.md and linked Task 7 brief. This is prior-defect evidence, not a repaired save/roundtrip/continuation pass; Task 6 remains the sole source writer. Converter tooling discovery found bwrap 0.6.1 plus timeout/prlimit, without executing a converter or claiming sandbox acceptance.

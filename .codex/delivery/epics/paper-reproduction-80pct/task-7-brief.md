@@ -8,6 +8,8 @@ Close the Gym resume caller as well as the three adapter callers. Before Task 6,
 
 Read `checkpoint-runner-cpu-harness.md` for an actually executed real OnPolicyRunner/PPO fixture (102 updates, nonempty Adam state). Its intermediate save observed filename 101 / field 0 / completed updates 102, confirming the existing audit. This is historical diagnostic evidence, not Task 7 RED or persistence/resume proof. Task 7 tests must use actual v2 files, atomic-publication faults and N+M continuation. The converter-tool discovery there is not sandbox acceptance.
 
+Checkpoint/startup migration also owns the narrow current-usage sections of `README.md`, `training/legged_gym/README.md` and `sea_nav_current_isaaclab_full_method/README.md`. Current root train/play examples omit the new required identity/runtime inputs; the inherited Gym README actively recommends `--resume`, numeric `--checkpoint` and latest-run discovery and mentions Preview 3. Preserve upstream attribution and clearly mark historical installation guidance as historical, but supply actual validated CPU/preflight/manifests commands and the honest blocked simulator boundary for this repaired checkout. Use the final Task 6/7 parser interfaces, not guessed flags. This is user-facing documentation of the changed callers, not deferred packaging/CI/deployment work; do not erase provenance or claim a locked simulator environment. Test relevant example arguments through the real pure parser/CLI boundary without launching simulation.
+
 ## Global Constraints
 
 - Working branches must remain exactly `main`, `stable`, and `test`; all repair commits land only on `test`.

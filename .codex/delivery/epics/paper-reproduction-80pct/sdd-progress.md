@@ -112,4 +112,8 @@ Task 6: registered exact 29-path scope in task-6-brief.md after read-only handof
 
 Task 6: active at detached BASE `65dcbbc2b13c92af99a9e7d4cba4110880f9b509`, clean no-ignored-output baseline **212 passed in 13.06s**. Sole source implementer /root/implement_batch6. Bounded CBF hotpath review writes only its primary coordination report; no second source writer or early Task 7 implementation.
 
+Task 6 narrow scope ruling: migrate only the inherited test_experiment_config.py adapter-YAML assertions that demand the old inactive metadata format; actual Task 6 YAML must be executable typed input. Preserve adjacent historical adapter_manifest.json and all independent integrity tests. Controller verified old lines 598–600 before authorizing; worker must register before edits.
+
+Task 6 slice1 review: limited Spec/Quality NEEDS FIX, one P2 float32-clock cadence drift at fixed `6e097ac3d87554a8baf537aa733d72b3c7e70b33`. Same implementer fixes with meaningful long-horizon clock/reset RED→GREEN; no new owned source path. Original reviewer performs scoped re-review once fixed; later full Task 6 consumer review remains required.
+
 Final-review open input CBF-HOTPATH (P2): independent bounded review established five batch-wide scalar extractions per ordinary forward and real PPO reachability, plus discarded diagnostic work. Preserve deterministic checked APIs and script behavior. Removing diagnostics alone or writing a budget exception does not establish closure; controller has not authorized unchecked dynamic inputs. Reconcile and repair/review serially after Task 7, without a concurrent core writer. See cbf-hotpath-review.md.

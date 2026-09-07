@@ -56,6 +56,10 @@ The following baseline defects are historical findings; Tasks 1–3 now repair t
 
 ## Resources
 
+- `gym-import-order-boundary.md`: current in-progress shared preflight eagerly loads Torch before Gym. A public IsaacGymEnvs issue provides the known gymdeps import-order error and official train source imports Gym first. Task 6 must preserve early pure rejection without poisoning the Gym parent import order; fresh-process tests and runtime capability blockers are required, with no simulator claim. This warning was issued during implementation, not a final review verdict.
+
+- Final caller-documentation check found root README train/play examples without the new identity/runtime inputs, inherited Gym README recommending raw/numeric checkpoints and latest-run discovery (plus historical Preview 3), and adapter README describing only first-wave static work. Task 7 brief now assigns narrow usage migration in those three existing READMEs, preserving provenance and blocked simulation status; actual final parser validation is required, not guessed commands.
+
 - `checkpoint-runner-cpu-harness.md`: real runner/PPO CPU probe completed 102 updates and observed the old intermediate save requesting model_101.pt with iteration field 0; final field was 102 and learn returned None. Real Adam had 13 integer-keyed parameter states. This is historical failure/harness feasibility, not persistence/resume or Task 7 completion; no checkpoint/simulator files were written.
 
 - Final-review input `cbf-hotpath-observation.md` and independent `cbf-hotpath-review.md`: one open P2, five scalar extractions per ordinary core/adapter CBF forward; real T=2/E=2/M=2 actor/PPO probe observed 10 collection and 40 update extractions. Ordinary eager calls also compute unused diagnostics. This is CPU operator evidence only, no CUDA timing. Preserve dynamic invalid-input rejection and script behavior; removing diagnostics alone does not close the extraction finding. A documented budget exception or unchecked route has NOT been approved as closure. Resolve the boundary and fix/review serially after Tasks 6–7; no concurrent CBF edit.
