@@ -56,7 +56,7 @@ The following baseline defects are historical findings; Tasks 1–3 now repair t
 
 ## Resources
 
-- `cbf-hotpath-followup-brief.md`: prepared narrow post-Task7 source/test candidate scope and real operator/PPO/export checks. It is not active ownership, a design exception or P2 closure. Task7 remains the only source writer; activate a later serial repair only after accepted integration.
+- `cbf-hotpath-followup-brief.md`: prepared narrow post-Task7 scope and actual operator/PPO/export checks, plus a new bounded CPU candidate-precedence failure: NaN nominal command with native sparse or quantized rays gets the original ValueError but the simplified aggregate candidate raises a later unsupported-backend error. Preserve layout/quantization fallback in the eventual implementation. This is not a production defect, active ownership, design exception or P2 closure; Task7 remains the only source writer.
 
 - `cbf-checked-path-probe.md`: complete independent in-memory CPU report read; aggregate validity retains one host decision while preserving tested output/gradient/error and TorchScript behavior (core/adapter/footprint B=2/2048: 5→1). Ordinary diagnostics remain unoptimized. A direct _assert_async substitution loses the check in this actual scripted save/load experiment and is not an acceptable CBF replacement. No source fix, performance-policy amendment, CUDA speedup or P2 closure is claimed; serial post-Task7 implementation/review still required.
 

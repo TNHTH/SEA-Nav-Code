@@ -88,3 +88,60 @@ PPO identity tests must not be weakened or rewritten to fit the optimization.
 Provide focused commits and a full report with actual failed/green commands,
 exact OIDs/paths, remaining costs and blockers. Independent fixed-commit review
 is required before integration; the controller does not edit production code.
+
+## Additional candidate error-precedence probe
+
+Controller, primary cb24dc6520a9b8dd4d7e99f8afaafbd82534e4bc, Torch2.6 CPU.
+An in-memory simplified aggregate validator (same dynamic expression and
+complex/device fallback as the earlier candidate) was compared with the
+unchanged real layer on metadata-valid shapes. Inputs were NaN u_bar[2,3],
+positive alpha[2,1], and either native sparse-COO rays[2,41] or native quantized
+QUInt8 rays[2,41]. Production source was not changed.
+
+| Rays | Actual baseline | Aggregate candidate |
+|---|---|---|
+| sparse COO | ValueError: CBF inputs must be finite | NotImplementedError: aten::ne.Scalar unavailable on SparseCPU |
+| quantized QUInt8 | ValueError: CBF inputs must be finite | RuntimeError: isfinite not implemented for QUInt8 |
+
+Both assertions confirming a changed exception type passed (exit0, .93s).
+This is a candidate flaw, **not a new production defect**: aggregation eagerly
+evaluates a later unsupported input before the existing short-circuit error.
+The future implementation must use metadata-based fallback for unsupported
+layout/quantization as well as complex/device cases, without a new global dtype
+ban. Merely preserving the earlier prototype's tested cases is insufficient.
+No new supported-layout claim or TorchScript/CUDA evidence comes from this probe.
+
+Exact command (the printed backend list is summarized in the table above):
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD/training/rsl_rl" ../sea-nav-cpu-venv/bin/python -I -B - <<'PY'
+import sys
+sys.path.insert(0, 'training/rsl_rl')
+import torch
+from rsl_rl.modules.cbf_lse_layer import ExactLSECBFLayer
+class AggregateProbe(ExactLSECBFLayer):
+    def _validate_inputs(self, u, rays, alpha):
+        if (u.is_complex() or rays.is_complex() or alpha.is_complex()
+                or u.device != rays.device or u.device != alpha.device):
+            return super()._validate_inputs(u, rays, alpha)
+        valid = (torch.isfinite(u).all() & torch.isfinite(rays).all()
+                 & torch.isfinite(alpha).all() & ~(rays <= 0).any()
+                 & ~(alpha <= 0).any())
+        if not valid:
+            super()._validate_inputs(u, rays, alpha)
+def result(layer, args):
+    try:
+        layer(*args)
+    except Exception as exc:
+        return type(exc).__name__, str(exc).splitlines()[0]
+    return 'accepted', ''
+for label, rays in [('sparse_coo', torch.ones(2,41).to_sparse()),
+                    ('quantized', torch.quantize_per_tensor(torch.ones(2,41), .1, 0, torch.quint8))]:
+    args=(torch.full((2,3),float('nan')), rays, torch.ones(2,1))
+    old=result(ExactLSECBFLayer(),args)
+    new=result(AggregateProbe(),args)
+    print(label, 'baseline=', old, 'aggregate=', new)
+    assert old[0]=='ValueError' and new[0]!=old[0]
+print('Bounded candidate-precedence failure confirmed; production unchanged; no CUDA or simulation.')
+PY
+```
