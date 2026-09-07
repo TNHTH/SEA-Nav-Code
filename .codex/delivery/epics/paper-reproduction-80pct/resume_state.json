@@ -6,11 +6,45 @@
   "head": "cd80127c49e1c2b5a99b0286cf40c43669877c14",
   "head_semantics": "last observed primary HEAD; a coordination-only successor may exist; verify git rev-parse HEAD on recovery",
   "phase": "serial_implementation",
-  "next_action": "Task 6 fix1 0efc193 scoped independent rereview; require worker postcommit addendum and five verdicts before integration/Task 7; remote authorization questions remain pending",
-  "active_implementation": {"task": 6, "agent": "/root/implement_batch6", "base": "65dcbbc2b13c92af99a9e7d4cba4110880f9b509", "head": "0efc1934cbefc1a9780baced7846484f29eb776e", "worktree": "../SEA-Nav-Code-batch6", "status": "fix_round_1_under_scoped_review", "open_findings": 5, "whole_fix_round": 1, "whole_review": "task-6-review.md", "slice1_reviewer": "/root/review_batch6_slice1", "slice1_review": "task-6-slice1-rereview-1.md", "whole_reviewer": "/root/review_batch6_full", "whole_review_worktree": "../SEA-Nav-Code-batch6-review-full", "rereview_worktree": "../SEA-Nav-Code-batch6-review-fix1", "head_semantics": "fixed 11-file repair, only worker registration files dirty; five findings remain open until independent scoped verdict"},
-  "completed_tasks": [1, 2, 3, 4, 5],
-  "strict_batch_order": [1, 2, 3, 4, 5, 6, 7],
-  "task6_scope_extensions": ["tests/test_experiment_config.py: only historical adapter YAML assertions", "sea_nav_current_isaaclab_full_method/adapters/command_delay.py: only alpha-filter recurrence state/output separation; exact requirements in task-6-brief.md"],
+  "next_action": "Task 6 original-reviewer fix1 PASS received; integrate four ordered commits then fresh primary342/GateA verification before Task7; remote authorization questions remain pending",
+  "active_implementation": {
+    "task": 6,
+    "agent": "/root/implement_batch6",
+    "base": "65dcbbc2b13c92af99a9e7d4cba4110880f9b509",
+    "head": "0efc1934cbefc1a9780baced7846484f29eb776e",
+    "worktree": "../SEA-Nav-Code-batch6",
+    "status": "review_passed_pending_integration",
+    "open_findings": 0,
+    "whole_fix_round": 1,
+    "whole_review": "task-6-review.md",
+    "slice1_reviewer": "/root/review_batch6_slice1",
+    "slice1_review": "task-6-slice1-rereview-1.md",
+    "whole_reviewer": "/root/review_batch6_full",
+    "whole_review_worktree": "../SEA-Nav-Code-batch6-review-full",
+    "rereview_worktree": "../SEA-Nav-Code-batch6-review-fix1",
+    "head_semantics": "fixed 11-file repair, only worker registration files dirty; five findings remain open until independent scoped verdict",
+    "rereview": "task-6-rereview-1.md"
+  },
+  "completed_tasks": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "strict_batch_order": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "task6_scope_extensions": [
+    "tests/test_experiment_config.py: only historical adapter YAML assertions",
+    "sea_nav_current_isaaclab_full_method/adapters/command_delay.py: only alpha-filter recurrence state/output separation; exact requirements in task-6-brief.md"
+  ],
   "active_write_owner": "controller",
   "active_owned_paths": [
     ".codex/delivery/epics/paper-reproduction-80pct",
@@ -18,7 +52,14 @@
   ],
   "highest_verified_rung": 1,
   "candidate_oid": null,
-  "final_review_open_inputs": [{"id": "cbf_hotpath", "priority": "P2", "report": "cbf-hotpath-review.md", "status": "open; preserve checked input rejection; boundary decision and serial fix/review after Task 7"}],
+  "final_review_open_inputs": [
+    {
+      "id": "cbf_hotpath",
+      "priority": "P2",
+      "report": "cbf-hotpath-review.md",
+      "status": "open; preserve checked input rejection; boundary decision and serial fix/review after Task 7"
+    }
+  ],
   "remote_mutated": false,
   "blocked": [
     "isaac_gym_preview4_runtime",
