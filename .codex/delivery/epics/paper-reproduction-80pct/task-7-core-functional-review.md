@@ -143,3 +143,41 @@ boundary and descriptor exception cleanup inside the existing checkpoint path.
 If it applies a fix, that fix needs its own ordinary regression evidence and
 fixed review. No new adversarial artifact or restriction bypass is requested;
 the complete core review remains incomplete.
+
+## Fixed c7b9aa3 ordinary follow-through
+
+This addendum is a new evidence instance, not a relabeling of2387cf0 results.
+Controller read the complete2387cf0..c7b9aa3 checkpoint/runner/runner-test diff
+and the three new ordinary snapshot tests. Fixed checkout
+../SEA-Nav-Code-batch7-review-callers is at
+`c7b9aa371b8ab3800adea378a7024f043fb58580`, initially/finally empty full ignored
+porcelain. It is also used read-only by the separate caller/README reviewer.
+
+The new loader opens the original source without following links, copies the
+bounded expected byte count into a private memfd, applies and reads back
+WRITE/GROW/SHRINK/SEAL seals, and validates/loads that same snapshot descriptor.
+The manifest-byte hash is returned to the caller; runner checks its expected
+preflight hash before changing model state. Descriptor construction failure
+now closes the original raw file descriptor. No converter review was done here.
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD/training/rsl_rl" \
+  ../sea-nav-cpu-venv/bin/python -m pytest -q -p no:cacheprovider \
+  tests/test_runner_checkpoint.py tests/test_checkpoint_v2.py \
+  tests/test_runner_registry.py::test_exact_registry \
+  tests/test_checkpoint_security.py::test_same_inode_equal_size_write_after_hash_cannot_change_loaded_weights \
+  tests/test_checkpoint_security.py::test_size_hash_and_load_share_the_sealed_snapshot_descriptor \
+  tests/test_checkpoint_security.py::test_unavailable_snapshot_seals_fail_closed_before_load
+git status --porcelain=v1 --untracked-files=all --ignored
+```
+
+Exit0, **28 passed in2.55s**, final full porcelain empty. The three selected
+tests use ordinary Tensor files and kernel file/descriptor operations, not
+executable-pickle fixtures. They show an equal-size same-inode write cannot
+change the returned original weights, hash/load see the same write-sealed FD,
+write attempts on that snapshot are denied, and missing sealing support rejects
+before load. The now-committed102/adaptive regression also passes. This is
+independent GREEN for the specific ordinary concurrent-write correction; it
+does not validate every OS failure, converter path, or the interrupted complete
+review. Limited functional PASS remains scoped; complete core/converter and
+whole-task acceptance remain INCOMPLETE.
