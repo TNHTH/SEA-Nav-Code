@@ -3,19 +3,20 @@
   "coord_rev": 8,
   "repository": "TNHTH/SEA-Nav-Code",
   "branch": "test",
-  "head": "b5b945513acb4d3e48c401653198442654a387e9",
+  "head": "562d4ae0b56ca977ea433def6dbd05607284e38b",
   "head_semantics": "last observed primary HEAD; a coordination-only successor may exist; verify git rev-parse HEAD on recovery",
   "phase": "serial_implementation",
-  "next_action": "Create Task7 detached worktree at next coordination commit, verify fresh clean342 baseline, then dispatch sole Task7 writer; no remote publication or CBF concurrent edits",
+  "next_action": "Task7 sole writer active at562d4ae; core checkpoint/runner boundary first, then all callers/converter/docs; independent fixed slice and whole review required; remote and CBF follow-up still separate",
   "active_implementation": {
     "task": 7,
     "agent": "/root/implement_batch7",
     "worktree": "../SEA-Nav-Code-batch7",
-    "base": null,
-    "head": null,
-    "status": "registered_pending_fresh_detached_baseline",
+    "base": "562d4ae0b56ca977ea433def6dbd05607284e38b",
+    "head": "562d4ae0b56ca977ea433def6dbd05607284e38b",
+    "status": "active_implementation",
     "scope_file": "task-7-brief.md",
-    "scope_count": 26
+    "scope_count": 26,
+    "baseline": "fresh342 passed in33.94s; empty ignored porcelain before/after"
   },
   "completed_tasks": [
     1,

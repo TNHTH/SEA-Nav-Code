@@ -15,7 +15,7 @@
 | Confirmed facts | remote snapshots are unrelated roots; only `main` is a complete tree; post-sample CBF and PPO smoothness state mutation are real regressions | Git object analysis and CPU/source comparison | confirmed |
 | Candidate hypothesis | repairing packaging/config/PPO/CBF/replay/runtime/checkpoint contracts will make Rungs 0–2 reliable; simulator viability remains unknown | approved spec and batch mappings | implementation pending |
 | Highest validation rung | Rung1 for Tasks1–6; non-final GateA passed_with_blockers | Task6 scoped Spec/Quality PASS and fresh primary full run | frozen final-candidate Rung2 still pending |
-| Unpublished/unverified work | Tasks1–6 integrated through b5b9455; Task7 exact26-path scope registered, no source work yet; final CBF P2 remains open | Task6 all5 review findings closed, source tree equals reviewed0efc193, worker clean/registration history retained | local only; no remote write; Task7, final review/frozen verification, runtime and accepted-paper blockers remain |
+| Unpublished/unverified work | Tasks1–6 integrated through b5b9455; Task7 active at detached BASE562d4ae0b56ca977ea433def6dbd05607284e38b, exact26 paths; final CBF P2 remains open | Fresh Task7 baseline342 passed33.94s, clean including ignored; Task6 source equals reviewed0efc193, accepted report/registration history retained | local only; no remote write; Task7 implementation/review, final frozen verification, runtime and accepted-paper blockers remain |
 
 ## Research Findings
 
