@@ -54,3 +54,9 @@ Task 2: active; BASE=e22493377065c445cfd2b1ac43c01aa4d99c5120; clean detached ch
 2026-09-07: ppo-update-contract-audit.md supplies a real CPU update harness and classifies alias/bad-mask/singleton risks without inventing a current simulator bug. Task 3 brief now requires the real four-sample multi-epoch update assertions; no extra storage redesign assigned.
 
 Ruling: Task 6 must distinguish dependency discovery from simulator runtime success and report both stacks — Task 1's `isaac_gym_runtime` currently says passed after import alone, which cannot certify Rung 3 — expands only gate/probe tests, not simulator support. Missing Gym remains blocked on all current evidence.
+
+Task 2: implemented detached HEAD=7367aa872619dfd8eccc4821ab25c4608bb3ee85, full range e224933..7367aa8. Report contains 58 passing selected CPU tests and explicit unavailable Gym boundary. Review package generated at task-2-review.diff; independent `/root/review_batch2` reviewing spec and quality. Not yet integrated.
+
+Task 2: review changes requested (five P2: shallow frozen/hash-bound data, absent field validation, implicit legacy delta, eager manifest import boundary, conflated acquisition/refresh; one P3 horizon status). Controller read complete feedback and confirmed the first four at the actual new data/manifest boundary and the cadence against scientific-wiring-audit.md. Round 1/5 assigned to original implementer; tests/test_gate_a_portable.py ownership may expand only for its explicit manifest caller migration.
+
+Ruling: change the horizon parity row from resolved to profile_fork — paper evaluation 30 s and upstream unsupported are not directly matched under the spec's own status definition — fixes a plan-mandated P3 without inventing an upstream evaluator, and requires regenerated configuration hashes. No simulation semantics changed.

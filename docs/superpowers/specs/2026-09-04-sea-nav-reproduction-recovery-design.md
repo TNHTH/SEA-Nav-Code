@@ -145,7 +145,7 @@ A machine-readable parity registry is the source for generated documentation and
 | ray delay | continuous `Uniform(40,80) ms` | refresh selects history `-3/-4`: at `dt=20 ms`, 40/60 ms old at refresh, then held for a 100 ms cadence and can be 120/140 ms old at the last pre-refresh output | seeded time-based `Uniform(40,80) ms`; actual per-step age recorded | `profile_fork` |
 | ACSI curriculum | `Pmin=.1`, `Pmax=.5`, `dup=.5 m`, `ddown=2 m`, Eq. 1 | values exist, but probability uses `goal_levels/1.5` | Eq. 1 with all state transitions logged | `profile_fork` |
 | goal completion | stay near the goal for a period; no tick count stated | distance `<0.5 m`, 150 accumulated in-goal ticks | authoritative fallback, with tick/reset semantics explicit | `resolved_upstream_fallback` |
-| time horizons | training episode `60 s`; evaluation timeout `30 s` | training episode `60 s`; no complete paper metric runner | separate immutable training/evaluation fields | `resolved` |
+| time horizons | training episode `60 s`; evaluation timeout `30 s` | training episode `60 s`; evaluation timeout unsupported/not specified | separate immutable training/evaluation fields; never infer the upstream evaluation value | `profile_fork` |
 
 Any row whose `resolution_status` is `blocked` blocks the label `paper_v1`; it does not block a clearly labeled upstream-code or adapter diagnostic run.
 

@@ -17,6 +17,9 @@
 - Task 2 owned scope registered; next worktree starts from the post-integration coordination commit. Source writers remain serialized. Detached Task 1 originals and their own two unstaged registration edits are retained; no cleanup has removed them.
 - Task 2 detached BASE `e224933` passed its 12-test portable baseline and is assigned to `/root/implement_batch2`. Its new configuration tests reached expected RED (`rsl_rl.experiment_config` absent); implementation is active, not yet reviewed or integrated.
 - Independent `ppo-update-contract-audit.md` established viable real CPU fixture shapes and update-time identity assertions for Task 3. Alias/mask observations were classified as generic/test risks, not invented current simulator defects. The Task 3 brief incorporates the harness; Task 6 owns separate dependency-versus-runtime gate reporting for both simulator stacks.
+- Preserved Task 1's two worker-owned registration edits verbatim in `task-1-registration-history.md`, then used exact-file patches to restore their committed local baseline. Detached Task 1 is clean and retained at `4dec41b`; a scoped source-tree diff against primary `df2f4b1` was empty. No source commit or recovery ref was deleted.
+- Task 2 initial commit `7367aa8` reports 58 CPU tests; independent review found five P2 boundary defects and one P3 horizon-status mismatch. Fix round 1/5 is active with the original implementer; no Task 2 source has landed on `test`. Scope permits only the needed portable-test manifest caller migration beyond the original file list. Complete review and fix requirements are in `task-2-review.md` and `sdd-progress.md`.
+- Coordination commit preflight initially rejected whitespace-only Git diff context inside the worker-registration archive; no commit was created. Stored that exact raw diff as JSON text inside Markdown, preserving its decoded contents while satisfying the whitespace gate.
 
 ## Session: 2026-09-04
 

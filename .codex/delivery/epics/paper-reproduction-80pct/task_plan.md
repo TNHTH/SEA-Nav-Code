@@ -62,8 +62,8 @@ Phase 3 — strict serial implementation
 |---|---|---|---|---|---|
 | `work/SEA-Nav-Code` | `test@484f682` plus coordination commit | controller | plan/coordination now; each integrated batch serially | approved spec | active |
 | `work/SEA-Nav-Code-latest-review` | detached `b53d3fe` | read-only source audit | none | none | clean/read-only |
-| `work/SEA-Nav-Code-batch1` | detached `4dec41b` | task1 implementer | Task 1 exact paths | reviewed and integrated as `a58ad21`, `eac2657`, `484f682` | finished; original commits and two local registration edits retained pending cleanup |
-| `work/SEA-Nav-Code-batch2` | detached from post-Task-1 coordination commit | task2 implementer | `requirements-cpu.txt`, `requirements-cpu.lock`, `configs/parity_registry.yaml`, `configs/profiles/upstream_fbce672c.yaml`, `configs/profiles/paper_v1.yaml`, `training/rsl_rl/rsl_rl/experiment_config.py`, `sea_nav_current_isaaclab_full_method/adapters/experiment_config.py`, `tests/test_experiment_config.py`, adapter manifest/config/static gate, local task-2-log | Task 1 integrated and verified | registered; creation next |
+| `work/SEA-Nav-Code-batch1` | detached `4dec41b` | task1 implementer | Task 1 exact paths | reviewed and integrated as `a58ad21`, `eac2657`, `484f682` | finished, clean and retained; historical worker registration preserved in task-1-registration-history.md |
+| `work/SEA-Nav-Code-batch2` | detached BASE `e224933` | `/root/implement_batch2` | `requirements-cpu.txt`, `requirements-cpu.lock`, `configs/parity_registry.yaml`, `configs/profiles/upstream_fbce672c.yaml`, `configs/profiles/paper_v1.yaml`, `training/rsl_rl/rsl_rl/experiment_config.py`, `sea_nav_current_isaaclab_full_method/adapters/experiment_config.py`, `tests/test_experiment_config.py`, adapter manifest/config/static gate, local task-2-log | Task 1 integrated and verified | active |
 
 ## Decisions Made
 
