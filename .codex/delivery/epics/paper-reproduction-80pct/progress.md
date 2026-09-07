@@ -2,6 +2,10 @@
 
 ## Session: 2026-09-07
 
+- Task 6 bounded preparation completed in runtime-preflight-harness.md, with exact fresh-process projection/discovery and no-import AST command/output transcripts. Confirmed all three adapter launchers execute before main and Gym imports precede preflight; recommendations are not implementation evidence. Corrected report terminology to distinguish projection accessors from constructors. Added this acceptance reference to Task 6 brief; Task 5 remains the only source writer.
+
+- Added final-verification-protocol.md as a future checklist, not a pass record: A-bound committed evidence is distinguished from the final frozen E checkout's external, persistent raw report. The definitive E run remains mandatory; this avoids relabeling earlier output or an impossible self-referential commit. Remote artifact visibility remains separate from local report existence.
+
 - During Task 5 implementation, a bounded controller probe of the existing CBF validation boundary observed five scalar extractions per ordinary core/adapter forward and zero in the equal-output pure mathematical core. Saved exact command/output in cbf-hotpath-observation.md for final whole-branch review. No GPU timing, new defect severity, source edit or repeat Task 4 gate is claimed. Read-only runtime-preflight agent prepares Task 6 parser/dependency tests separately.
 
 - Resumed at actual `a8e5d7996ac389aeae6d73d4cc64234c1becabfd`; corrected the recovery JSON's mistyped HEAD before further work. Independent Task 4 spec/quality PASS had returned with no actionable finding. Cross-task runtime/profile obligations remain assigned to Task 6 and simulator smoke remains blocked, not an unhandled Task 4 claim.

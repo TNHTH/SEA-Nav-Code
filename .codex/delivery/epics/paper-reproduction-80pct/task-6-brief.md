@@ -6,6 +6,8 @@ Read scientific-wiring-audit.md. Extend ownership to Gym train/play/task_registr
 
 Extend the final gate ownership to `tools/gate_a.py` and `tests/test_gate_a_portable.py`: report Isaac Gym and IsaacLab dependency availability independently from actual runtime verification. The current Gym probe calls an import "runtime passed"; a successful import is not Rung 3 evidence. CPU gate must not trigger application startup, and installed/uninstalled/broken runtime dependencies must not be misreported as successful simulation. Cover both stack-result boundaries without fake simulator modules; dependency probing tests may isolate the external import/discovery boundary. Preserve Task 1's full inventory and hermetic W&B coverage.
 
+Read `runtime-preflight-harness.md` for the bounded actual-entrypoint ordering evidence and recommended CPU acceptance seams. Current adapter modules launch AppLauncher before main; do not import those versions in CPU tests. Extract a small shared simulator-free profile/CLI preflight surface (in packaged rsl_rl, not via a Gym-to-adapter dependency), reject invalid or blocked identity before proprietary import/output creation, and test the real refactored pure surface in fresh processes. Application-specific launch/close stays explicitly guarded. Projection accessor success is not consumer application; validate actual constructor/environment mappings before launch and bind post-override effective settings. Task 4's documented constructor, footprint, geometry and layer-replacement handoff must be closed here. Keep the original inherited no-simulator CPU gate and full tree inventory.
+
 ## Global Constraints
 
 - Working branches must remain exactly `main`, `stable`, and `test`; all repair commits land only on `test`.
