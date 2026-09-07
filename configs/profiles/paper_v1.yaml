@@ -1,0 +1,52 @@
+schema_version: 1
+algorithm_profile: paper_v1
+selected_contracts:
+  lidar_history: {num_rays: 41, observation_fov_deg: 240.0, history_frames: 10}
+  damped_cbf: {cbf_mode: paper_damped, epsilon_d: 1.0, result_classification: differentiable_safety_bias}
+  cbf_geometry: {cbf_fov_deg: 240.0}
+  cbf_kappa_safe_radius_margin: {kappa: 10.0, safe_radius_m: 0.15, safety_margin_m: 0.05}
+  cbf_footprint_preprocessing: {footprint_radius_m: 0.0, ray_preprocess_mode: positive_raw_rays, min_effective_clearance_m: null, nonzero_footprint_policy: requires_named_ablation}
+  shield_objective: {intervention_coefficient: 0.1, alpha_penalty_coefficient: 0.1, alpha_min: 0.1}
+  reward_weights:
+    raw_weights: {termination: -100.0, reach: 10.0, velocity: 15.0, clearance: 15.0, stuck: -5.0, collision: -4.0, angular: -0.05}
+  reward_formula:
+    formula_mode: paper_table_iii
+    angular_velocity: l2_norm_xy
+    velocity_term: cosine_heading_times_forward_plus_goal_bias
+    clearance_boundary_m: 1.0
+    stuck_history_anchor: first_history_point
+  reward_time_integration: {integrate_over_policy_dt: true, reward_scale_unit: raw_weight_times_policy_dt, policy_dt_s: 0.02}
+  reward_operational_fallbacks:
+    operational_fallbacks:
+      contact_group_coefficients: {generic: 1.0, head_base: 10.0, leg: 10.0}
+      opening_tie_semantics: smoothed_150_degree_cone_center_bias
+      initial_contact_penalty_suppressed: true
+  smoothness_weights: {actor_smoothness_coefficient: 0.05, critic_smoothness_coefficient: 0.005}
+  ppo_state_identity_repair: {ppo_auxiliary_state_mode: pure_action_mean_for_preserves_current_minibatch_state}
+  paper_table_action_bounds: {action_range_low: [-0.5, 0.8, 1.0], action_range_high: [1.7, 0.8, 1.0]}
+  execution_bounds: {executed_command_low: [-0.5, -1.0, -1.0], executed_command_high: [2.0, 1.0, 1.0]}
+  ray_delay:
+    delay_mode: timestamped_continuous_latency
+    acquisition_period_s: 0.1
+    latency_min_s: 0.04
+    latency_max_s: 0.08
+    history_sampling_policy: latest_nonfuture_for_sampled_latency
+  perception_timing_semantics:
+    perception_scheduler: timestamped_acquisition_transport_hold
+    arrival_quantization: blocked_paper_unspecified
+    output_mode: sample_and_hold
+    delay_goal_with_rays: blocked_paper_unspecified
+    startup_policy: blocked_paper_unspecified
+  acsi_curriculum: {curriculum_mode: paper_eq_1, p_min: 0.1, p_max: 0.5, probability_level_clip: [0.0, 1.0], d_up_m: 0.5, d_down_m: 2.0}
+  acsi_decision_stage:
+    decision_stages: [collision_replay_decision_carried_to_reset]
+    terminal_replay_probability: 1.0
+    decision_order: probability_then_reservation_then_reset_commit
+  acsi_level_storage_and_update_event:
+    level_update_policy: strict_distance_events
+    initial_level: 0.0
+    stored_level_bounds: [0.0, max_terrain_level]
+    level_update_event: normal_episode_reset_after_replay_selection
+  goal_completion: {goal_distance_threshold_m: 0.5, stay_ticks: 150, stay_counter_mode: accumulated_in_goal_ticks}
+  time_horizons: {training_episode_s: 60.0, evaluation_timeout_s: 30.0}
+  replay_reset_policy: {reconstruction_policy: new_replay_episode_v1, activation_delta: replay_reset_reconstruction_v1, curriculum_state_rewound: false}

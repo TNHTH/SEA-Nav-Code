@@ -1,0 +1,346 @@
+schema_version: 1
+profile_files:
+  paper_v1: profiles/paper_v1.yaml
+  upstream_fbce672c: profiles/upstream_fbce672c.yaml
+rows:
+  - contract: lidar_history
+    paper_value: {num_rays: 41, observation_fov_deg: 240.0, history_frames: 10}
+    upstream_effective_value: {num_rays: 41, observation_fov_deg: 240.0, history_frames: 10}
+    selected_values:
+      paper_v1: {num_rays: 41, observation_fov_deg: 240.0, history_frames: 10}
+      upstream_fbce672c: {num_rays: 41, observation_fov_deg: 240.0, history_frames: 10}
+    evidence:
+      paper: ["arXiv:2603.09460v1:page-7:Table-V"]
+      upstream: ["git:fbce672c:training/legged_gym/legged_gym/envs/go2/go2_pos_config.py:182"]
+    resolution_status: resolved
+    rationale: Both sources use 41 rays over a 240 degree observation field and ten frames of history.
+
+  - contract: damped_cbf
+    paper_value: {cbf_mode: paper_damped, epsilon_d: 1.0, result_classification: differentiable_safety_bias}
+    upstream_effective_value: {cbf_mode: paper_damped, epsilon_d: 1.0, result_classification: differentiable_safety_bias}
+    selected_values:
+      paper_v1: {cbf_mode: paper_damped, epsilon_d: 1.0, result_classification: differentiable_safety_bias}
+      upstream_fbce672c: {cbf_mode: paper_damped, epsilon_d: 1.0, result_classification: differentiable_safety_bias}
+    evidence:
+      paper: ["arXiv:2603.09460v1:page-4:Eq-4"]
+      upstream: ["git:fbce672c:training/rsl_rl/rsl_rl/modules/cbf_lse_layer.py"]
+    resolution_status: resolved
+    rationale: Eq. 4 and epsilon_d=1 are common, and neither selection claims a hard-safe projection.
+
+  - contract: cbf_geometry
+    paper_value: {observation_fov_deg: 240.0, cbf_fov_deg: 240.0}
+    upstream_effective_value: {observation_fov_deg: 240.0, cbf_fov_deg: 180.0}
+    selected_values:
+      paper_v1: {cbf_fov_deg: 240.0}
+      upstream_fbce672c: {cbf_fov_deg: 180.0}
+    evidence:
+      paper: ["arXiv:2603.09460v1:page-7:Table-V"]
+      upstream:
+        - "git:fbce672c:training/rsl_rl/rsl_rl/modules/cbf_lse_layer.py:9"
+        - "git:fbce672c:training/legged_gym/legged_gym/envs/go2/go2_pos_config.py:182"
+    resolution_status: profile_fork
+    rationale: The upstream actor retains a 180 degree CBF default while its sensor observes 240 degrees; paper_v1 selects 240 degrees for both.
+
+  - contract: cbf_kappa_safe_radius_margin
+    paper_value: {kappa: null, safe_radius_m: null, safety_margin_m: null}
+    upstream_effective_value: {kappa: 10.0, safe_radius_m: 0.15, safety_margin_m: 0.05}
+    selected_values:
+      paper_v1: {kappa: 10.0, safe_radius_m: 0.15, safety_margin_m: 0.05}
+      upstream_fbce672c: {kappa: 10.0, safe_radius_m: 0.15, safety_margin_m: 0.05}
+    evidence:
+      paper: ["arXiv:2603.09460v1:page-4:Eq-4-does-not-fix-operational-constants"]
+      upstream: ["git:fbce672c:training/rsl_rl/rsl_rl/modules/cbf_lse_layer.py"]
+    resolution_status: resolved_upstream_fallback
+    rationale: The paper is silent on these operational constants, so paper_v1 records the authoritative-code fallback.
+
+  - contract: cbf_footprint_preprocessing
+    paper_value: {footprint_radius_m: 0.0, ray_preprocess_mode: positive_raw_rays, min_effective_clearance_m: null}
+    upstream_effective_value: {footprint_radius_m: 0.0, ray_preprocess_mode: positive_raw_rays, min_effective_clearance_m: null}
+    selected_values:
+      paper_v1: {footprint_radius_m: 0.0, ray_preprocess_mode: positive_raw_rays, min_effective_clearance_m: null, nonzero_footprint_policy: requires_named_ablation}
+      upstream_fbce672c: {footprint_radius_m: 0.0, ray_preprocess_mode: positive_raw_rays, min_effective_clearance_m: null, nonzero_footprint_policy: requires_named_ablation}
+    evidence:
+      paper: ["arXiv:2603.09460v1:page-4:Eq-4-ray-input"]
+      upstream: ["git:fbce672c:training/rsl_rl/rsl_rl/modules/cbf_lse_layer.py"]
+    resolution_status: resolved
+    rationale: Neither initial identity subtracts a robot footprint; any positive footprint is an explicitly named ablation.
+
+  - contract: shield_objective
+    paper_value: {intervention_coefficient: 0.1, alpha_penalty_coefficient: 0.1, alpha_min: 0.1}
+    upstream_effective_value: {intervention_coefficient: 0.1, alpha_penalty_coefficient: 1.0, alpha_min: 1.0}
+    selected_values:
+      paper_v1: {intervention_coefficient: 0.1, alpha_penalty_coefficient: 0.1, alpha_min: 0.1}
+      upstream_fbce672c: {intervention_coefficient: 0.1, alpha_penalty_coefficient: 1.0, alpha_min: 1.0}
+    evidence:
+      paper: ["arXiv:2603.09460v1:page-4:Eq-5"]
+      upstream: ["git:fbce672c:training/rsl_rl/rsl_rl/algorithms/ppo.py"]
+    resolution_status: profile_fork
+    rationale: The paper applies lambda_shield to both terms and uses alpha_min=.1; upstream weights the alpha term by one and uses alpha_min=1.
+
+  - contract: reward_weights
+    paper_value:
+      raw_weights: {termination: -100.0, reach: 10.0, velocity: 15.0, clearance: 15.0, stuck: -5.0, collision: -4.0, angular: -0.05}
+    upstream_effective_value:
+      raw_weights: {termination: -100.0, reach: 10.0, velocity: 4.0, clearance: 5.0, stuck: -5.0, collision: -4.0, angular: -0.05}
+    selected_values:
+      paper_v1:
+        raw_weights: {termination: -100.0, reach: 10.0, velocity: 15.0, clearance: 15.0, stuck: -5.0, collision: -4.0, angular: -0.05}
+      upstream_fbce672c:
+        raw_weights: {termination: -100.0, reach: 10.0, velocity: 4.0, clearance: 5.0, stuck: -5.0, collision: -4.0, angular: -0.05}
+    evidence:
+      paper: ["arXiv:2603.09460v1:page-7:Table-III"]
+      upstream: ["git:fbce672c:training/legged_gym/legged_gym/envs/go2/go2_pos_config.py:214"]
+    resolution_status: profile_fork
+    rationale: Velocity and clearance weights differ and remain explicit profile choices.
+
+  - contract: reward_formula
+    paper_value:
+      formula_mode: paper_table_iii
+      angular_velocity: l2_norm_xy
+      velocity_term: cosine_heading_times_forward_plus_goal_bias
+      clearance_boundary_m: 1.0
+      stuck_history_anchor: first_history_point
+    upstream_effective_value:
+      formula_mode: upstream_fbce672c
+      angular_velocity: squared_l2_norm_xy
+      velocity_term: clipped_forward_progress_plus_goal_bias
+      clearance_boundary_m: 0.5
+      stuck_history_anchor: current_position
+    selected_values:
+      paper_v1:
+        formula_mode: paper_table_iii
+        angular_velocity: l2_norm_xy
+        velocity_term: cosine_heading_times_forward_plus_goal_bias
+        clearance_boundary_m: 1.0
+        stuck_history_anchor: first_history_point
+      upstream_fbce672c:
+        formula_mode: upstream_fbce672c
+        angular_velocity: squared_l2_norm_xy
+        velocity_term: clipped_forward_progress_plus_goal_bias
+        clearance_boundary_m: 0.5
+        stuck_history_anchor: current_position
+    evidence:
+      paper: ["arXiv:2603.09460v1:page-7:Table-III"]
+      upstream: ["git:fbce672c:training/legged_gym/legged_gym/envs/base/legged_robot_pos.py:970-1030"]
+    resolution_status: profile_fork
+    rationale: Weight equality alone is insufficient because velocity, clearance, stuck, and angular formulas differ.
+
+  - contract: reward_time_integration
+    paper_value: {integrate_over_policy_dt: null, reward_scale_unit: paper_unspecified}
+    upstream_effective_value: {integrate_over_policy_dt: true, reward_scale_unit: raw_weight_times_policy_dt, policy_dt_s: 0.02}
+    selected_values:
+      paper_v1: {integrate_over_policy_dt: true, reward_scale_unit: raw_weight_times_policy_dt, policy_dt_s: 0.02}
+      upstream_fbce672c: {integrate_over_policy_dt: true, reward_scale_unit: raw_weight_times_policy_dt, policy_dt_s: 0.02}
+    evidence:
+      paper: ["arXiv:2603.09460v1:page-7:Table-III-no-temporal-unit"]
+      upstream: ["git:fbce672c:training/legged_gym/legged_gym/envs/base/legged_robot.py:603"]
+    resolution_status: resolved_upstream_fallback
+    rationale: The paper is silent on temporal integration; both profiles record the one-time upstream dt fallback.
+
+  - contract: reward_operational_fallbacks
+    paper_value: {contact_group_coefficients: null, opening_tie_semantics: null}
+    upstream_effective_value:
+      operational_fallbacks:
+        contact_group_coefficients: {generic: 1.0, head_base: 10.0, leg: 10.0}
+        opening_tie_semantics: smoothed_150_degree_cone_center_bias
+        initial_contact_penalty_suppressed: true
+    selected_values:
+      paper_v1:
+        operational_fallbacks:
+          contact_group_coefficients: {generic: 1.0, head_base: 10.0, leg: 10.0}
+          opening_tie_semantics: smoothed_150_degree_cone_center_bias
+          initial_contact_penalty_suppressed: true
+      upstream_fbce672c:
+        operational_fallbacks:
+          contact_group_coefficients: {generic: 1.0, head_base: 10.0, leg: 10.0}
+          opening_tie_semantics: smoothed_150_degree_cone_center_bias
+          initial_contact_penalty_suppressed: true
+    evidence:
+      paper: ["arXiv:2603.09460v1:page-7:Table-III-omits-operational-details"]
+      upstream: ["git:fbce672c:training/legged_gym/legged_gym/envs/base/legged_robot_pos.py:906-1030"]
+    resolution_status: resolved_upstream_fallback
+    rationale: Paper-omitted body grouping and deterministic opening selection are recorded upstream fallbacks, not paper equations.
+
+  - contract: smoothness_weights
+    paper_value: {actor_smoothness_coefficient: 0.05, critic_smoothness_coefficient: 0.005}
+    upstream_effective_value: {actor_smoothness_coefficient: 0.05, critic_smoothness_coefficient: 0.005}
+    selected_values:
+      paper_v1: {actor_smoothness_coefficient: 0.05, critic_smoothness_coefficient: 0.005}
+      upstream_fbce672c: {actor_smoothness_coefficient: 0.05, critic_smoothness_coefficient: 0.005}
+    evidence:
+      paper: ["arXiv:2603.09460v1:page-4:Eq-5"]
+      upstream: ["git:fbce672c:training/rsl_rl/rsl_rl/algorithms/ppo.py"]
+    resolution_status: resolved_effective
+    rationale: Upstream inner factors 1 and .1 multiplied by outer .05 yield the paper effective values.
+
+  - contract: ppo_state_identity_repair
+    paper_value: {ppo_auxiliary_state_mode: current_minibatch_identity}
+    upstream_effective_value: {ppo_auxiliary_state_mode: interpolated_query_overwrites_mutable_actor_state}
+    selected_values:
+      paper_v1: {ppo_auxiliary_state_mode: pure_action_mean_for_preserves_current_minibatch_state}
+      upstream_fbce672c: {ppo_auxiliary_state_mode: pure_action_mean_for_preserves_current_minibatch_state}
+    evidence:
+      paper: ["arXiv:2603.09460v1:page-4:Eq-5-current-and-interpolated-inputs"]
+      upstream: ["git:fbce672c:training/rsl_rl/rsl_rl/algorithms/ppo.py"]
+    resolution_status: implementation_delta
+    rationale: Every repaired run must name ppo_state_identity_repair; the resolver never inserts it.
+
+  - contract: paper_table_action_bounds
+    paper_value: {low: [-0.5, 0.8, 1.0], high: [1.7, 0.8, 1.0]}
+    upstream_effective_value: {low: [-0.5, -0.8, -1.0], high: [1.7, 0.8, 1.0]}
+    selected_values:
+      paper_v1: {action_range_low: [-0.5, 0.8, 1.0], action_range_high: [1.7, 0.8, 1.0]}
+      upstream_fbce672c: {action_range_low: [-0.5, -0.8, -1.0], action_range_high: [1.7, 0.8, 1.0]}
+    evidence:
+      paper:
+        - "arXiv:2603.09460v1:page-7:Table-V-literal-positive-lateral-and-yaw-lower-bounds"
+        - "sha256:600a5040b6579fe63615d87a70f174f3fa0b0d018f74440b6707d23d36dfc2e9"
+      upstream: ["git:fbce672c:training/rsl_rl/rsl_rl/algorithms/ppo.py:230"]
+    resolution_status: blocked
+    rationale: Table V literally conflicts with upstream negative lateral and yaw lower bounds; no speculative sign correction is authoritative.
+
+  - contract: execution_bounds
+    paper_value: {execution_bounds_published: false}
+    upstream_effective_value: {executed_command_low: [-0.5, -1.0, -1.0], executed_command_high: [2.0, 1.0, 1.0]}
+    selected_values:
+      paper_v1: {executed_command_low: [-0.5, -1.0, -1.0], executed_command_high: [2.0, 1.0, 1.0]}
+      upstream_fbce672c: {executed_command_low: [-0.5, -1.0, -1.0], executed_command_high: [2.0, 1.0, 1.0]}
+    evidence:
+      paper: ["arXiv:2603.09460v1:does-not-publish-identical-execution-clip"]
+      upstream: ["git:fbce672c:training/legged_gym/legged_gym/envs/go2/go2_pos_config.py"]
+    resolution_status: record_only_runtime
+    rationale: Hardware execution limits remain a runtime contract separate from PPO action-range loss.
+
+  - contract: ray_delay
+    paper_value:
+      delay_mode: timestamped_continuous_latency
+      acquisition_period_s: 0.1
+      sampled_latency_s: {distribution: uniform, low: 0.04, high: 0.08}
+    upstream_effective_value:
+      delay_mode: discrete_history_sample_and_hold
+      acquisition_period_s: 0.1
+      history_indices: [-3, -4]
+      refresh_sample_age_s: [0.04, 0.06]
+      maximum_held_age_s: 0.14
+    selected_values:
+      paper_v1:
+        delay_mode: timestamped_continuous_latency
+        acquisition_period_s: 0.1
+        latency_min_s: 0.04
+        latency_max_s: 0.08
+        history_sampling_policy: latest_nonfuture_for_sampled_latency
+      upstream_fbce672c:
+        delay_mode: discrete_history_sample_and_hold
+        acquisition_period_s: 0.1
+        history_indices: [-3, -4]
+        refresh_sample_age_s: [0.04, 0.06]
+        maximum_held_age_s: 0.14
+    evidence:
+      paper: ["arXiv:2603.09460v1:page-3:10Hz-and-Uniform-40-80ms"]
+      upstream: ["git:fbce672c:training/legged_gym/legged_gym/envs/base/legged_robot_pos.py:648-700"]
+    resolution_status: profile_fork
+    rationale: Upstream samples only indices -3/-4 and holds them; that is not continuous Uniform latency.
+
+  - contract: perception_timing_semantics
+    paper_value:
+      acquisition_period_s: 0.1
+      transport_latency_s: {distribution: uniform, low: 0.04, high: 0.08}
+      output_mode: sample_and_hold
+      arrival_quantization: unspecified
+      delay_goal_with_rays: unspecified
+    upstream_effective_value:
+      perception_scheduler: policy_tick_history_refresh
+      arrival_quantization: policy_tick
+      output_mode: sample_and_hold
+      delay_goal_with_rays: true
+      startup_policy: current_sample_until_history_available
+    selected_values:
+      paper_v1:
+        perception_scheduler: timestamped_acquisition_transport_hold
+        arrival_quantization: blocked_paper_unspecified
+        output_mode: sample_and_hold
+        delay_goal_with_rays: blocked_paper_unspecified
+        startup_policy: blocked_paper_unspecified
+      upstream_fbce672c:
+        perception_scheduler: policy_tick_history_refresh
+        arrival_quantization: policy_tick
+        output_mode: sample_and_hold
+        delay_goal_with_rays: true
+        startup_policy: current_sample_until_history_available
+    evidence:
+      paper: ["arXiv:2603.09460v1:page-3:timing-details-omitted"]
+      upstream: ["git:fbce672c:training/legged_gym/legged_gym/envs/base/legged_robot_pos.py:648-700"]
+    resolution_status: blocked
+    rationale: The paper does not define arrival quantization, startup behavior, or whether goals share the sampled ray latency.
+
+  - contract: acsi_curriculum
+    paper_value: {curriculum_mode: paper_eq_1, p_min: 0.1, p_max: 0.5, probability_level_clip: [0.0, 1.0], d_up_m: 0.5, d_down_m: 2.0}
+    upstream_effective_value: {curriculum_mode: upstream_two_stage, p_min: 0.1, p_max: 0.5, probability_level_divisor: 1.5, d_up_m: 0.5, d_down_m: 2.0}
+    selected_values:
+      paper_v1: {curriculum_mode: paper_eq_1, p_min: 0.1, p_max: 0.5, probability_level_clip: [0.0, 1.0], d_up_m: 0.5, d_down_m: 2.0}
+      upstream_fbce672c: {curriculum_mode: upstream_two_stage, p_min: 0.1, p_max: 0.5, probability_level_divisor: 1.5, d_up_m: 0.5, d_down_m: 2.0}
+    evidence:
+      paper: ["arXiv:2603.09460v1:page-4:Eq-1"]
+      upstream: ["git:fbce672c:training/legged_gym/legged_gym/envs/base/legged_robot_pos.py:576-602"]
+    resolution_status: profile_fork
+    rationale: Paper Eq. 1 clips L_goal directly; upstream divides it by 1.5 before clipping.
+
+  - contract: acsi_decision_stage
+    paper_value: {decision_stages: [collision_replay_decision_carried_to_reset], terminal_replay_probability: 1.0}
+    upstream_effective_value: {decision_stages: [collision_onset_termination_draw, terminal_replay_draw], terminal_replay_probability: 0.8}
+    selected_values:
+      paper_v1: {decision_stages: [collision_replay_decision_carried_to_reset], terminal_replay_probability: 1.0, decision_order: probability_then_reservation_then_reset_commit}
+      upstream_fbce672c: {decision_stages: [collision_onset_termination_draw, terminal_replay_draw], terminal_replay_probability: 0.8, decision_order: collision_onset_then_reset_selection}
+    evidence:
+      paper: ["arXiv:2603.09460v1:page-4:Eq-1-single-probability"]
+      upstream: ["git:fbce672c:training/legged_gym/legged_gym/envs/base/legged_robot_pos.py:354-379,576-602"]
+    resolution_status: profile_fork
+    rationale: paper_v1 adopts one replay decision carried to reset; upstream preserves its independent .8 terminal replay draw.
+
+  - contract: acsi_level_storage_and_update_event
+    paper_value: {level_increment_equation: strict_distance_events, initialization: null, storage_bounds: null, update_event: null}
+    upstream_effective_value: {level_update_policy: strict_distance_events, initial_level: 0.0, stored_level_bounds: [0.0, max_terrain_level], level_update_event: normal_episode_reset_after_replay_selection}
+    selected_values:
+      paper_v1: {level_update_policy: strict_distance_events, initial_level: 0.0, stored_level_bounds: [0.0, max_terrain_level], level_update_event: normal_episode_reset_after_replay_selection}
+      upstream_fbce672c: {level_update_policy: strict_distance_events, initial_level: 0.0, stored_level_bounds: [0.0, max_terrain_level], level_update_event: normal_episode_reset_after_replay_selection}
+    evidence:
+      paper: ["arXiv:2603.09460v1:page-4:Eq-1-omits-storage-lifecycle"]
+      upstream: ["git:fbce672c:training/legged_gym/legged_gym/envs/base/legged_robot_pos.py:253,378,423"]
+    resolution_status: resolved_upstream_fallback
+    rationale: Initialization, stored bounds, and episode event are paper-silent and therefore remain explicit upstream fallbacks.
+
+  - contract: goal_completion
+    paper_value: {goal_distance_threshold_m: 0.5, stay_ticks: null}
+    upstream_effective_value: {goal_distance_threshold_m: 0.5, stay_ticks: 150, stay_counter_mode: accumulated_in_goal_ticks}
+    selected_values:
+      paper_v1: {goal_distance_threshold_m: 0.5, stay_ticks: 150, stay_counter_mode: accumulated_in_goal_ticks}
+      upstream_fbce672c: {goal_distance_threshold_m: 0.5, stay_ticks: 150, stay_counter_mode: accumulated_in_goal_ticks}
+    evidence:
+      paper: ["arXiv:2603.09460v1:goal-completion-text-no-tick-count"]
+      upstream: ["git:fbce672c:training/legged_gym/legged_gym/envs/base/legged_robot_pos.py"]
+    resolution_status: resolved_upstream_fallback
+    rationale: Paper omits the tick count, so both selections record upstream's 150 accumulated in-goal ticks.
+
+  - contract: time_horizons
+    paper_value: {training_episode_s: 60.0, evaluation_timeout_s: 30.0}
+    upstream_effective_value: {training_episode_s: 60.0, evaluation_timeout_s: null}
+    selected_values:
+      paper_v1: {training_episode_s: 60.0, evaluation_timeout_s: 30.0}
+      upstream_fbce672c: {training_episode_s: 60.0, evaluation_timeout_s: null, evaluation_timeout_status: unsupported_no_complete_upstream_metric_runner}
+    evidence:
+      paper: ["arXiv:2603.09460v1:training-and-evaluation-protocol"]
+      upstream: ["git:fbce672c:training/legged_gym/legged_gym/envs/go2/go2_pos_config.py"]
+    resolution_status: resolved
+    rationale: paper_v1 separates the published 60 second training and 30 second evaluation horizons; upstream records that no complete evaluation runner supplies a timeout.
+
+  - contract: replay_reset_policy
+    paper_value: {reconstruction_policy: null}
+    upstream_effective_value: {reconstruction_policy: exact_historical_continuation_unavailable}
+    selected_values:
+      paper_v1: {reconstruction_policy: new_replay_episode_v1, activation_delta: replay_reset_reconstruction_v1, curriculum_state_rewound: false}
+      upstream_fbce672c: {reconstruction_policy: new_replay_episode_v1, activation_delta: replay_reset_reconstruction_v1, curriculum_state_rewound: false}
+    evidence:
+      paper: ["arXiv:2603.09460v1:collision-replay-does-not-specify-full-state-reconstruction"]
+      upstream: ["coordination:replay-schema-audit.md:new_replay_episode_v1"]
+    resolution_status: implementation_delta
+    rationale: The compact new-episode reconstruction is declared now but remains inactive until Task 5 and requires replay_reset_reconstruction_v1 at activation.

@@ -1,8 +1,15 @@
-route_id: sea_nav_source_graph_parity_footprint_preserved_learned_policy_contract
+route_id: sea_nav_profiled_adapter
 source_repo: .
 source_commit: fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96
-result_class: original_reproduction
-runtime_stack: current_isaaclab
+result_class: isaaclab_adapter_evidence
+run_identity:
+  algorithm_profile: upstream_fbce672c
+  runtime_stack: isaaclab_adapter
+  implementation_delta: [ppo_state_identity_repair]
+resolved_config_sha256: 94455b547d7dc70b0e733c57dd3f9f82f3c982a7fd09c04d073820be3838f378
+application_status: inactive_until_task_6_runtime_wiring
+selected_profile_source: configs/profiles/upstream_fbce672c.yaml
+current_runtime_values_status: pre_profile_wiring_not_parity_evidence
 
 observation:
   history_len: 10

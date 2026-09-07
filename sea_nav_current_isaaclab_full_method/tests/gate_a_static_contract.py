@@ -33,6 +33,7 @@ from adapters.obs_builder import (
     reset_history_from_one_step,
 )
 from adapters.trace_logger import REQUIRED_TRACE_FIELDS, validate_trace_record
+from rsl_rl.experiment_config import resolve_run_config
 from rsl_rl.modules.cbf_actor_critic import DifferentiableSafeActorCritic
 from rsl_rl.modules.cbf_lse_layer import ExactLSECBFLayer as ActorExactLSECBFLayer
 
@@ -300,7 +301,18 @@ def test_collision_replay_buffer_four_env_timelines() -> None:
 
 
 def test_manifest_and_trace_schema() -> None:
-    manifest = default_manifest(str(ROOT))
+    resolved = resolve_run_config(
+        registry_path=SEA_ROOT / "configs" / "parity_registry.yaml",
+        algorithm_profile="upstream_fbce672c",
+        runtime_stack="isaaclab_adapter",
+        implementation_delta=("ppo_state_identity_repair",),
+    )
+    manifest = default_manifest(
+        repo_root=SEA_ROOT,
+        adapter_root=ROOT,
+        resolved_config=resolved,
+        validation_rung="rung_2_cpu_static",
+    )
     assert manifest.formal_eval.collision_replay_enabled is False
     assert manifest.formal_eval.actor_lse_cbf_enabled is True
     assert manifest.runtime_contract.action_chain_mode == "current_pre_delay_cbf"
@@ -325,10 +337,19 @@ def test_manifest_and_trace_schema() -> None:
         assert payload["runtime_contract"]["source_contact_termination_enabled"] is True
         assert payload["source_repo"] == "."
         assert payload["adapter_root"] == "sea_nav_current_isaaclab_full_method"
+        assert payload["run_identity"] == {
+            "algorithm_profile": "upstream_fbce672c",
+            "runtime_stack": "isaaclab_adapter",
+            "implementation_delta": ["ppo_state_identity_repair"],
+        }
+        assert payload["resolved_config_sha256"] == resolved.resolved_sha256
+        assert payload["validation_rung"] == "rung_2_cpu_static"
+        assert payload["notes"]["result_class"] == "isaaclab_adapter_evidence"
         assert all(not Path(path).is_absolute() for path in payload["upstream_reference_paths"])
 
     committed_payload = json.loads((ROOT / "adapter_manifest.json").read_text(encoding="utf-8"))
     assert "/home/" not in json.dumps(committed_payload, sort_keys=True)
+    assert "original_reproduction" not in json.dumps(committed_payload, sort_keys=True)
 
     record = {field: None for field in REQUIRED_TRACE_FIELDS}
     record.update(

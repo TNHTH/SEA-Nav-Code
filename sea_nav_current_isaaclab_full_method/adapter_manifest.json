@@ -1,5 +1,5 @@
 {
-  "route_id": "sea_nav_source_graph_parity_footprint_preserved_learned_policy_contract",
+  "route_id": "sea_nav_profiled_adapter",
   "source_repo": ".",
   "source_commit": "fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96",
   "adapter_root": "sea_nav_current_isaaclab_full_method",
@@ -38,6 +38,15 @@
     "source_contact_termination_enabled": true,
     "source_play_eval_terminal_semantics_enabled": true
   },
+  "run_identity": {
+    "algorithm_profile": "upstream_fbce672c",
+    "runtime_stack": "isaaclab_adapter",
+    "implementation_delta": [
+      "ppo_state_identity_repair"
+    ]
+  },
+  "resolved_config_sha256": "94455b547d7dc70b0e733c57dd3f9f82f3c982a7fd09c04d073820be3838f378",
+  "validation_rung": "unverified",
   "gate_a": {
     "status": "unverified",
     "reason": "This committed example is not execution evidence; run portable Gate A and retain its caller-selected report.",
@@ -65,13 +74,7 @@
     ]
   },
   "notes": {
-    "result_class": "original_reproduction",
-    "eval_replay": "collision replay disabled during formal eval",
-    "cbf_alpha": "strict path uses upstream F.softplus(alpha_raw) without additive gamma_min floor",
-    "command_filter": "source alpha filter only; no action queue delay",
-    "terminal_defaults": "source stay_time=150 and contact termination enabled by default",
-    "training_status": "blocked_no_current_candidate_checkpoint_or_training_artifacts",
-    "gate_b_status": "not_started",
-    "gate_c_status": "not_started"
+    "result_class": "isaaclab_adapter_evidence",
+    "simulator_status": "blocked_until_runtime_gate"
   }
 }
