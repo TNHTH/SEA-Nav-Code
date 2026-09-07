@@ -32,6 +32,10 @@ class CommandDelayFilter:
             return
         self.filtered[env_ids] = 0.0
 
+    def reset_state(self, env_ids=None) -> None:
+        """Public masked new-episode bootstrap; the alpha filter has no queue."""
+        self.reset(env_ids)
+
     def step(self, command: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, torch.Tensor | int]]:
         clipped_new = torch.clip(command.to(self.device), -3.0, 3.0)
         self.filtered = self.config.alpha * clipped_new + (1.0 - self.config.alpha) * self.filtered

@@ -241,67 +241,44 @@ def test_action_chain_mode_semantics() -> None:
 
 
 def test_collision_replay_buffer() -> None:
-    replay = CollisionReplayBuffer(CollisionReplayConfig(ring_buffer_steps=180, undo_steps_range=(100, 150)))
+    replay = CollisionReplayBuffer(CollisionReplayConfig(ring_buffer_steps=180, undo_steps_range=(100,150)))
     for step in range(170):
-        replay.push(
-            root_state=[step] * 13,
-            dof_pos=[step] * 12,
-            dof_vel=[-step] * 12,
-            command=[0.1, 0.0, 0.0],
-            sea_obs_hist=[[float(step)] * 55] * 10,
-            slr_obs_hist=[[float(step)] * 45] * 10,
-            task_state={"room_id": 42, "step": step},
-            collision=(step == 160),
-        )
-    sample = replay.sample_pre_collision(undo_steps=120)
-    assert sample is not None
-    assert sample["step_index"] == 40
-    assert sample["is_replay"] is True
-    assert sample["source_collision_step"] == 160
-    assert sample["task_state"]["room_id"] == 42
+        root=torch.zeros(1,13); root[:,0]=step; root[:,3]=1
+        replay.push(root_state=root,dof_pos=torch.full((1,12),float(step)),
+                    dof_vel=torch.full((1,12),float(-step)),
+                    task_state={"start_cell":torch.tensor([[42.,0.]]),"map_origin_cell":torch.zeros(1,2),
+                                "goal_cell":torch.tensor([[43.,1.]])},
+                    collision=(step==160))
+    sample=replay.sample_pre_collision(undo_steps=120)
+    assert sample["step_index"]==40 and sample["source_collision_step"]==160
+    assert sample["is_replay"] and sample["task_state"]["start_cell"].tolist()==[42.,0.]
+    assert "sea_obs_hist" not in sample and "slr_obs_hist" not in sample
+    replay.acknowledge_restore(sample["_selection"])
+    assert replay.sample_pre_collision(undo_steps=120) is None
 
 
 def test_collision_replay_buffer_four_env_timelines() -> None:
-    replay = CollisionReplayBuffer(CollisionReplayConfig(ring_buffer_steps=180, undo_steps_range=(100, 150)), num_envs=4)
-    collision_steps = torch.tensor([160, 150, 140, 130])
+    replay=CollisionReplayBuffer(CollisionReplayConfig(),num_envs=4)
+    collision_steps=torch.tensor([160,150,140,130])
     for step in range(170):
-        env_offsets = torch.arange(4, dtype=torch.float32).unsqueeze(1) * 1000.0
-        replay.push(
-            root_state={
-                "root_pose": env_offsets + torch.full((4, 7), float(step)),
-                "root_velocity": env_offsets + torch.full((4, 6), float(-step)),
-            },
-            dof_pos=env_offsets + torch.full((4, 12), float(step)),
-            dof_vel=env_offsets + torch.full((4, 12), float(-step)),
-            command=torch.stack(
-                (
-                    torch.arange(4, dtype=torch.float32),
-                    torch.zeros(4),
-                    torch.zeros(4),
-                ),
-                dim=1,
-            ),
-            sea_obs_hist=torch.full((4, 10, 55), float(step)),
-            slr_obs_hist=torch.full((4, 10, 45), float(step)),
-            task_state={
-                "room_id": torch.arange(4),
-                "step": torch.full((4,), step),
-            },
-            collision=collision_steps == step,
-        )
-    for env_id, collision_step in enumerate(collision_steps.tolist()):
-        sample = replay.sample_pre_collision(env_id=env_id, undo_steps=120)
-        assert sample is not None
-        assert sample["env_id"] == env_id
-        assert sample["is_replay"] is True
-        assert sample["source_collision_step"] == collision_step
-        assert sample["step_index"] == collision_step - 120
-        assert sample["task_state"]["room_id"].item() == env_id
-        assert tuple(sample["root_state"]["root_pose"].shape) == (7,)
-        assert float(sample["root_state"]["root_pose"][0]) == env_id * 1000.0 + collision_step - 120
-    batched = replay.sample_pre_collision(env_id=[0, 1, 2, 3], undo_steps=120)
-    assert isinstance(batched, list)
-    assert [sample["env_id"] for sample in batched] == [0, 1, 2, 3]
+        offsets=torch.arange(4,dtype=torch.float32)*1000
+        root=torch.zeros(4,13); root[:,0]=offsets+step; root[:,3]=1
+        cells=torch.stack((torch.arange(4,dtype=torch.float32),torch.zeros(4)),dim=-1)
+        replay.push(root_state=root,dof_pos=torch.ones(4,12)*step,dof_vel=-torch.ones(4,12)*step,
+                    task_state={"start_cell":cells,"map_origin_cell":cells,"goal_cell":cells+2},
+                    collision=collision_steps==step)
+    for env_id,collision_step in enumerate(collision_steps.tolist()):
+        sample=replay.sample_pre_collision(env_id=env_id,undo_steps=120)
+        assert sample["env_id"]==env_id and sample["source_collision_step"]==collision_step
+        assert sample["step_index"]==collision_step-120
+        assert sample["task_state"]["start_cell"][0]==env_id
+        assert sample["root_state"]["root_pose"].shape==(7,)
+        assert sample["root_state"]["root_pose"][0]==env_id*1000+collision_step-120
+        replay.cancel_restore(sample["_selection"],"compatibility resampling")
+    batched=replay.sample_pre_collision(env_id=[0,1,2,3],undo_steps=120)
+    assert [sample["env_id"] for sample in batched]==[0,1,2,3]
+    for sample in batched:
+        replay.acknowledge_restore(sample["_selection"])
 
 
 def test_manifest_and_trace_schema() -> None:
@@ -505,9 +482,9 @@ def test_trainer_surface_contract() -> None:
         'if self.source_play_eval_terminal_semantics_enabled:',
         "active_terminate_ids = terminate_ids if self.source_contact_termination_enabled else []",
         "stand_still_flag = self.stay_timer >= self.source_stand_still_time_steps",
-        "CollisionReplayBuffer(self.collision_replay_config, num_envs=self.num_envs)",
-        "self.replay_buffer.sample_pre_collision(env_id=env_id, undo_steps=undo_steps)",
-        "self.reset(env_ids=normal_reset_env_ids)",
+        "CollisionReplayBuffer(self.collision_replay_config, num_envs=self.num_envs, device=self.device)",
+        "self.replay_buffer.reserve_pre_collision(ids[wants])",
+        "execute_reset_transaction(ids,wants,selection,self.replay_buffer,self._normal_reset_rows,",
         'robot.write_root_pose_to_sim(root_pose, env_ids=env_ids)',
         "**command_filter_contract(adapter_env)",
         "**terminal_semantics_contract(adapter_env)",

@@ -46,6 +46,11 @@ from .legged_robot_pos_config import LeggedRobotPosCfg
 from legged_gym.envs.go2.go2_pos_config import Go2PosRoughCfg
 from legged_gym.utils.custom_terrain import *
 import torch.nn.functional as F
+from rsl_rl.replay import (
+    CollisionReplayBuffer, CollisionReplayConfig, ReplayTensorSpec, CurriculumConfig,
+    reset_probability, select_collision_reset, select_terminal_replay, update_goal_level,
+    execute_reset_transaction, build_reset_frames, bootstrap_history, advance_history, local_goal, require_runtime_contract,
+)
 
 SAVE_IMG = False
 MAX_DEPTH = 10
@@ -113,12 +118,36 @@ class LeggedRobotPos(LeggedRobot):
 
     def _init_replay_buffers(self):
         """ Initialize buffers for state replay and collision tracking. """
-        # --- State Replay ---
-        self.replay_len = 100 # Store ~2 seconds of history
-        self.replay_root_states = torch.zeros(self.num_envs, self.replay_len, 13, device=self.device, dtype=torch.float)
-        self.replay_dof_pos = torch.zeros(self.num_envs, self.replay_len, self.num_dof, device=self.device, dtype=torch.float)
-        self.replay_dof_vel = torch.zeros(self.num_envs, self.replay_len, self.num_dof, device=self.device, dtype=torch.float)
-        
+        from rsl_rl.replay import replay_configs_from_resolved, validate_reset_reward_terms
+        validate_reset_reward_terms(name for name in dir(self.cfg.rewards.scales)
+                                    if not name.startswith("_") and getattr(self.cfg.rewards.scales, name) != 0)
+        self.replay_runtime_contract = getattr(self.cfg.replay, "runtime_contract", None)
+        enabled = getattr(self.cfg.replay, "enable_collision_replay", False)
+        undo = tuple(getattr(self.cfg.replay, "undo_steps_range", (100,150)))
+        capacity = getattr(self.cfg.replay, "ring_buffer_steps", 180)
+        resolved = getattr(self.cfg, "resolved_run_config", None)
+        if resolved is not None:
+            replay_config,self.acsi_config = replay_configs_from_resolved(
+                resolved,max_level=self.max_terrain_level,capacity=capacity,undo=undo,enabled=enabled)
+            self.replay_implementation_delta = resolved.identity.implementation_delta
+        else:
+            prob = getattr(self.cfg.replay, "early_reset_prob_range", (.1,.5))
+            replay_config = CollisionReplayConfig(enabled_during_training=enabled,ring_buffer_steps=capacity,
+                undo_steps_range=undo,replay_prob=getattr(self.cfg.replay,"replay_prob",.8))
+            self.acsi_config = CurriculumConfig(p_min=prob[0],p_max=prob[1],max_level=self.max_terrain_level,
+                terminal_replay_probability=replay_config.replay_prob)
+            self.replay_implementation_delta = tuple(getattr(self.cfg,"implementation_delta",()))
+        self.replay_policy = replay_config.reconstruction_policy
+        if enabled:
+            if "replay_reset_reconstruction_v1" not in self.replay_implementation_delta:
+                raise ValueError("compact replay requires explicit replay_reset_reconstruction_v1 implementation delta")
+            require_runtime_contract(self.replay_runtime_contract,"isaac_gym_preview4")
+        self.goal_levels[:] = self.acsi_config.initial_level
+        self.replay_task_generation = torch.zeros(self.num_envs,device=self.device,dtype=torch.long)
+        self.replay_buffer = CollisionReplayBuffer(replay_config,self.num_envs,
+            spec=ReplayTensorSpec(dof_count=self.num_dof),device=self.device)
+        self.acsi_carried_decision = torch.zeros(self.num_envs, device=self.device, dtype=torch.bool)
+        self._reset_curriculum_updated = torch.zeros(self.num_envs, device=self.device, dtype=torch.bool)
         # --- Flags & Counters ---
         self.collision_occurred = torch.zeros(self.num_envs, device=self.device, dtype=torch.bool)
         self.last_collision_active = torch.zeros(self.num_envs, device=self.device, dtype=torch.bool)
@@ -134,32 +163,12 @@ class LeggedRobotPos(LeggedRobot):
         self.slr_encoder_vel = torch.jit.load(f"{LEGGED_GYM_ROOT_DIR}/legged_gym/ctrl_model/encoder_vel.jit")
         self.slr_encoder_latent = torch.jit.load(f"{LEGGED_GYM_ROOT_DIR}/legged_gym/ctrl_model/encoder_latent.jit")
 
-    def _update_replay_buffer(self):
-        # Update replay buffer
-        self.replay_root_states = torch.where(
-            (self.episode_length_buf <= 1)[:, None, None],
-            torch.stack([self.root_states] * self.replay_len, dim=1),
-            torch.cat([
-                self.replay_root_states[:, 1:],
-                self.root_states.unsqueeze(1)
-            ], dim=1)
-        )
-        self.replay_dof_pos = torch.where(
-            (self.episode_length_buf <= 1)[:, None, None],
-            torch.stack([self.dof_pos] * self.replay_len, dim=1),
-            torch.cat([
-                self.replay_dof_pos[:, 1:],
-                self.dof_pos.unsqueeze(1)
-            ], dim=1)
-        )
-        self.replay_dof_vel = torch.where(
-            (self.episode_length_buf <= 1)[:, None, None],
-            torch.stack([self.dof_vel] * self.replay_len, dim=1),
-            torch.cat([
-                self.replay_dof_vel[:, 1:],
-                self.dof_vel.unsqueeze(1)
-            ], dim=1)
-        )
+    def _capture_replay_boundary(self, env_ids=None):
+        ids = torch.arange(self.num_envs, device=self.device) if env_ids is None else env_ids
+        self.replay_buffer.push(
+            env_ids=ids, root_state=self.root_states[ids], dof_pos=self.dof_pos[ids],
+            dof_vel=self.dof_vel[ids], task_state={"position_targets": self.position_targets[ids]},
+            collision=self.last_collision_active[ids], record_step_ids=self.episode_length_buf[ids])
 
     def _compute_torques(self, actions):
         """ Compute torques from actions.
@@ -307,128 +316,158 @@ class LeggedRobotPos(LeggedRobot):
                                                      gymtorch.unwrap_tensor(self.root_states),
                                                      gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
 
-    def _reset_collision_replay(self, env_ids):
-        # Decide replay step: based on config range
-        undo_range = getattr(self.cfg.replay, 'undo_steps_range', [40, 80])
-        undo_steps = torch.randint(undo_range[0], undo_range[1], (len(env_ids),), device=self.device)
-        
-        # Cap undo_steps by current episode length
-        current_len = self.episode_length_buf[env_ids]
-        undo_steps = torch.min(undo_steps.long(), current_len.long())
-        undo_steps = torch.min(undo_steps, torch.tensor(self.replay_len - 1, device=self.device))
-        
-        # Minimum history required for a valid replay
-        valid_replay = undo_steps > 20
-        replay_ids = env_ids[valid_replay]
-        fallback_ids = env_ids[~valid_replay]
-        
-        if len(fallback_ids) > 0:
-            if self.cfg.terrain.curriculum:
-                self._update_terrain_curriculum(fallback_ids)
-            self._reset_root_states(fallback_ids)
-            self._reset_dofs(fallback_ids)
-            self.is_replay[fallback_ids] = False
-        
-        if len(replay_ids) == 0:
-            return
+    def _validate_replay_runtime(self, selection):
+        self.replay_buffer.validate_selection(selection)
+        # No CPU/static check certifies PhysX/FK/contact/controller state.
+        contract = require_runtime_contract(self.replay_runtime_contract, "isaac_gym_preview4")
+        contract.validate(self, selection)
 
-        self.is_replay[replay_ids] = True
-        indices = -undo_steps[valid_replay]
-        
-        # Fetch from buffer
-        # Buffer shape: (num_envs, replay_len, dim)
-        self.root_states[replay_ids] = self.replay_root_states[replay_ids, indices]
-        self.dof_pos[replay_ids] = self.replay_dof_pos[replay_ids, indices]
-        self.dof_vel[replay_ids] = self.replay_dof_vel[replay_ids, indices]
-        
-        # Update simulation state
-        env_ids_int32 = replay_ids.to(dtype=torch.int32)
-        self.gym.set_actor_root_state_tensor_indexed(self.sim,
-                                                     gymtorch.unwrap_tensor(self.root_states),
-                                                     gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
+    def _reset_collision_replay(self, selection):
+        ids = selection.env_ids
+        self.replay_runtime_contract.prepare_rows(self, ids)
+        fields = selection.batch.fields
+        self.root_states[ids] = fields["root_state"]
+        self.dof_pos[ids] = fields["dof_pos"]
+        self.dof_vel[ids] = fields["dof_vel"]
+        self.position_targets[ids] = fields["position_targets"]
+        self.actions[ids] = 0
+        self.torques[ids] = 0
+        ids32 = ids.to(torch.int32)
+        self.gym.set_actor_root_state_tensor_indexed(self.sim, gymtorch.unwrap_tensor(self.root_states),
+                                                     gymtorch.unwrap_tensor(ids32), len(ids32))
+        self.gym.set_dof_state_tensor_indexed(self.sim, gymtorch.unwrap_tensor(self.dof_state),
+                                             gymtorch.unwrap_tensor(ids32), len(ids32))
+        self.replay_runtime_contract.refresh_rows(self, ids)
 
-        self.gym.set_dof_state_tensor_indexed(self.sim,
-                                              gymtorch.unwrap_tensor(self.dof_state),
-                                              gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
+    def _normal_reset_rows(self, ids):
+        fresh = ids[~self._reset_curriculum_updated[ids]]
+        if len(fresh) and self.cfg.terrain.curriculum:
+            self._update_terrain_curriculum(fresh)
+        self._reset_curriculum_updated[fresh] = True
+        if self.replay_runtime_contract is not None:
+            self.replay_runtime_contract.prepare_rows(self, ids)
+        self._reset_dofs(ids)
+        self._reset_root_states(ids)
+        if self.replay_runtime_contract is not None:
+            self.replay_runtime_contract.refresh_rows(self, ids)
+
+    def _reconstruct_reset_rows(self, ids):
+        # Compact policy: noise-free synthetic histories from the restored boundary.
+        self.base_quat[ids] = self.root_states[ids, 3:7]
+        self._get_rays(ids)
+        goal = local_goal(self.root_states[ids], self.position_targets[ids])
+        self.goal_local_pos[ids] = goal
+        self.distance[ids] = torch.norm(self.position_targets[ids,:2]-self.root_states[ids,:2], dim=-1)
+        frames = build_reset_frames(
+            self.root_states[ids], self.dof_pos[ids], self.dof_vel[ids], self.default_dof_pos,
+            self.rays[ids], goal, "xyzw", joint_order=self.reindex(torch.arange(self.num_dof, device=self.device)[None])[0],
+            angular_scale=self.cfg.loco.normalization.obs_scales.ang_vel,
+            dof_position_scale=self.cfg.loco.normalization.obs_scales.dof_pos,
+            dof_velocity_scale=self.cfg.loco.normalization.obs_scales.dof_vel)
+        self.base_lin_vel[ids] = frames["body_linear"]
+        self.base_ang_vel[ids] = frames["body_angular"]
+        self.projected_gravity[ids] = frames["gravity"]
+        if self.replay_runtime_contract is not None:
+            self.feet_pos[ids] = self.rigid_body_states[ids[:, None], self.feet_indices[None, :], :3]
+            self.feet_vel[ids] = self.rigid_body_states[ids[:, None], self.feet_indices[None, :], 7:10]
+        for name in ("actions_orig", "actions", "last_actions", "torques", "nav_actions_orig",
+                     "nav_actions_filtered", "nav_actions_after_clip", "slr_commands"):
+            if not hasattr(self, name):
+                setattr(self, name, torch.zeros(self.num_envs, self.num_dof if name in ("actions_orig","actions","last_actions","torques") else 3, device=self.device))
+            getattr(self, name)[ids] = 0
+        self.time_out_buf[ids] = False
+        if hasattr(self, "terminate_buf"):
+            self.terminate_buf[ids] = False
+        for name in ("feet_air_time", "contact_filt", "last_contacts", "collision_occurred",
+                     "last_collision_active", "num_collisions", "collision_pos_hist", "episode_length_buf",
+                     "goal_hold_timer", "stay_timer", "goal_reached_flag", "stand_still_flag",
+                     "acsi_carried_decision"):
+            getattr(self, name)[ids] = 0
+        self.last_dof_vel[ids] = self.dof_vel[ids]
+        self.last_root_vel[ids] = self.root_states[ids,7:13]
+        self.last_base_twist[ids,:3] = frames["body_linear"]
+        self.last_base_twist[ids,3:] = frames["body_angular"]
+        for name, value in (("initial_", True), ("not_just_reset", False), ("static", False)):
+            if not hasattr(self, name):
+                setattr(self, name, torch.zeros(self.num_envs, device=self.device, dtype=torch.bool))
+            getattr(self, name)[ids] = value
+        if not hasattr(self, "far_goal"):
+            self.far_goal = torch.zeros(self.num_envs, device=self.device, dtype=torch.bool)
+        self.far_goal[ids] = self.distance[ids] > .5
+        self.reach_goal[ids] = self.distance[ids] < .5
+        self.fall_down[ids] = frames["gravity"][:,2] > -.8
+        self.delay_rays[ids] = self.rays[ids]
+        self.delay_goal[ids] = goal
+        if not hasattr(self, "rays_rand"):
+            self.rays_rand = self.rays.clone()
+        self.rays_rand[ids] = self.rays[ids]
+        self.slr_obs_buf[ids] = frames["slr"]
+        from rsl_rl.replay import bootstrap_episode_buffers
+        bootstrap_episode_buffers({
+            "navigation_history":self.obs_history_buf, "slr_history":self.slr_obs_hist,
+            "ray_history":self.rays_hist, "goal_history":self.goal_hist, "position_history":self.pos_hist,
+            "held_rays":self.delay_rays, "held_goal":self.delay_goal,
+            "command":self.slr_commands, "action":self.actions_orig, "filter":self.nav_actions_filtered,
+            "episode_length":self.episode_length_buf, "goal_timer":self.goal_hold_timer, "stay_timer":self.stay_timer,
+            "collision":self.collision_occurred, "previous_collision":self.last_collision_active,
+            "initial":self.initial_, "static":self.static,
+            "last_dof_velocity":self.last_dof_vel, "last_root_velocity":self.last_root_vel,
+            "last_body_twist":self.last_base_twist}, ids,frames,self.root_states[ids],self.dof_vel[ids],
+            self.rays[ids],goal,self.root_states[ids,:2])
+        self.base_lin_vel_pred[ids] = self.slr_encoder_vel(self.slr_obs_hist[ids].reshape(len(ids),-1))
+        self.obs_buf = self.obs_history_buf.reshape(self.num_envs,-1)
 
     def reset_idx(self, env_ids):
-        if len(env_ids) == 0:
+        if not len(env_ids):
             return
-            
-        # Separate Normal vs Replay
-        # Only replay if ENABLED in config and at least one collision occurred 
-        # Skip replay if it finished via success/timeout to avoid reward issues
-        enable_replay = getattr(self.cfg.replay, 'enable_collision_replay', False)
-        is_collision = self.collision_occurred[env_ids]
-        is_success = self.goal_reached_flag[env_ids]
-        is_timeout = self.time_out_buf[env_ids]
-        
-        prob_replay = getattr(self.cfg.replay, 'replay_prob', 0.8)
-        wants_replay = enable_replay & (torch.rand(len(env_ids), device=self.device) < prob_replay) & is_collision & (~is_success) & (~is_timeout)
-        
-        replay_ids = env_ids[wants_replay]
-        normal_ids = env_ids[~wants_replay]
-        
-        # Replay Reset
-        if len(replay_ids) > 0:
-            self._reset_collision_replay(replay_ids)
-
-        # Normal Reset
-        if len(normal_ids) > 0:
-            if self.cfg.terrain.curriculum:
-                self._update_terrain_curriculum(normal_ids)
-            self._reset_dofs(normal_ids)
-            self._reset_root_states(normal_ids)
-            self.is_replay[normal_ids] = False
-
-        # Common Reset Logic (Buffers)
-        # We do this for ALL envs
-        self.last_actions[env_ids] = 0.
-        self.last_dof_vel[env_ids] = 0.
-        self.feet_air_time[env_ids] = 0.
-        self.episode_length_buf[env_ids] = 0
-        self.obs_history_buf[env_ids, :, :] = 0.
-        self.slr_obs_hist[env_ids, :, :] = 0.
-        self.rays_hist[env_ids, :, :] = 5.
-        self.pos_hist[env_ids, :, :] = 0.
-        self.goal_hist[env_ids, :, :] = 0.
-        
-        self.reset_buf[env_ids] = 1
-        self.goal_reached_flag[env_ids] = 0
-        self.stand_still_flag[env_ids] = 0
-        self.goal_hold_timer[env_ids] = 0
-        self.stay_timer[env_ids] = 0
-        self.reach_goal[env_ids] = 0
-        self.nav_actions_filtered[env_ids] = 0.
-        
-        self.contact_filt[env_ids] = False
-        self.last_contacts[env_ids] = False
-        self.collision_occurred[env_ids] = False # Reset collision flag
-        self.last_collision_active[env_ids] = False
-        self.num_collisions[env_ids] = 0 # Reset collision count for visualization
-        self.collision_pos_hist[env_ids] = 0 # Clear history
-        
+        self._reset_curriculum_updated[env_ids] = False
+        self._reset_terminal_distance = self.distance.clone()
+        wants = select_terminal_replay(
+            self.collision_occurred[env_ids], self.goal_reached_flag[env_ids], self.time_out_buf[env_ids],
+            self.acsi_carried_decision[env_ids],
+            None if self.acsi_config.mode == "paper_v1" else torch.rand(len(env_ids), device=self.device),
+            self.acsi_config)
+        wants &= getattr(self.cfg.replay, "enable_collision_replay", False)
+        selection = self.replay_buffer.reserve_pre_collision(env_ids[wants])
+        # Terminal accounting is captured once, outside retryable physical hooks.
         self.extras["episode"] = {}
-        for key in self.episode_sums.keys():
-            self.extras["episode"]['rew_' + key] = torch.mean(self.episode_sums[key][env_ids]) / self.max_episode_length_s
-            self.episode_sums[key][env_ids] = 0.
-        
-        # Extras calculation might need adjustment if mixed
+        for key, values in self.episode_sums.items():
+            self.extras["episode"]["rew_"+key] = torch.mean(values[env_ids]) / self.max_episode_length_s
+            values[env_ids] = 0
+        if self.cfg.env.send_timeouts:
+            self.extras["time_outs"] = self.time_out_buf.clone()
+        result = execute_reset_transaction(
+            env_ids, wants, selection, self.replay_buffer, self._normal_reset_rows,
+            self._reset_collision_replay, self._reconstruct_reset_rows,
+            lambda ids: self._post_reset_epilogue(ids, reset_rows=True),
+            validate=self._validate_replay_runtime)
+        self.is_replay[env_ids] = False
+        self.is_replay[result.replay_ids] = True
+        self.last_reset_partition = result
+        # Old done/timeouts stay intact for the transition returned to PPO.
+        self.reset_buf[env_ids] = 1
+        self.replay_buffer.begin_episode(env_ids, self.replay_task_generation[env_ids])
+        self._capture_replay_boundary(env_ids)
         if self.cfg.terrain.curriculum:
             self.extras["episode"]["terrain_level"] = torch.mean(self.terrain_levels.float())
             self.extras["episode"]["goal_level"] = torch.mean(self.goal_levels.float())
-        if self.cfg.env.send_timeouts:
-            self.extras["time_outs"] = self.time_out_buf
-        
+
     def _update_terrain_curriculum(self, env_ids):
         if not self.init_done:
             return
 
-        move_up = self.distance[env_ids] < self.cfg.rewards.position_target_sigma_tight
-        move_down = self.distance[env_ids] > self.cfg.rewards.position_target_sigma_soft
+        terminal_distance = self._reset_terminal_distance[env_ids]
+        move_up = terminal_distance < self.cfg.rewards.position_target_sigma_tight
+        move_down = terminal_distance > self.cfg.rewards.position_target_sigma_soft
         
-        self.goal_levels[env_ids] += 1 * move_up - 1 * move_down
-        self.goal_levels[env_ids] = self.goal_levels[env_ids].clip(min=0, max=self.max_terrain_level)
+        old_levels = self.goal_levels[env_ids].clone()
+        next_levels, up, down = update_goal_level(old_levels, terminal_distance,
+                                                 torch.ones_like(old_levels, dtype=torch.bool), self.acsi_config)
+        self.goal_levels[env_ids] = next_levels
+        self.last_acsi_update = {"env_ids": env_ids.clone(), "old_level": old_levels,
+                                 "new_level": next_levels.clone(), "distance": terminal_distance.clone(),
+                                 "up": up, "down": down}
+        self.replay_task_generation[env_ids] += 1
         
         self.terrain_levels[env_ids] += 1 * move_up - 1 * move_down
 
@@ -503,10 +542,14 @@ class LeggedRobotPos(LeggedRobot):
         heights1 = self.height_samples[px, py]
         heights2 = self.height_samples[px+1, py]
         heights = torch.max(heights1, heights2)
-        self.measured_heights = heights.view(self.num_envs, self.len_x, self.len_y) * self.terrain.cfg.vertical_scale
-        center_height = self.measured_heights[:, self.c_x, self.c_y].unsqueeze(1).unsqueeze(2)
-        raw_heights = torch.where(self.measured_heights > center_height + 0.1, 1.0, 0.0)
-        self.rays = self._grid2ray(raw_heights) * self.cfg.terrain.measure_resolution
+        ids = torch.arange(self.num_envs, device=self.device) if env_ids is None else env_ids
+        if not hasattr(self, "measured_heights") or self.measured_heights.ndim != 3:
+            self.measured_heights = torch.zeros(self.num_envs, self.len_x, self.len_y, device=self.device)
+        measured = heights.view(len(ids), self.len_x, self.len_y) * self.terrain.cfg.vertical_scale
+        self.measured_heights[ids] = measured
+        center_height = measured[:, self.c_x, self.c_y, None, None]
+        raw_heights = torch.where(measured > center_height + 0.1, 1.0, 0.0)
+        self.rays[ids] = self._grid2ray(raw_heights) * self.cfg.terrain.measure_resolution
 
     def _grid2ray(self, grid_batch):
         base_row, base_col = self.c_x, self.c_y  
@@ -571,7 +614,7 @@ class LeggedRobotPos(LeggedRobot):
             self._check_spawn_collision()
         
         # Add initial flag to extras as a bad_mask to discard transitions in PPO
-        self.extras["bad_masks"] = self.initial_
+        self.extras["bad_masks"] = self.initial_.clone()
 
         # Collision Tracking & Early Replay Reset (NON-terminal, no -500 penalty)
         new_collisions = torch.any((torch.norm(self.contact_forces[:, self.penalised_contact_indices, :2], dim=-1) > 1.0), dim=1)
@@ -580,16 +623,13 @@ class LeggedRobotPos(LeggedRobot):
         # Detect the onset of collision to avoid repetitive triggering over consecutive frames
         is_new_collision = new_collisions & (~self.last_collision_active)
         
-        # Curriculum for early_reset_prob: pull range from config
-        prob_range = getattr(self.cfg.replay, 'early_reset_prob_range', [0.1, 0.67])
-        early_prob_min, early_prob_max = prob_range[0], prob_range[1]
-        
-        # goal_levels is updated during curriculum, providing a per-env difficulty measure
-        # Fixed scaling: 0.1 at level 0, max prob at level 1.5
-        early_prob = early_prob_min + (early_prob_max - early_prob_min) * (self.goal_levels / 1.5).clip(max=1.0)
-        
-        trigger_replay_mask = is_new_collision & (torch.rand(self.num_envs, device=self.device) < early_prob)
-        
+        early_prob = reset_probability(self.goal_levels, self.acsi_config)
+        uniforms = torch.rand(self.num_envs, device=self.device)
+        trigger_replay_mask = select_collision_reset(is_new_collision, ~self.initial_, early_prob, uniforms)
+        self.acsi_carried_decision = trigger_replay_mask
+        self.last_acsi_decision = {"probability": early_prob, "uniforms": uniforms,
+                                  "decision": trigger_replay_mask, "mode": self.acsi_config.mode}
+
         # IMPORTANT: Updated to include termination penalty for early resets to discourage collision-seeking behavior.
         self.reset_buf |= trigger_replay_mask
         self.terminate_buf |= trigger_replay_mask # Add penalty
@@ -645,87 +685,37 @@ class LeggedRobotPos(LeggedRobot):
             self.rew_buf += rew
             self.episode_sums["termination"] += rew
 
-    def _get_perception(self):
-        """ Resample navigation commands when camera message is ready (simulate real delay).
-        """
-        self.rays_rand = self.rays.clone() + torch.rand_like(self.rays) * 0.0
-        self.rays_hist = torch.where(
-            (self.episode_length_buf <= 1)[:, None, None],
-            torch.stack([self.rays_rand] * self.cfg.env.his_len, dim=1),
-            torch.cat([
-                self.rays_hist[:, 1:],
-                self.rays_rand.unsqueeze(1)
-            ], dim=1)
-        )
-        pos_diff = self.position_targets - self.root_states[:, 0:3]
-        self.goal_local_pos = quat_rotate_inverse(yaw_quat(self.base_quat), pos_diff)[:, :2]
-        self.goal_hist = torch.where(
-            (self.episode_length_buf <= 1)[:, None, None],
-            torch.stack([self.goal_local_pos] * self.cfg.env.his_len, dim=1),
-            torch.cat([
-                self.goal_hist[:, 1:],
-                self.goal_local_pos.unsqueeze(1)
-            ], dim=1)
-        )
-
     def compute_observations(self):
-        """ Computes observations
-        """
-        self._update_replay_buffer()
-        self.prop_buf = torch.cat((
-                                self.projected_gravity, # 0:3
-                                self.slr_commands[:, :3] * self.commands_scale[:3], # 3:6
-                                # self.nav_actions_orig * self.commands_scale, # 3:6
-                                self.base_lin_vel * 1.0, # 6:9 
-                                self.base_ang_vel * 1.0 # 9:12
-                                ), dim=-1)
-            
-        noise_scales = self.cfg.noise.noise_scales
-        noise_vec = torch.cat((
-                               torch.ones(3) * noise_scales.gravity,
-                               torch.zeros(3),
-                               torch.ones(3) * noise_scales.lin_vel * 1.0,
-                               torch.ones(3) * noise_scales.ang_vel * 1.0,
-                               ), dim=0)
-        
+        self.compute_observations_for(torch.arange(self.num_envs, device=self.device))
+
+    def compute_observations_for(self, ids):
+        if not len(ids):
+            return
+        self.goal_local_pos[ids] = local_goal(self.root_states[ids], self.position_targets[ids])
+        initial = self.episode_length_buf <= 1
+        advance_history(self.rays_hist, self.rays, initial, ids)
+        advance_history(self.goal_hist, self.goal_local_pos, initial, ids)
+        refresh = ids[self.episode_length_buf[ids] % max(1, int(self.cfg.commands.delay_time / self.dt)) == 0]
+        if len(refresh):
+            sample = -torch.randint(2,4,(len(refresh),),device=self.device)-1
+            self.delay_rays[refresh] = self.rays_hist[refresh,sample]
+            self.delay_goal[refresh] = self.goal_hist[refresh,sample]
+        pos_ids = ids[self.episode_length_buf[ids] % 10 == 0]
+        advance_history(self.pos_hist, self.root_states[:,:2], initial, pos_ids)
+        prop = torch.cat((self.projected_gravity[ids],self.slr_commands[ids,:3]*self.commands_scale[:3],
+                          self.base_lin_vel[ids],self.base_ang_vel[ids]),dim=-1)
         if self.cfg.noise.add_noise:
-            self.prop_buf += (2 * torch.rand_like(self.prop_buf) - 1) * noise_vec.to(self.device)
+            scales = self.cfg.noise.noise_scales
+            noise = prop.new_tensor([scales.gravity]*3+[0.]*3+[scales.lin_vel]*3+[scales.ang_vel]*3)
+            prop += (2*torch.rand_like(prop)-1)*noise
+        frame = torch.cat((prop,torch.log2(self.delay_rays[ids].clamp(.1,5)),self.delay_goal[ids]),dim=-1)
+        boot = initial[ids]
+        bootstrap_history(self.obs_history_buf,ids[boot],frame[boot])
+        running = ids[~boot]
+        self.obs_history_buf[running,:-1] = self.obs_history_buf[running,1:].clone()
+        self.obs_history_buf[running,-1] = frame[~boot]
+        self.obs_buf = self.obs_history_buf.reshape(self.num_envs,-1)
 
-        self._get_perception()
-
-        env_ids = (self.episode_length_buf % int(self.cfg.commands.delay_time / self.dt)==0).nonzero(as_tuple=False).flatten()
-        if len(env_ids) != 0:
-            resample_time_idx = -torch.randint(2, 4, (len(env_ids),), device=self.device) -1 # simulate a small random delay
-            self.delay_rays[env_ids] = self.rays_hist[env_ids, resample_time_idx, :]
-            self.delay_goal[env_ids] = self.goal_hist[env_ids, resample_time_idx, :]
-        
-        env_ids = (self.episode_length_buf % 10 == 0).nonzero(as_tuple=False).flatten()
-        self.pos_hist[env_ids] = torch.where(
-            (self.episode_length_buf[env_ids] <= 1)[:, None, None],
-            torch.stack([self.root_states[env_ids,:2]] * self.cfg.env.his_len, dim=1),
-            torch.cat([
-                self.pos_hist[env_ids, 1:],
-                self.root_states[env_ids,:2].unsqueeze(1)
-            ], dim=1)
-        )
-
-        obs_buf = torch.cat((
-                            self.prop_buf, # 12
-                            torch.log2(self.delay_rays.clip(min=0.1, max=5.0)), # num_rays 41
-                            self.delay_goal, # 2
-                            ), dim=-1)
-
-        self.obs_history_buf = torch.where(
-            (self.episode_length_buf <= 1)[:, None, None],
-            torch.stack([obs_buf] * self.cfg.env.his_len, dim=1),
-            torch.cat([
-                self.obs_history_buf[:, 1:],
-                obs_buf.unsqueeze(1)
-            ], dim=1)
-        )  
-
-        self.obs_buf = self.obs_history_buf.view(self.num_envs, -1)
-        
     def _draw_ray_vis(self):
         """ Draws visualizations for rays with configurable groups/FOVs. 
             Refactored to separate selection and rendering logic.

@@ -141,16 +141,29 @@ class LeggedRobot(BaseTask):
         self.check_termination()
         self.compute_reward()
         env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
-        if self.do_reset: self.reset_idx(env_ids)
-        self.compute_observations() # in some cases a simulation step might be required to refresh some obs (for example body positions)
+        if hasattr(self, "_capture_replay_boundary"):
+            self._capture_replay_boundary()
+        if hasattr(self, "compute_observations_for"):
+            running = (~self.reset_buf).nonzero(as_tuple=False).flatten() if self.do_reset else torch.arange(self.num_envs, device=self.device)
+            self.compute_observations_for(running)
+            self._post_reset_epilogue(running)
+            if self.do_reset:
+                self.reset_idx(env_ids)
+        else:
+            if self.do_reset:
+                self.reset_idx(env_ids)
+            self.compute_observations()
+            self._post_reset_epilogue(torch.arange(self.num_envs, device=self.device))
 
-        self.last_actions[:] = self.actions[:]
-        
-        self.last_dof_vel[:] = self.dof_vel[:]
-        self.last_root_vel[:] = self.root_states[:, 7:13]
-        
         if self.viewer and self.enable_viewer_sync and self.debug_viz:
             self._draw_debug_vis()
+
+    def _post_reset_epilogue(self, env_ids, reset_rows=False):
+        self.last_actions[env_ids] = self.actions[env_ids]
+        self.last_dof_vel[env_ids] = self.dof_vel[env_ids]
+        self.last_root_vel[env_ids] = self.root_states[env_ids, 7:13]
+        if reset_rows and getattr(self, "replay_runtime_contract", None) is not None:
+            self.replay_runtime_contract.finish_rows(self, env_ids)
 
     def check_termination(self):
         """ Check if environments need to be reset

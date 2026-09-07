@@ -36,6 +36,8 @@ parser.add_argument(
 parser.add_argument("--command-delay-s", type=float, default=0.1)
 parser.add_argument("--command-filter-alpha", type=float, default=0.5)
 parser.add_argument("--enable-collision-replay", action="store_true")
+parser.add_argument("--replay-reset-policy", choices=["new_replay_episode_v1"], default="new_replay_episode_v1")
+parser.add_argument("--implementation-delta", action="append", default=[])
 parser.add_argument("--replay-prob", type=float, default=0.8)
 parser.add_argument("--replay-ring-buffer-steps", type=int, default=180)
 parser.add_argument("--replay-undo-min", type=int, default=100)
@@ -50,6 +52,7 @@ parser.add_argument("--source-pos-hist-interval-steps", type=int, default=10)
 parser.add_argument("--source-early-reset-prob-min", type=float, default=0.1)
 parser.add_argument("--source-early-reset-prob-max", type=float, default=0.5)
 parser.add_argument("--source-goal-level", type=float, default=0.0)
+parser.add_argument("--source-max-goal-level", type=float, default=10.0)
 parser.add_argument("--source-stand-still-time-steps", type=int, default=150)
 parser.add_argument("--disable-source-contact-termination", action="store_true")
 parser.add_argument("--source-play-eval-terminal-semantics", action="store_true")
@@ -142,6 +145,13 @@ class TrainerCommandFilter:
         else:
             self._filtered[env_ids] = 0.0
             self.queue_filter.filtered[env_ids] = 0.0
+
+    def reset_state(self, env_ids=None):
+        self.queue_filter.reset_state(env_ids)
+        if env_ids is None:
+            self._filtered.zero_()
+        else:
+            self._filtered[env_ids] = 0
 
     def step(self, command):
         filtered, debug = self.queue_filter.step(command)
@@ -308,6 +318,7 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
         place_robot_and_goal_fn=None,
         room_pool=None,
         room_ids=None,
+        resolved_config=None,
     ):
         import torch
         import torch.nn.functional as F
@@ -452,7 +463,28 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
             ring_buffer_steps=int(args.replay_ring_buffer_steps),
             undo_steps_range=(int(args.replay_undo_min), int(args.replay_undo_max)),
         )
-        self.replay_buffer = CollisionReplayBuffer(self.collision_replay_config, num_envs=self.num_envs)
+        from rsl_rl.replay import CurriculumConfig, replay_configs_from_resolved
+        self.replay_policy = args.replay_reset_policy
+        self.replay_implementation_delta = tuple(args.implementation_delta)
+        self.acsi_config = CurriculumConfig(
+            p_min=self.source_early_reset_prob_min, p_max=self.source_early_reset_prob_max,
+            terminal_replay_probability=args.replay_prob, initial_level=float(args.source_goal_level),
+            max_level=float(args.source_max_goal_level))
+        if resolved_config is not None:
+            self.collision_replay_config,self.acsi_config = replay_configs_from_resolved(
+                resolved_config,max_level=float(args.source_max_goal_level),capacity=args.replay_ring_buffer_steps,
+                undo=(args.replay_undo_min,args.replay_undo_max),enabled=bool(args.enable_collision_replay))
+            self.replay_implementation_delta=resolved_config.identity.implementation_delta
+            self.replay_policy=self.collision_replay_config.reconstruction_policy
+        self.source_goal_levels[:] = self.acsi_config.initial_level
+        self.acsi_carried_decision = torch.zeros(self.num_envs,device=self.device,dtype=torch.bool)
+        self.replay_task_generation = torch.zeros(self.num_envs,device=self.device,dtype=torch.long)
+        self._reset_curriculum_updated = torch.zeros(self.num_envs,device=self.device,dtype=torch.bool)
+        self.replay_buffer = CollisionReplayBuffer(self.collision_replay_config, num_envs=self.num_envs, device=self.device)
+        if self.collision_replay_config.enabled_during_training:
+            if "replay_reset_reconstruction_v1" not in self.replay_implementation_delta:
+                raise ValueError("compact replay requires explicit --implementation-delta replay_reset_reconstruction_v1")
+            self._require_replay_runtime_contract()
         self.replay_push_count = 0
         self.replay_collision_record_count = 0
         self.replay_sample_count = 0
@@ -644,18 +676,13 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
             tensor = tensor.unsqueeze(0)
         return tensor
 
-    def _snapshot_task_state(self):
-        return {
-            "start_cell": self.start_cell.detach().clone(),
-            "map_origin_cell": self.map_origin_cell.detach().clone(),
-            "goal_cell": self.goal_cell.detach().clone(),
-            "pos_hist": self.pos_hist.detach().clone(),
-            "last_loco_action": self.last_loco_action.detach().clone(),
-            "goal_hold_timer": self.goal_hold_timer.detach().clone(),
-            "stay_timer": self.stay_timer.detach().clone(),
-            "episode_length_buf": self.episode_length_buf.detach().clone(),
-            "collision_occurred": self.collision_occurred.detach().clone(),
-        }
+    def _snapshot_task_state(self, env_ids):
+        return {name: getattr(self,name)[env_ids] for name in ("start_cell","map_origin_cell","goal_cell")}
+
+    def _require_replay_runtime_contract(self):
+        from rsl_rl.replay import require_runtime_contract
+        contract = getattr(self.carrier.unwrapped, "replay_runtime_contract", None)
+        return require_runtime_contract(contract, "isaaclab_adapter")
 
     def _restore_replay_sample(self, replay_sample, env_ids=None):
         env_ids = self._env_ids_tensor(env_ids)
@@ -679,91 +706,31 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
         self.carrier.unwrapped.sim.forward()
         self.carrier.unwrapped.scene.update(dt=self.carrier.unwrapped.physics_dt)
 
-    def _capture_replay_record(self, collision=False):
+    def _capture_replay_record(self, collision=False, env_ids=None):
+        if not self.collision_replay_config.enabled_during_training:
+            return
+        self._require_replay_runtime_contract()
+        ids = self._env_ids_tensor(env_ids)
         robot = self._robot()
-        root_velocity = getattr(robot.data, "root_vel_w", None)
-        if root_velocity is None:
-            root_velocity = self.torch.cat((robot.data.root_lin_vel_w, robot.data.root_ang_vel_w), dim=-1)
-        self.replay_buffer.push(
-            root_state={
-                "root_pose": self.torch.cat((robot.data.root_pos_w, robot.data.root_quat_w), dim=-1).detach().clone(),
-                "root_velocity": root_velocity.detach().clone(),
-            },
-            dof_pos=robot.data.joint_pos.detach().clone(),
-            dof_vel=robot.data.joint_vel.detach().clone(),
-            command=self.slr_command.detach().clone(),
-            sea_obs_hist=self.sea_obs_hist.detach().clone(),
-            slr_obs_hist=self.slr_obs_hist.detach().clone(),
-            task_state=self._snapshot_task_state(),
-            collision=collision,
-        )
+        root = self.torch.cat((robot.data.root_pos_w[ids],robot.data.root_quat_w[ids],
+                               robot.data.root_lin_vel_w[ids],robot.data.root_ang_vel_w[ids]),dim=-1)
+        active = self.torch.as_tensor(collision,device=self.device,dtype=self.torch.bool)
+        active = active.expand(self.num_envs)[ids]
+        self.replay_buffer.push(env_ids=ids, root_state=root,
+            dof_pos=robot.data.joint_pos[ids],dof_vel=robot.data.joint_vel[ids],
+            task_state=self._snapshot_task_state(ids),collision=active,
+            record_step_ids=self.episode_length_buf[ids])
         self.replay_push_count += 1
-        collision_tensor = self.torch.as_tensor(collision, dtype=self.torch.bool, device=self.device)
-        self.replay_collision_record_count += int(collision_tensor.flatten().sum().detach().cpu())
+        self.replay_collision_record_count += active.sum()
 
     def run_forced_replay_reset_smoke(self):
-        adapter_root = Path(__file__).resolve().parent
-        if str(adapter_root) not in sys.path:
-            sys.path.insert(0, str(adapter_root))
-        from adapters.collision_replay import CollisionReplayBuffer
+        # The former loop recorded one unchanged physical state under many
+        # fictitious step IDs. It cannot certify terminal capture or restoration.
+        raise RuntimeError(
+            "blocked: forced replay needs the real multi-env physics/readback harness; "
+            "synthetic repeated captures are not an IsaacLab replay smoke")
 
-        self.replay_buffer = CollisionReplayBuffer(self.collision_replay_config, num_envs=self.num_envs)
-        self.replay_push_count = 0
-        self.replay_collision_record_count = 0
-        self.replay_sample_count = 0
-        undo_steps = min(max(120, args.replay_undo_min), args.replay_undo_max)
-        collision_steps = [undo_steps + 40 + env_id * 3 for env_id in range(self.num_envs)]
-        total_records = max(collision_steps) + 10
-        for step in range(total_records):
-            collision_mask = self.torch.tensor(
-                [step == collision_step for collision_step in collision_steps],
-                dtype=self.torch.bool,
-                device=self.device,
-            )
-            self._capture_replay_record(collision=collision_mask)
-        per_env = []
-        for env_id in range(self.num_envs):
-            sample = self.replay_buffer.sample_pre_collision(env_id=env_id, undo_steps=undo_steps)
-            if sample is not None:
-                self.replay_sample_count += 1
-                self.reset(env_ids=[env_id], replay_sample=sample)
-            per_env.append(
-                {
-                    "env_id": env_id,
-                    "sample_found": sample is not None,
-                    "sample_step_index": int(sample["step_index"]) if sample is not None else None,
-                    "source_collision_step": int(sample["source_collision_step"]) if sample is not None else None,
-                    "undo_steps": int(sample["undo_steps"]) if sample is not None else int(undo_steps),
-                    "stored_steps": self.replay_buffer.stored_steps_for_env(env_id),
-                }
-            )
-        all_samples_found = all(item["sample_found"] for item in per_env)
-        result = {
-            "ok": bool(self.num_envs == 4 and all_samples_found and self.torch.isfinite(self.obs_buf).all().detach().cpu()),
-            "forced": True,
-            "expected_num_envs": 4,
-            "num_envs": int(self.num_envs),
-            "undo_steps": int(undo_steps),
-            "collision_steps": [int(x) for x in collision_steps],
-            "total_records": int(total_records),
-            "all_samples_found": bool(all_samples_found),
-            "per_env": per_env,
-            "replay_reset_count": int(self.replay_reset_count),
-            "replay_push_count": int(self.replay_push_count),
-            "replay_collision_record_count": int(self.replay_collision_record_count),
-            "replay_sample_count": int(self.replay_sample_count),
-            "sea_obs_shape": list(self.sea_obs_hist.shape),
-            "slr_obs_shape": list(self.slr_obs_hist.shape),
-            "obs_shape": list(self.obs_buf.shape),
-            "obs_all_finite": bool(self.torch.isfinite(self.obs_buf).all().detach().cpu()),
-            "slr_obs_all_finite": bool(self.torch.isfinite(self.slr_obs_hist).all().detach().cpu()),
-            "sea_obs_all_finite": bool(self.torch.isfinite(self.sea_obs_hist).all().detach().cpu()),
-            "last_replay_sample_debug": self.last_replay_sample_debug,
-        }
-        self.last_forced_replay_smoke = result
-        return result
-
-    def _root_grid_goal_rays(self):
+    def _root_grid_goal_rays(self, env_ids=None):
         torch = self.torch
         robot = self._robot()
         root_pos_w = robot.data.root_pos_w.detach()
@@ -790,7 +757,11 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
                     step_r=0.1,
                 )
             )
-        self.rays = torch.cat(rays_cells, dim=0) * self.resolution
+        measured_rays = torch.cat(rays_cells, dim=0) * self.resolution
+        if env_ids is None:
+            self.rays = measured_rays
+        else:
+            self.rays[env_ids] = measured_rays[env_ids]
         delta = (self.goal_cell - robot_cell) * self.resolution
         cos_yaw = torch.cos(-yaw)
         sin_yaw = torch.sin(-yaw)
@@ -934,11 +905,8 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
         self.obs_buf = self.sea_obs_hist.reshape(self.num_envs, -1)
 
     def _source_early_reset_probability(self):
-        torch = self.torch
-        level_scale = (self.source_goal_levels / 1.5).clip(max=1.0)
-        return self.source_early_reset_prob_min + (
-            self.source_early_reset_prob_max - self.source_early_reset_prob_min
-        ) * level_scale
+        from rsl_rl.replay import reset_probability
+        return reset_probability(self.source_goal_levels,self.acsi_config)
 
     def _update_position_history(self, root_xy):
         torch = self.torch
@@ -1013,120 +981,133 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
             self.episode_length_buf = original_episode_length
             self.last_collision_active = original_last_collision_active
 
+    def _normal_reset_rows(self, ids):
+        from rsl_rl.replay import update_goal_level
+        fresh = ids[~self._reset_curriculum_updated[ids]]
+        if len(fresh) and self.reset_count:
+            # Saved terminal distance is invariant under partial replay writes.
+            distance = self._reset_terminal_distance
+            old = self.source_goal_levels[fresh].clone()
+            new,up,down = update_goal_level(old,distance[fresh],self.torch.ones_like(old,dtype=self.torch.bool),self.acsi_config)
+            self.source_goal_levels[fresh] = new
+            self.last_acsi_update = {"env_ids":fresh.clone(),"old_level":old,"new_level":new.clone(),
+                                     "distance":distance[fresh].clone(),"up":up,"down":down}
+        self._reset_curriculum_updated[fresh] = True
+        self.replay_task_generation[fresh] += 1
+        seed = args.seed if self.reset_count == 0 else None
+        obs,_ = self.carrier.unwrapped.reset(seed=seed,env_ids=ids)
+        if not hasattr(self,"policy_obs"):
+            self.policy_obs = obs["policy"].to(self.device).clone()
+        else:
+            self.policy_obs[ids] = obs["policy"].to(self.device)[ids]
+        self.map_origin_cell[ids] = self.initial_robot_cell[ids]
+        if self.source_parity_reset_enabled:
+            start,goal,yaw = self._sample_source_reset_cells_and_yaw(ids)
+            self.start_cell[ids],self.goal_cell[ids] = start,goal
+        else:
+            self.start_cell[ids],self.goal_cell[ids] = self.initial_robot_cell[ids],self.initial_goal_cell[ids]
+            yaw = None
+        self._reset_root_pose,self._reset_root_velocity = self._place_robot_at_start(self.start_cell,yaw,env_ids=ids)
+
+    def _validate_replay_selection(self, selection):
+        self.replay_buffer.validate_selection(selection)
+        self._require_replay_runtime_contract().validate(self,selection)
+
+    def _write_replay_selection(self, selection):
+        ids,fields = selection.env_ids,selection.batch.fields
+        contract = self._require_replay_runtime_contract()
+        contract.prepare_rows(self,ids)
+        for name in ("start_cell","map_origin_cell","goal_cell"):
+            getattr(self,name)[ids] = fields[name]
+        self.command_filter.reset_state(ids)
+        self.last_loco_action[ids] = 0
+        self.slr_command[ids] = 0
+        self._restore_replay_sample(fields,env_ids=ids)
+        contract.refresh_rows(self,ids)
+        self._reset_root_pose,self._reset_root_velocity = fields["root_state"][:,:7],fields["root_state"][:,7:]
+
+    def _reconstruct_reset_rows(self, ids):
+        from rsl_rl.replay import build_reset_frames,bootstrap_history
+        torch=self.torch
+        robot=self._robot()
+        root=torch.cat((robot.data.root_pos_w[ids],robot.data.root_quat_w[ids],
+                        robot.data.root_lin_vel_w[ids],robot.data.root_ang_vel_w[ids]),dim=-1)
+        root_xy,_,_,rays,goal,distance=self._root_grid_goal_rays(env_ids=ids)
+        defaults=robot.data.default_joint_pos[ids]
+        joint_order=isaaclab_obs_to_jit_order(torch.arange(12,device=self.device)[None])[0]
+        frames=build_reset_frames(root,robot.data.joint_pos[ids],robot.data.joint_vel[ids],
+                                  defaults,rays[ids],goal[ids],"wxyz",joint_order=joint_order)
+        self.policy_obs[ids,0:3]=frames["body_linear"]
+        self.policy_obs[ids,3:6]=frames["body_angular"]
+        self.policy_obs[ids,6:9]=frames["gravity"]
+        self.policy_obs[ids,9:12]=0
+        self.policy_obs[ids,12:24]=robot.data.joint_pos[ids]-defaults
+        self.policy_obs[ids,24:36]=robot.data.joint_vel[ids]
+        if self.policy_obs.shape[1]>=48:
+            self.policy_obs[ids,36:48]=0
+        for name in ("slr_command","last_loco_action","episode_length_buf","goal_hold_timer",
+                     "stay_timer","collision_occurred","last_collision_active","acsi_carried_decision"):
+            getattr(self,name)[ids]=0
+        for name in ("_terminal_timeout", "_terminal_success"):
+            if hasattr(self, name):
+                getattr(self, name)[ids] = False
+        self.command_filter.reset_state(ids)
+        self.delay_rays[ids]=rays[ids]
+        self.delay_goal[ids]=goal[ids]
+        from rsl_rl.replay import bootstrap_episode_buffers
+        bootstrap_episode_buffers({
+            "navigation_history":self.sea_obs_hist,"slr_history":self.slr_obs_hist,
+            "ray_history":self.rays_hist,"goal_history":self.goal_hist,"position_history":self.pos_hist,
+            "held_rays":self.delay_rays,"held_goal":self.delay_goal,
+            "command":self.slr_command,"action":self.last_loco_action,
+            "episode_length":self.episode_length_buf,"goal_timer":self.goal_hold_timer,"stay_timer":self.stay_timer,
+            "collision":self.collision_occurred,"previous_collision":self.last_collision_active},
+            ids,frames,root,robot.data.joint_vel[ids],rays[ids],goal[ids],root_xy[ids])
+        self.obs_buf=self.sea_obs_hist.reshape(self.num_envs,-1)
+
+    def _post_reset_epilogue(self, ids):
+        if self.collision_replay_config.enabled_during_training:
+            self._require_replay_runtime_contract().finish_rows(self,ids)
+
     def reset(self, env_ids=None, replay_sample=None):
-        torch = self.torch
-        is_replay = replay_sample is not None
-        if is_replay and env_ids is None:
-            env_ids = [int(replay_sample["env_id"])]
-        env_ids_tensor = self._env_ids_tensor(env_ids)
-        full_reset = len(env_ids_tensor) == self.num_envs and bool(
-            torch.equal(env_ids_tensor, torch.arange(self.num_envs, dtype=torch.long, device=self.device))
-        )
-        reset_seed = args.seed if full_reset and self.reset_count == 0 else None
-        obs, _ = self.carrier.unwrapped.reset(seed=reset_seed, env_ids=env_ids_tensor)
-        self.map_origin_cell[env_ids_tensor] = self.initial_robot_cell[env_ids_tensor]
-        if self.source_parity_reset_enabled and not is_replay:
-            start_cell, goal_cell, reset_yaw = self._sample_source_reset_cells_and_yaw(env_ids_tensor)
-            self.start_cell[env_ids_tensor] = start_cell
-            self.goal_cell[env_ids_tensor] = goal_cell
+        from rsl_rl.replay import execute_reset_transaction,select_terminal_replay,ReplaySelection
+        torch=self.torch
+        if replay_sample is not None and env_ids is None:
+            env_ids=replay_sample.env_ids if isinstance(replay_sample,ReplaySelection) else [replay_sample["env_id"]]
+        ids=self._env_ids_tensor(env_ids)
+        self._reset_curriculum_updated[ids]=False
+        _,_,_,_,_,distance=self._root_grid_goal_rays()
+        self._reset_terminal_distance=distance.clone()
+        if replay_sample is not None:
+            selection=replay_sample if isinstance(replay_sample,ReplaySelection) else replay_sample["_selection"]
+            wants=torch.isin(ids,selection.env_ids)
         else:
-            self.start_cell[env_ids_tensor] = self.initial_robot_cell[env_ids_tensor]
-            self.goal_cell[env_ids_tensor] = self.initial_goal_cell[env_ids_tensor]
-            reset_yaw = None
-        if is_replay:
-            self._restore_replay_sample(replay_sample, env_ids=env_ids_tensor)
-            root_state = replay_sample["root_state"]
-            if isinstance(root_state, dict):
-                root_pose = self._sample_tensor(root_state["root_pose"], dtype=torch.float32)
-                root_velocity = self._sample_tensor(root_state["root_velocity"], dtype=torch.float32)
-            else:
-                root_state_tensor = self._sample_tensor(root_state, dtype=torch.float32)
-                root_pose = root_state_tensor[:, :7]
-                root_velocity = root_state_tensor[:, 7:13]
-        else:
-            root_pose, root_velocity = self._place_robot_at_start(self.start_cell, reset_yaw, env_ids=env_ids_tensor)
-        obs = self.carrier.unwrapped.observation_manager.compute()
-        self.policy_obs = obs["policy"].to(self.device)
-        self.sea_obs_hist[env_ids_tensor] = 0.0
-        self.slr_obs_hist[env_ids_tensor] = 0.0
-        self.rays_hist[env_ids_tensor] = 5.0
-        self.goal_hist[env_ids_tensor] = 0.0
-        self.delay_rays[env_ids_tensor] = 5.0
-        self.delay_goal[env_ids_tensor] = 0.0
-        self.pos_hist[env_ids_tensor] = 0.0
-        self.slr_command[env_ids_tensor] = 0.0
-        self.last_loco_action[env_ids_tensor] = 0.0
-        self.episode_length_buf[env_ids_tensor] = 0
-        self.reset_buf[env_ids_tensor] = False
-        self.goal_hold_timer[env_ids_tensor] = 0
-        self.stay_timer[env_ids_tensor] = 0
-        self.collision_occurred[env_ids_tensor] = False
-        self.last_collision_active[env_ids_tensor] = False
-        self.command_filter.reset(env_ids=env_ids_tensor)
-        if is_replay:
-            task_state = replay_sample.get("task_state", {})
-            self.start_cell[env_ids_tensor] = self._sample_tensor(
-                task_state.get("start_cell", self.start_cell[env_ids_tensor]), dtype=torch.float32
-            ).reshape(len(env_ids_tensor), 2)
-            self.map_origin_cell[env_ids_tensor] = self._sample_tensor(
-                task_state.get("map_origin_cell", self.map_origin_cell[env_ids_tensor]), dtype=torch.float32
-            ).reshape(len(env_ids_tensor), 2)
-            self.goal_cell[env_ids_tensor] = self._sample_tensor(
-                task_state.get("goal_cell", self.goal_cell[env_ids_tensor]), dtype=torch.float32
-            ).reshape(len(env_ids_tensor), 2)
-            self.sea_obs_hist[env_ids_tensor] = self._sample_tensor(
-                replay_sample["sea_obs_hist"], dtype=torch.float32
-            ).reshape(len(env_ids_tensor), 10, 55)
-            self.slr_obs_hist[env_ids_tensor] = self._sample_tensor(
-                replay_sample["slr_obs_hist"], dtype=torch.float32
-            ).reshape(len(env_ids_tensor), 10, 45)
-            self.pos_hist[env_ids_tensor] = self._sample_tensor(
-                task_state.get("pos_hist", self.pos_hist[env_ids_tensor]), dtype=torch.float32
-            ).reshape(len(env_ids_tensor), 10, 2)
-            self.slr_command[env_ids_tensor] = self._sample_tensor(
-                replay_sample["command"], dtype=torch.float32
-            ).reshape(len(env_ids_tensor), 3)
-            self.last_loco_action[env_ids_tensor] = self._sample_tensor(
-                task_state.get("last_loco_action", self.last_loco_action[env_ids_tensor]),
-                dtype=torch.float32,
-            ).reshape(len(env_ids_tensor), 12)
-            self.goal_hold_timer[env_ids_tensor] = self._sample_tensor(
-                task_state.get("goal_hold_timer", self.goal_hold_timer[env_ids_tensor]),
-                dtype=torch.long,
-            ).reshape(len(env_ids_tensor))
-            self.stay_timer[env_ids_tensor] = self._sample_tensor(
-                task_state.get("stay_timer", self.stay_timer[env_ids_tensor]),
-                dtype=torch.long,
-            ).reshape(len(env_ids_tensor))
-            self.episode_length_buf[env_ids_tensor] = self._sample_tensor(
-                task_state.get("episode_length_buf", self.episode_length_buf[env_ids_tensor]),
-                dtype=torch.long,
-            ).reshape(len(env_ids_tensor))
-            self.collision_occurred[env_ids_tensor] = self._sample_tensor(
-                task_state.get("collision_occurred", self.collision_occurred[env_ids_tensor]),
-                dtype=torch.bool,
-            ).reshape(len(env_ids_tensor))
-            self.command_filter._filtered[env_ids_tensor] = self.slr_command[env_ids_tensor].detach().clone()
-            self.command_filter.queue_filter.filtered[env_ids_tensor] = self.slr_command[env_ids_tensor].detach().clone()
-            self._root_grid_goal_rays()
-            self.obs_buf = self.sea_obs_hist.reshape(self.num_envs, -1)
-            self.replay_reset_count += 1
-            self.last_replay_sample_debug = {
-                "env_id": int(replay_sample.get("env_id", int(env_ids_tensor[0].detach().cpu()))),
-                "step_index": int(replay_sample["step_index"]),
-                "source_collision_step": int(replay_sample.get("source_collision_step", -1)),
-                "undo_steps": int(replay_sample.get("undo_steps", -1)),
-                "root_pose_shape": list(self._sample_tensor(replay_sample["root_state"]["root_pose"]).shape)
-                if isinstance(replay_sample.get("root_state"), dict)
-                else None,
-            }
-        else:
-            root_xy, _, _, _, _, _ = self._root_grid_goal_rays()
-            self.pos_hist[env_ids_tensor] = root_xy[env_ids_tensor, None, :]
-            self._update_observation(env_ids=env_ids_tensor)
-        self.last_source_reset_debug = self._build_reset_debug(root_pose, root_velocity, env_ids=env_ids_tensor)
-        self.reset_count += 1
-        return self.obs_buf, self.privileged_obs_buf
+            success=getattr(self,"_terminal_success",torch.zeros(self.num_envs,device=self.device,dtype=torch.bool))
+            timeout=getattr(self,"_terminal_timeout",torch.zeros_like(success))
+            wants=select_terminal_replay(self.collision_occurred[ids],success[ids],timeout[ids],
+                self.acsi_carried_decision[ids],
+                None if self.acsi_config.mode=="paper_v1" else torch.rand(len(ids),device=self.device),self.acsi_config)
+            wants &= self.collision_replay_config.enabled_during_training
+            selection=self.replay_buffer.reserve_pre_collision(ids[wants])
+        result=execute_reset_transaction(ids,wants,selection,self.replay_buffer,self._normal_reset_rows,
+            self._write_replay_selection,self._reconstruct_reset_rows,self._post_reset_epilogue,
+            validate=self._validate_replay_selection)
+        self.last_reset_partition=result
+        self.replay_reset_count+=len(result.replay_ids)
+        self.replay_fallback_count+=len(result.fallback_ids)
+        self.replay_sample_count+=len(selection.env_ids)
+        self.last_replay_sample_debug={"policy":self.replay_policy,"replay_ids":result.replay_ids.tolist(),
+            "fallback_ids":result.fallback_ids.tolist(),"fallback_reason":result.fallback_reason,
+            "requested_undo":selection.requested_undo.tolist(),"effective_undo":selection.effective_undo.tolist(),
+            "source_step_ids":selection.batch.step_ids.tolist()}
+        self.replay_buffer.begin_episode(ids,self.replay_task_generation[ids])
+        self._capture_replay_record(env_ids=ids)
+        robot=self._robot()
+        pose=torch.cat((robot.data.root_pos_w[ids],robot.data.root_quat_w[ids]),dim=-1)
+        velocity=torch.cat((robot.data.root_lin_vel_w[ids],robot.data.root_ang_vel_w[ids]),dim=-1)
+        self.last_source_reset_debug=self._build_reset_debug(pose,velocity,env_ids=ids)
+        self.reset_count+=1
+        return self.obs_buf,self.privileged_obs_buf
 
     def _compute_reward_done(self):
         torch = self.torch
@@ -1161,11 +1142,17 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
         early_reset_prob = torch.zeros(self.num_envs, device=self.device)
         if self.source_reward_done_parity_enabled:
             early_reset_prob = self._source_early_reset_probability()
-            early_reset_mask = collision_onset & (torch.rand(self.num_envs, device=self.device) < early_reset_prob)
+            from rsl_rl.replay import select_collision_reset
+            uniforms = torch.rand(self.num_envs,device=self.device)
+            early_reset_mask = select_collision_reset(collision_onset,~initial,early_reset_prob,uniforms)
+            self.last_acsi_decision = {"probability":early_reset_prob,"uniforms":uniforms,
+                                      "decision":early_reset_mask,"mode":self.acsi_config.mode}
             terminate_buf |= early_reset_mask
+        self.acsi_carried_decision = early_reset_mask
         self.collision_occurred |= new_collisions
         self.last_collision_active = new_collisions
         time_out_buf = self.episode_length_buf > self.max_episode_length
+        self._terminal_timeout = time_out_buf.clone()
         fall_down = projected_gravity[:, 2] > -0.8
 
         pos_hist_debug = self._update_position_history(root_xy)
@@ -1181,6 +1168,7 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
         self.goal_hold_timer += reach_goal.long()
         self.stay_timer += static.long()
         goal_reached_flag = self.goal_hold_timer >= 150
+        self._terminal_success = goal_reached_flag.clone()
         stand_still_flag = self.stay_timer >= self.source_stand_still_time_steps
         done = terminate_buf | hard_reset | goal_reached_flag | stand_still_flag | time_out_buf | fall_down
 
@@ -1286,10 +1274,8 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
             ),
             dim=-1,
         )
-        if bool((self.episode_length_buf <= 1).all()):
-            self.slr_obs_hist = slr_obs.unsqueeze(1).repeat(1, 10, 1)
-        else:
-            self.slr_obs_hist = torch.cat((self.slr_obs_hist[:, 1:], slr_obs.unsqueeze(1)), dim=1)
+        from rsl_rl.replay import advance_history
+        advance_history(self.slr_obs_hist,slr_obs,self.episode_length_buf <= 1)
         hist_flat = self.slr_obs_hist.reshape(self.num_envs, -1)
         base_lin_vel_pred = self.encoder_vel(hist_flat)
         latent = self.encoder_latent(hist_flat)
@@ -1310,40 +1296,12 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
             done = semantic_done | carrier_done
         self.reset_buf = done.clone()
         self.rew_buf = reward.clone()
-        collision_active = self.last_collision_active.detach().clone()
-        replay_eligible = self.collision_occurred.detach().clone()
-        self._capture_replay_record(collision=collision_active)
-        self._update_observation()
-        next_obs = self.obs_buf.clone()
+        self._capture_replay_record(collision=self.last_collision_active)
+        running=(~done).nonzero(as_tuple=False).flatten()
+        self._update_observation(env_ids=running)
         if done.any():
-            done_env_ids = done.nonzero(as_tuple=False).flatten()
-            normal_reset_env_ids = []
-            replay_samples = []
-            for env_id_tensor in done_env_ids:
-                env_id = int(env_id_tensor.detach().cpu())
-                replay_sample = None
-                if self.collision_replay_config.enabled_during_training and bool(replay_eligible[env_id].detach().cpu()):
-                    use_replay = (
-                        float(torch.rand((), device=self.device).detach().cpu())
-                        < self.collision_replay_config.replay_prob
-                    )
-                    if use_replay:
-                        undo_min, undo_max = self.collision_replay_config.undo_steps_range
-                        undo_steps = int(torch.randint(undo_min, undo_max + 1, (1,), device=self.device).item())
-                        replay_sample = self.replay_buffer.sample_pre_collision(env_id=env_id, undo_steps=undo_steps)
-                        if replay_sample is None:
-                            self.replay_fallback_count += 1
-                        else:
-                            self.replay_sample_count += 1
-                if replay_sample is None:
-                    normal_reset_env_ids.append(env_id)
-                else:
-                    replay_samples.append(replay_sample)
-            if normal_reset_env_ids:
-                self.reset(env_ids=normal_reset_env_ids)
-            for replay_sample in replay_samples:
-                self.reset(env_ids=[int(replay_sample["env_id"])], replay_sample=replay_sample)
-            next_obs = self.obs_buf.clone()
+            self.reset(env_ids=done.nonzero(as_tuple=False).flatten())
+        next_obs=self.obs_buf.clone()
         return next_obs, self.privileged_obs_buf, reward, done, infos
 
     def get_observations(self):
@@ -1766,6 +1724,9 @@ def main():
         "last_perception_delay_debug": adapter_env.last_perception_delay_debug,
         "last_reward_done_parity_debug": adapter_env.last_reward_done_parity_debug,
         "collision_replay_enabled_during_training": bool(args.enable_collision_replay),
+        "replay_reset_policy": adapter_env.replay_policy,
+        "implementation_delta": list(adapter_env.replay_implementation_delta),
+        "replay_bootstrap": "noise_free_synthetic_step_0",
         "collision_replay_enabled_during_eval": False,
         "replay_prob": adapter_env.collision_replay_config.replay_prob,
         "replay_undo_steps_range": list(adapter_env.collision_replay_config.undo_steps_range),
