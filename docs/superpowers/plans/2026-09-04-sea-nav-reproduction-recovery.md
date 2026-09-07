@@ -696,10 +696,13 @@ git commit -m "feat: wire manifest-backed checkpoint loading"
 - [ ] **Step 1: Run the complete suite on `test` before freezing**
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD/training/rsl_rl" python3 -m pytest -q tests training/rsl_rl/tests sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py
-PYTHONDONTWRITEBYTECODE=1 python3 -m compileall -q training sea_nav_current_isaaclab_full_method tools tests
-bash -n sea_nav_current_isaaclab_full_method/run_full_method_runtime_smoke.sh
+SEA_NAV_VERIFY_ROOT="$(mktemp -d /tmp/sea-nav-candidate-verification.XXXXXX)"
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD/training/rsl_rl" ../sea-nav-cpu-venv/bin/python -m pytest -q -p no:cacheprovider tests training/rsl_rl/tests sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD/training/rsl_rl" ../sea-nav-cpu-venv/bin/python tools/gate_a.py --repo-root "$PWD" --report "$SEA_NAV_VERIFY_ROOT/gate-a.json"
+git ls-files -z -- '*.sh' | xargs -0 -r -n1 bash -n
 ```
+
+Use the verified task-scoped CPU interpreter, not system Torch. Gate A's tracked-source `compile()` check provides no-output Python syntax evidence; explicit `compileall` writes bytecode even with `PYTHONDONTWRITEBYTECODE` and is therefore not the final no-output command. Disable pytest's cache provider for the same reason. Temporary raw reports must be preserved in a durable candidate-bound delivery record before any cleanup; `/tmp` alone is not a lasting artifact.
 
 - [ ] **Step 2: Record the exact candidate and prove complete-tree ancestry**
 
@@ -712,7 +715,7 @@ test -z "$(git diff --diff-filter=D --name-only 1c5675bbedf1dcbe5a4c1a91830cae52
 
 - [ ] **Step 3: Re-run Rungs 0–2 in a clean detached checkout**
 
-Create a detached worktree from the recorded OID, run the exact commands from Step 1 plus `tools/gate_a.py` with its report outside the worktree, verify both primary and detached status are clean, and ask an independent reviewer to inspect `1c5675b..candidate` for correctness and spec compliance. Fix any P1/P2 through a new focused commit, then restart Steps 1–3 with the new OID.
+Create a detached worktree from the recorded OID, run the exact commands from Step 1 with reports outside the worktree, and verify both primary and detached status are clean. Compare the fresh verification checkout's ignored/untracked inventory before and after (`git status --porcelain --untracked-files=all --ignored`) so ignored bytecode/cache outputs cannot hide behind a clean ordinary status. Ask an independent reviewer to inspect `1c5675b..candidate` for correctness and spec compliance. Fix any P1/P2 through a new focused commit, then restart Steps 1–3 with the new OID.
 
 - [ ] **Step 4: Commit the candidate-bound verification record**
 

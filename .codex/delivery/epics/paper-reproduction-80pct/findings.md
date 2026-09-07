@@ -9,15 +9,17 @@
 
 | Field | Current value | Evidence | Status / limits |
 |---|---|---|---|
-| Artifact / version identity | integrated source `test@6f5e544f5d0a6e8a6e397e141a8e432157e88146`; `main=stable=1c5675bbedf1dcbe5a4c1a91830cae528c780793` | 2026-09-07 Task 2 cherry-picks and verification | coordination-only successor does not change the tested source |
-| Active evidence instance | Task 2 primary checkout run: 71 tests passed in 4.09s; Gate A five CPU/static passes and real Gym blocked | `/tmp/sea-nav-task2-integrated.dLTZ2y/gate-a.json`; summary committed in progress.md | temporary raw report is not a durable final-candidate artifact |
+| Artifact / version identity | integrated source `test@37f07632364c3f6cb855e98c5c23579da9509504`; `main=stable=1c5675bbedf1dcbe5a4c1a91830cae528c780793` | 2026-09-07 Task 3 cherry-pick and verification | coordination-only successor does not change the tested source |
+| Active evidence instance | Task 3 primary checkout run: 85 tests passed in 4.18s; Gate A five CPU/static passes and real Gym blocked | `/tmp/sea-nav-task3-integrated.gEKwDK/gate-a.json`; summary committed in progress.md | temporary raw report is not a durable final-candidate artifact |
 | Declared configuration | 2026-09-07 evidence-corrected design and task briefs | scientific/checkpoint audit reports; original 252f3f85 design is historical | action-bound row blocks accepted paper_v1; upstream diagnostic repair proceeds |
 | Confirmed facts | remote snapshots are unrelated roots; only `main` is a complete tree; post-sample CBF and PPO smoothness state mutation are real regressions | Git object analysis and CPU/source comparison | confirmed |
 | Candidate hypothesis | repairing packaging/config/PPO/CBF/replay/runtime/checkpoint contracts will make Rungs 0–2 reliable; simulator viability remains unknown | approved spec and batch mappings | implementation pending |
-| Highest validation rung | Rung 1 for Tasks 1–2; non-final Gate A passed_with_blockers | independent Task 2 scoped review and primary run | frozen final-candidate Rung 2 still pending |
-| Unpublished/unverified work | Tasks 1–2 integrated; Task 3 registered, Tasks 3–7 not implemented | 2026-09-07 Git readback and review ledger | local only; no remote write; actual consumer application still future |
+| Highest validation rung | Rung 1 for Tasks 1–3; non-final Gate A passed_with_blockers | independent Task 3 review and primary run | frozen final-candidate Rung 2 still pending |
+| Unpublished/unverified work | Tasks 1–3 integrated; Task 4 registered, Tasks 4–7 not implemented | 2026-09-07 Git readback and review ledger | local only; no remote write; full scientific consumer application still future |
 
 ## Research Findings
+
+The following baseline defects are historical findings; Tasks 1–3 now repair the portable gate/W&B and PPO action/state items with the current evidence above. Remaining CBF/profile/replay/runtime/checkpoint work is not inferred complete from them.
 - `main` retains the full training/deployment/adapter tree; `origin/test` and `b53d3fe` each omit 53 baseline paths and must never replace it wholesale.
 - The authoritative actor uses the CBF output as the Normal mean and samples once. Local `main` applies CBF again after sampling, breaking PPO action/log-probability identity.
 - PPO smoothness calls the stateful actor on interpolation observations, overwriting `alpha`, rays, nominal/safe actions, and distribution before shield losses.

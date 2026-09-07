@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "coord_rev": 4,
+  "coord_rev": 5,
   "repository": "TNHTH/SEA-Nav-Code",
   "branch": "test",
-  "head": "71c2e77d41a46e67927b6de95643adf0fada8c77",
+  "head": "37f07632364c3f6cb855e98c5c23579da9509504",
   "phase": "serial_implementation",
-  "next_action": "await Task 3 implementer report; package full 71c2e77..worker_head diff, independent scoped task review, fix loop as needed, integrate and test before Task 4",
-  "active_implementation": {"task": 3, "agent": "/root/implement_batch3", "reviewer": null, "base": "71c2e77d41a46e67927b6de95643adf0fada8c77", "head": null, "worktree": "../SEA-Nav-Code-batch3", "status": "implementing", "open_findings": 0},
-  "completed_tasks": [1, 2],
+  "next_action": "create detached Task 4 from this coordination successor, baseline verify, dispatch corrected brief including small packaged factory, shared golden vectors and real TorchScript; then independent review",
+  "active_implementation": {"task": 4, "agent": null, "reviewer": null, "base": null, "head": null, "worktree": "../SEA-Nav-Code-batch4", "status": "registered", "open_findings": 0},
+  "completed_tasks": [1, 2, 3],
   "strict_batch_order": [1, 2, 3, 4, 5, 6, 7],
   "active_write_owner": "controller",
   "active_owned_paths": [

@@ -70,3 +70,13 @@ Task 3: registered; detached BASE will be the coordination-only successor of 6f5
 Task 3: active; BASE=71c2e77d41a46e67927b6de95643adf0fada8c77; detached ../SEA-Nav-Code-batch3 baseline 71 passed in 3.99s, clean before registration. Fresh implementer `/root/implement_batch3` owns only corrected brief paths. No Task 4 source writer is active.
 
 Ruling: name a small packaged policy_factory module as Task 4's projection-to-constructor boundary — Task 2 names that consumer but no factory exists, and adapter-only construction would reverse shared dependency direction — costs one focused module/test surface; runtime application remains Task 6. No plugin framework or concurrent source changes authorized.
+
+Ruling: migrate the inherited static gate's post-sample-projection case within Task 3 — its fixed-distribution expectation at gate_a_static_contract.py:452 explicitly requires the forbidden regression and fails after the atomic repair — retain noise-std coverage and replace it with real seeded Normal sample/likelihood evidence; costs one tightly scoped extra test file. No runtime change or skipped test.
+Task 3: 14 focused tests GREEN, inherited combined suite 84 passed/1 expected obsolete-contract failure before this scope correction. Original implementer updating the single inherited case; no task review yet.
+
+Task 3: implementation received at `9e91c722dcd0633c353d0d3c1610af7428c508f9`, range 71c2e77..9e91c72. Fresh postcommit report records 85 CPU tests passed. Independent `/root/review_batch3` assigned complete task-3-review.diff, corrected brief and full report; not yet integrated.
+
+Ruling: final clean-checkout syntax validation uses Gate A's tracked-source compile(), pytest cache disabled, and ignored-inventory comparison — explicit compileall writes bytecode despite PYTHONDONTWRITEBYTECODE, and ordinary Git clean status hides ignored output — costs no production change and makes the no-output claim testable. Earlier compileall results remain syntax evidence only, never final clean-candidate evidence.
+
+Task 3: complete (detached commits 71c2e77..9e91c72, review clean; integrated as 37f0763). Independent spec/quality PASS, no actionable findings. Fresh primary 85 passed and five Gate A CPU/static cases passed with Gym blocked. Remaining profile/runtime obligations assigned Tasks 4–7.
+Task 4: registered; detached BASE will be the coordination-only successor of 37f0763. Exact scope in task_plan.md and corrected requirements in task-4-brief.md; no Task 4 source edits yet.
