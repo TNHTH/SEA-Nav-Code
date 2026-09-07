@@ -56,7 +56,9 @@ The following baseline defects are historical findings; Tasks 1–3 now repair t
 
 ## Resources
 
-- Final-review input `cbf-hotpath-observation.md`: a focused real TorchDispatch probe at source a660d74 records five scalar extractions in ordinary core/adapter CBF forward, zero in the pure mathematical core. This is CPU operator evidence only; CUDA impact and the safe reconciliation of deterministic validation with the no-host-sync hot-path contract require final review. No concurrent CBF fix has been made.
+- `checkpoint-runner-cpu-harness.md`: real runner/PPO CPU probe completed 102 updates and observed the old intermediate save requesting model_101.pt with iteration field 0; final field was 102 and learn returned None. Real Adam had 13 integer-keyed parameter states. This is historical failure/harness feasibility, not persistence/resume or Task 7 completion; no checkpoint/simulator files were written.
+
+- Final-review input `cbf-hotpath-observation.md` and independent `cbf-hotpath-review.md`: one open P2, five scalar extractions per ordinary core/adapter CBF forward; real T=2/E=2/M=2 actor/PPO probe observed 10 collection and 40 update extractions. Ordinary eager calls also compute unused diagnostics. This is CPU operator evidence only, no CUDA timing. Preserve dynamic invalid-input rejection and script behavior; removing diagnostics alone does not close the extraction finding. A documented budget exception or unchecked route has NOT been approved as closure. Resolve the boundary and fix/review serially after Tasks 6–7; no concurrent CBF edit.
 
 - Approved design: `docs/superpowers/specs/2026-09-04-sea-nav-reproduction-recovery-design.md`
 - Authoritative source: `11chens/SEA-Nav-Code@fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96`

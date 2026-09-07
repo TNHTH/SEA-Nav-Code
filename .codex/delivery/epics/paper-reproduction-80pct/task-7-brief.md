@@ -6,6 +6,8 @@ Read checkpoint-contract-audit.md. Correct schema grammar to permit None and int
 
 Close the Gym resume caller as well as the three adapter callers. Before Task 6, `training/legged_gym/legged_gym/utils/task_registry.py:160-163` derives a legacy model path with `get_load_path` and passes it to `runner.load`; `utils/helpers.py:157-161` exposes the legacy resume/checkpoint-number flags, and `scripts/play.py:87` overrides run selection. Task 7 owns the necessary checkpoint-only updates to those Gym registry/helpers/train/play paths and the shared preflight surface produced by Task 6. Consume verified explicit manifests with the proper inference/init/resume semantics; do not leave the repaired runner wired only to old .pt discovery or silently reinterpret checkpoint-number flags. Read Task 6's actual final handoff before editing. Add pure CLI/loader behavior and AST Gym call-site regressions; proprietary task imports remain blocked.
 
+Read `checkpoint-runner-cpu-harness.md` for an actually executed real OnPolicyRunner/PPO fixture (102 updates, nonempty Adam state). Its intermediate save observed filename 101 / field 0 / completed updates 102, confirming the existing audit. This is historical diagnostic evidence, not Task 7 RED or persistence/resume proof. Task 7 tests must use actual v2 files, atomic-publication faults and N+M continuation. The converter-tool discovery there is not sandbox acceptance.
+
 ## Global Constraints
 
 - Working branches must remain exactly `main`, `stable`, and `test`; all repair commits land only on `test`.
