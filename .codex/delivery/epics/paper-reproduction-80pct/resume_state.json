@@ -1,18 +1,19 @@
 {
   "schema_version": 1,
-  "coord_rev": 2,
+  "coord_rev": 3,
   "repository": "TNHTH/SEA-Nav-Code",
   "branch": "test",
-  "head": "1259bae1b2e2635e410a315ab6bf92451df8762b",
+  "head": "484f6827dd34201dc45c3dfe8e154a165a98492b",
   "phase": "serial_implementation",
-  "next_action": "implement and review Task 1 in ../SEA-Nav-Code-batch1, then integrate into test",
+  "next_action": "create detached Task 2 worktree from the coordination commit following 484f682; implement and review task-2-brief.md",
+  "completed_tasks": [1],
   "strict_batch_order": [1, 2, 3, 4, 5, 6, 7],
   "active_write_owner": "controller",
   "active_owned_paths": [
     ".codex/delivery/epics/paper-reproduction-80pct",
     "docs/superpowers/plans/2026-09-04-sea-nav-reproduction-recovery.md"
   ],
-  "highest_verified_rung": 0,
+  "highest_verified_rung": 1,
   "candidate_oid": null,
   "remote_mutated": false,
   "blocked": [

@@ -43,3 +43,8 @@ Ruling: allow nonnegative integer IDs only in validated optimizer state and publ
 Ruling: select explicit compact `new_replay_episode_v1` reconstruction and extend Task 5 through base epilogue — a root/DOF-only restore plus blanket reset mixes time, while nested full histories cost at least 1.77 GiB — this changes episode semantics and must carry `replay_reset_reconstruction_v1`; exact historical continuation remains unsupported. Full field/ordering evidence is in replay-schema-audit.md.
 
 Task 1: fix round 1/5 (3 addressed, 1 new P2 open — complete-tree symlink substitution; commits 0dd407e..9fdb33e). Round 2/5 assigned to `/root/implement_batch1`; focused coverage `tests/test_gate_a_portable.py`, leaf and ancestor links included.
+
+Task 1: fix round 2/5 (1 addressed, 0 open; commits 9fdb33e..4dec41b), spec PASS and quality PASS in task-1-rereview-2.md.
+Task 1: complete (detached commits 1259bae..4dec41b, review clean; integrated as a58ad21/eac2657/484f682). Primary test verification: 31 passed; portable Gate A five passed with Gym blocked. Final candidate not frozen.
+
+Task 2: registered; BASE is the next coordination-only commit following source 484f682; exact requirements in task-2-brief.md; detached checkout ../SEA-Nav-Code-batch2 is next.

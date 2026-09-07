@@ -12,6 +12,9 @@
 - Task 1 source commit `0dd407e` produced in detached checkout; implementer reports 27 passing CPU tests, legacy 16-case gate, and Gym blocked. Independent review in progress.
 - Task 1 fix round 1 `9fdb33e` addresses the three original findings (stale manifest pass, incomplete inventory, nonhermetic W&B). Scoped review found a new P2: complete-tree regular-file validation follows symlinks. Original implementer assigned round 2, focused on inventory link containment and its regression tests; integration remains pending.
 - Replay schema audit completed at primary `aa34400`; selected the spec-permitted compact reconstruction policy, registered the base epilogue extension, and updated Task 2/5 briefs. No simulator or remote operation was performed.
+- Task 1 round 2 `4dec41b` passed scoped spec/quality review. Integrated original commits as `a58ad21`, `eac2657`, `484f682` in order, preserving unrelated coordination files.
+- Fresh primary verification on `484f682`: `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD/training/rsl_rl" ../sea-nav-cpu-venv/bin/python -m pytest -q tests/test_runner_optional_wandb.py tests/test_gate_a_portable.py sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py` -> exit 0, **31 passed in 2.66s**. The Gate A CLI -> exit 0, five passed CPU/static cases, Isaac Gym blocked, all 65 baseline paths present. Shell syntax and `git diff --check` passed; no path deleted relative to complete `main`. Raw report is temporary `/tmp/sea-nav-task1-integrated.lBIrs6/gate-a.json`, not final-candidate evidence.
+- Task 2 owned scope registered; next worktree starts from the post-integration coordination commit. Source writers remain serialized. Detached Task 1 originals and their own two unstaged registration edits are retained; no cleanup has removed them.
 
 ## Session: 2026-09-04
 

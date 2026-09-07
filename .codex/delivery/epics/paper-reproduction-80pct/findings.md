@@ -9,13 +9,13 @@
 
 | Field | Current value | Evidence | Status / limits |
 |---|---|---|---|
-| Artifact / version identity | `test@aa34400fe515aefb7493ac6e52d9820068fb8907`; `main=stable=1c5675bbedf1dcbe5a4c1a91830cae528c780793` | 2026-09-07 resumed Git preflight | current local state before Task 1 integration |
-| Active evidence instance | detached Task 1 at `9fdb33e7932919f089c0dfeb9942c9e4c2c219d9`, after review fixes; read-only import source `b53d3fe` | worktree inventory and superseding task-1-report addendum | implementer reports 29 CPU tests; scoped independent re-review active |
+| Artifact / version identity | integrated source `test@484f6827dd34201dc45c3dfe8e154a165a98492b`; `main=stable=1c5675bbedf1dcbe5a4c1a91830cae528c780793` | 2026-09-07 Task 1 cherry-picks and verification | coordination-only successor does not change the tested source |
+| Active evidence instance | Task 1 primary checkout run: 31 tests passed in 2.66s; Gate A five CPU/static passes and real Gym blocked | `/tmp/sea-nav-task1-integrated.lBIrs6/gate-a.json`; summary committed in progress.md | temporary raw report is not a durable final-candidate artifact |
 | Declared configuration | 2026-09-07 evidence-corrected design and task briefs | scientific/checkpoint audit reports; original 252f3f85 design is historical | action-bound row blocks accepted paper_v1; upstream diagnostic repair proceeds |
 | Confirmed facts | remote snapshots are unrelated roots; only `main` is a complete tree; post-sample CBF and PPO smoothness state mutation are real regressions | Git object analysis and CPU/source comparison | confirmed |
 | Candidate hypothesis | repairing packaging/config/PPO/CBF/replay/runtime/checkpoint contracts will make Rungs 0–2 reliable; simulator viability remains unknown | approved spec and batch mappings | implementation pending |
-| Highest validation rung | Rung 0 on historical source; final candidate has not yet been built | prior syntax/Git/Gate A evidence | do not claim final pass yet |
-| Unpublished/unverified work | Task 1 commits `0dd407e`, `9fdb33e` not integrated yet; Batches 2–7 pending; review/replay records pending commit | working tree and detached commit inventory | local only; no remote write |
+| Highest validation rung | Rung 1 for Task 1; non-final Gate A passed_with_blockers | independent Task 1 review and primary run | frozen final-candidate Rung 2 still pending |
+| Unpublished/unverified work | Task 1 integrated as `a58ad21`, `eac2657`, `484f682`; Tasks 2–7 pending | Git and review ledger | local only; no remote write |
 
 ## Research Findings
 - `main` retains the full training/deployment/adapter tree; `origin/test` and `b53d3fe` each omit 53 baseline paths and must never replace it wholesale.
