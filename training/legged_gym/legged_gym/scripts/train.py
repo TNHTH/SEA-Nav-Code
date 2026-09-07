@@ -68,6 +68,7 @@ def main(argv=None):
         output=blocked_result("isaac_gym_preview4","runtime acceptance not established",
                               "complete real controller/reset and lifecycle validation")
         output["effective_environment"]=env_cfg.environment_receipt
+        output["applied_shapes"]=train_cfg.applied_shapes
     except (ModuleNotFoundError,ImportError) as exc:
         output=blocked_result("isaac_gym_preview4",exc,"install and lock Isaac Gym Preview 4",
                               dependency_status="unavailable")

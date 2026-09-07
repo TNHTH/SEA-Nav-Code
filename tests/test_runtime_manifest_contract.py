@@ -115,3 +115,123 @@ def test_actual_ordinary_step_snapshots_post_clip_command_without_simulation():
     scope['actions']=torch.zeros(1,3)
     exec(compile(ast.Module(body=method.body[:stop],type_ignores=[]),str(path),'exec'),scope)
     assert scope['trace_stages']['executed_command'].tolist()==[[1.125,-1.,1.]]
+
+def test_smoke_first_evidence_record_has_no_legacy_replay_dependency(tmp_path):
+    import ast
+    import torch
+    from types import SimpleNamespace as NS
+    from sea_nav_current_isaaclab_full_method import full_method_runtime_smoke as module
+    tree=ast.parse(Path(module.__file__).read_text())
+    assert not any(isinstance(n,ast.Name) and n.id in {'CollisionReplayBuffer','replay_buffer'} for n in ast.walk(tree))
+    record=next(n.value for n in ast.walk(tree) if isinstance(n,ast.Assign)
+                and any(isinstance(t,ast.Name) and t.id=='trace_record' for t in n.targets))
+    required={'env_id','step','distribution_mean','policy_action','clipped_policy_action','executed_command',
+              'observation_timestamp','sample_timestamp','sampled_latency','actual_sample_age','synthetic_bootstrap'}
+    pairs=[(k,v) for k,v in zip(record.keys,record.values) if isinstance(k,ast.Constant) and k.value in required]
+    assert {k.value for k,_ in pairs}==required
+    evidence=ast.Dict(keys=[k for k,_ in pairs],values=[v for _,v in pairs])
+    ast.copy_location(evidence,record)
+    scope=dict(step=0,tensor_list=module.tensor_list,pre_delay_u_safe=torch.ones(1,3),
+               delay_debug={'clipped_new_command':torch.ones(1,3)},u_applied=torch.ones(1,3),
+               decision_time=torch.zeros(1),perception=NS(held_time=torch.zeros(1),
+               held_latency=torch.zeros(1),synthetic=torch.ones(1,dtype=torch.bool)))
+    scope['trace_record']=eval(compile(ast.Expression(evidence),str(module.__file__),'eval'),scope)
+    trace=JsonlTraceLogger(tmp_path/'first.jsonl'); scope['trace_logger']=trace
+    write=next(n for n in ast.walk(tree) if isinstance(n,ast.Expr) and isinstance(n.value,ast.Call)
+               and ast.unparse(n.value.func)=='trace_logger.write')
+    exec(compile(ast.Module(body=[write],type_ignores=[]),str(module.__file__),'exec'),scope)
+    trace.close()
+    assert trace.verified_row_count()==1
+
+@pytest.mark.parametrize('script',['train_full_method_ppo.py','train_full_method_acsi_replay_ppo.py'])
+@pytest.mark.parametrize('num_envs',[2,2048])
+@pytest.mark.parametrize('enabled',[False,True])
+def test_actual_training_step_trace_branch_has_zero_disabled_materialization(script,num_envs,enabled,tmp_path):
+    import ast
+    import torch
+    from collections import Counter
+    from types import SimpleNamespace as NS
+    from torch.utils._python_dispatch import TorchDispatchMode
+    from adapters.trace_logger import capture_policy_stages,write_transition
+    from test_runtime_cli_contract import cli,load_trainer,attach_actual_training_trace
+    module=load_trainer(script)
+    path=tmp_path/'output/selected/trace.jsonl'
+    request=module.preflight(cli(tmp_path)+(['--trace',str(path)] if enabled else []))
+    mean=torch.ones(num_envs,3)
+    actor=NS(action_mean=mean)
+    state,trace=attach_actual_training_trace(module,request.arguments,actor)
+    if not enabled:
+        def forbidden(): raise AssertionError('disabled trace called the policy accessor')
+        state.trace_policy=forbidden
+    state.episode_length_buf=torch.full((num_envs,),6,dtype=torch.long)
+    state.step_dt=.02
+    state.trace_step=4
+    state.slr_command=torch.full((num_envs,3),.5)
+    state.perception=NS(held_time=torch.full((num_envs,),.04),held_latency=torch.full((num_envs,),.06),
+                        synthetic=torch.zeros(num_envs,dtype=torch.bool))
+    tree=ast.parse(Path(module.__file__).read_text())
+    env_class=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name.endswith('IsaacLabEnv'))
+    method=next(n for n in env_class.body if isinstance(n,ast.FunctionDef) and n.name=='step')
+    # Only actual trace statements are instrumented; physics/reward/reset are not emulated.
+    statements=[n for n in method.body if (isinstance(n,ast.Assign) and any(
+        isinstance(t,ast.Name) and t.id in ('trace_stages','trace_time') for t in n.targets))
+        or (isinstance(n,ast.If) and ast.unparse(n.test)=='trace_stages is not None')]
+    assert len(statements)==4
+    scope=dict(self=state,torch=torch,actions=torch.full((num_envs,3),4.),
+               nav_action_orig=torch.full((num_envs,3),3.),reward=torch.full((num_envs,),.38),
+               done=torch.zeros(num_envs,dtype=torch.bool),capture_policy_stages=capture_policy_stages,
+               write_transition=write_transition)
+    counts=Counter()
+    class CountMaterialization(TorchDispatchMode):
+        def __torch_dispatch__(self,func,types,args=(),kwargs=None):
+            counts[func._schema.name]+=1
+            return func(*args,**(kwargs or {}))
+    with CountMaterialization():
+        exec(compile(ast.Module(body=statements,type_ignores=[]),str(module.__file__),'exec'),scope)
+    if not enabled:
+        assert trace is None and not request.paths.run_root.exists()
+        assert scope['trace_stages'] is scope['trace_time'] is None and state.trace_step==4
+        assert counts['aten::clone']==counts['aten::_to_copy']==counts['aten::_local_scalar_dense']==0
+    else:
+        assert counts['aten::clone']==4 and counts['aten::_to_copy']>0
+        assert counts['aten::_local_scalar_dense']==7*num_envs
+        assert state.trace_step==5
+        trace.close()
+        assert trace.verified_row_count()==num_envs
+        rows=[json.loads(line) for line in path.read_text().splitlines()]
+        assert [r['env_id'] for r in rows]==list(range(num_envs))
+        for item in (rows[0],rows[-1]):
+            assert item['step']==4 and item['distribution_mean']==[1.,1.,1.]
+            assert item['policy_action']==[4.,4.,4.] and item['clipped_policy_action']==[3.,3.,3.]
+            assert item['executed_command']==[.5,.5,.5]
+
+def test_disabled_writer_never_accesses_any_trace_payload():
+    from adapters.trace_logger import write_transition
+    class Forbidden:
+        def __getattribute__(self,name): raise AssertionError('disabled writer accessed '+name)
+    x=Forbidden()
+    write_transition(None,x,x,x,x,x,x)
+
+@pytest.mark.parametrize('enabled',[False,True])
+def test_trace_publication_rejects_unrequested_or_foreign_logger(enabled,tmp_path):
+    from test_runtime_cli_contract import cli,load_trainer
+    from rsl_rl.runtime_preflight import publish_runtime_result
+    module=load_trainer('train_full_method_ppo.py')
+    argv=cli(tmp_path)
+    requested=tmp_path/'output/trace.jsonl'
+    request=module.preflight(argv+(['--trace',str(requested)] if enabled else []))
+    trace=JsonlTraceLogger(tmp_path/'foreign.jsonl'); trace.write(row()); trace.close()
+    with pytest.raises(ValueError,match='trace'):
+        publish_runtime_result({'status':'blocked'},request,trace)
+    assert not request.paths.run_root.exists()
+
+def test_trace_publication_binds_requested_closed_physical_rows(tmp_path):
+    from test_runtime_cli_contract import cli,load_trainer
+    from rsl_rl.runtime_preflight import publish_runtime_result
+    module=load_trainer('train_full_method_ppo.py')
+    request=module.preflight(cli(tmp_path)+['--trace',str(tmp_path/'output/trace.jsonl')])
+    trace=JsonlTraceLogger(request.arguments.trace); trace.write(row()); trace.close()
+    result=publish_runtime_result({'status':'blocked'},request,trace)
+    assert result['trace_rows']==1 and result['trace_path']==str(trace.path) and result['trace_verified'] is True
+    assert result['effective_arguments']['trace_enabled'] is True and result['runtime_verified'] is False
+    assert json.loads(Path(request.arguments.result).read_text())==json.loads(Path(request.arguments.manifest_out).read_text())

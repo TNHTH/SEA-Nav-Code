@@ -30,6 +30,7 @@ def build_parser():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--timeout-seconds", type=float, default=60.0)
     parser.add_argument("--result", type=str, default="")
+    parser.add_argument("--trace", type=str, default=None, help="Opt in to per-environment JSONL tracing at this output path")
     parser.add_argument("--log-dir", type=str, default="")
     parser.add_argument("--init-checkpoint", type=str, default="")
     parser.add_argument("--cbf-fov-deg", type=float, default=180.0)
@@ -163,6 +164,7 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
         self.extras = {}
         self.rays = torch.zeros(self.num_envs, 41, device=self.device)
         self.reset_count = 0
+        self._pending_curriculum_distance = None
         self.semantic_done_count = 0
         self.collision_count = 0
         self.fall_down_count = 0
@@ -297,8 +299,11 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
 
     def reset(self, env_ids=None):
         torch = self.torch
-        if self.reset_count:
-            self._update_curriculum(self._terminal_distance)
+        # Constructor, runner initialization and operator resets are not
+        # completed episodes. Only step() may enqueue a terminal event.
+        if self._pending_curriculum_distance is not None:
+            self._update_curriculum(self._pending_curriculum_distance)
+            self._pending_curriculum_distance = None
         self.carrier.reset(seed=args.seed if self.reset_count == 0 else None)
         self._place_robot_at_start()
         obs = self.carrier.unwrapped.observation_manager.compute()
@@ -489,6 +494,7 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
         self._update_observation()
         next_obs = self.obs_buf.clone()
         if done.any():
+            self._pending_curriculum_distance = self._terminal_distance.clone()
             self.reset()
             next_obs = self.obs_buf.clone()
         return next_obs, self.privileged_obs_buf, reward, done, infos
@@ -633,13 +639,15 @@ def main(request):
     expected_constructor = request.environment["constructor_settings"]
     if any(train_cfg[key] != expected_constructor[key] for key in ("policy","algorithm")):
         raise ValueError("actual constructor settings differ from preflight")
-    runner = OnPolicyRunner(adapter_env, train_cfg, log_dir=str(log_dir), args=SimpleNamespace(wandb=False), device=adapter_env.device)
+    from rsl_rl.environment_profile import runner_config_for_environment
+    runner_cfg = runner_config_for_environment(train_cfg,request.resolved_config,adapter_env)
+    runner = OnPolicyRunner(adapter_env, runner_cfg, log_dir=str(log_dir), args=SimpleNamespace(wandb=False), device=adapter_env.device)
     init_checkpoint_loaded = False
     init_checkpoint_path = None
     from adapters.trace_logger import JsonlTraceLogger
-    active_trace = JsonlTraceLogger(args.trace)
+    active_trace = JsonlTraceLogger(args.trace) if args.trace is not None else None
     adapter_env.trace_logger = active_trace
-    adapter_env.trace_policy = lambda: runner.alg.actor_critic
+    adapter_env.trace_policy = (lambda: runner.alg.actor_critic) if active_trace is not None else None
     runner.learn(
         num_learning_iterations=args.iterations,
         init_at_random_ep_len=False,
@@ -722,6 +730,7 @@ def main(request):
     }
     result["effective_environment"] = adapter_env.environment_receipt
     result["effective_constructor"] = {"policy":train_cfg["policy"],"algorithm":train_cfg["algorithm"]}
+    result["applied_shapes"] = runner_cfg["applied_shapes"]
     return result
 
 

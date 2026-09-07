@@ -51,7 +51,8 @@ def contained_output(root,value):
 
 def validate_output_targets(paths, arguments, input_paths=()):
     outputs=[contained_output(paths.run_root,getattr(arguments,key))
-             for key in ("result","trace","manifest_out","log_dir")]
+             for key in ("result","trace","manifest_out","log_dir")
+             if key!="trace" or getattr(arguments,key) is not None]
     for i,path in enumerate(outputs):
         if path.exists():
             raise ValueError("output target already exists: "+str(path))
@@ -228,6 +229,8 @@ def preflight(argv, *, runtime_stack, repo_root, build_parser=None, entrypoint="
             raise ValueError("runtime override conflicts with profile: "+key)
     if entrypoint=="ppo" and parsed.enable_collision_replay:
         raise ValueError("ordinary PPO environment does not support replay")
+    if entrypoint=="smoke" and parsed.enable_collision_replay:
+        raise ValueError("blocked: smoke is a no-replay diagnostic; use the resolved ACSI trainer")
     if entrypoint in ("ppo","smoke") and parsed.num_envs != 1:
         raise ValueError("blocked: this diagnostic entrypoint requires one environment; use the ACSI trainer for masked multi-env reset")
     if entrypoint == "smoke":
@@ -284,9 +287,16 @@ def preflight(argv, *, runtime_stack, repo_root, build_parser=None, entrypoint="
         env=environment_settings(resolved,**env_options)
         env['constructor_settings']=runtime_constructor_settings(resolved,vars(parsed))
     env["asset_prerequisites"] = asset_receipt(paths,runtime_stack)
-    for key,name in (("result","result.json"),("trace","trace.jsonl"),("manifest_out","manifest.json"),("log_dir","training")):
+    for key,name in (("result","result.json"),("manifest_out","manifest.json"),("log_dir","training")):
         value=getattr(parsed,key,"") or str(paths.run_root/name)
         setattr(parsed,key,str(contained_output(paths.run_root,value)))
+    trace=getattr(parsed,"trace",None)
+    if entrypoint=="smoke":
+        trace=trace or str(paths.run_root/"trace.jsonl")
+    elif trace=="":
+        raise ValueError("trace must be an explicit nonempty output path when enabled")
+    parsed.trace=None if trace is None else str(contained_output(paths.run_root,trace))
+    parsed.trace_enabled=parsed.trace is not None
     validate_output_targets(paths,parsed,(config_path,paths.launcher))
     parsed.preflight_only=base.preflight_only
     return RuntimeRequest(resolved,paths,json.dumps(vars(parsed),sort_keys=True),json.dumps(env,sort_keys=True),tuple(remaining))
@@ -319,6 +329,12 @@ def bind_runtime_result(result, resolved, paths, environment, trace=None, argume
             raise ValueError("actual constructor differs from preflight")
     if result.get("status") not in ("blocked","failed"):
         raise ValueError("runtime passed needs a separate real lifecycle acceptance gate")
+    if arguments is not None and trace is not None:
+        requested_trace=arguments.get("trace")
+        if arguments.get("trace_enabled") is not True or requested_trace is None:
+            raise ValueError("trace logger was not requested")
+        if _canonical(trace.path)!=contained_output(paths.run_root,requested_trace):
+            raise ValueError("trace logger differs from requested output path")
     trace_error=None
     try:
         count=0 if trace is None else trace.verified_row_count()

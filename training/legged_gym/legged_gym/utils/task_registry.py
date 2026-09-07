@@ -40,7 +40,7 @@ from legged_gym import LEGGED_GYM_ROOT_DIR, LEGGED_GYM_ENVS_DIR
 from .helpers import get_args, update_cfg_from_args, class_to_dict, get_load_path, set_seed, parse_sim_params
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
-from rsl_rl.environment_profile import materialize_config, apply_gym_environment, apply_algorithm_profile, reconcile_environment_receipt
+from rsl_rl.environment_profile import materialize_config, apply_gym_environment, apply_algorithm_profile, reconcile_environment_receipt, runner_config_for_environment
 
 class TaskRegistry():
     def __init__(self):
@@ -170,7 +170,8 @@ class TaskRegistry():
             raise ValueError("resolved_config required before runner construction")
         if train_cfg.runner.resume:
             raise ValueError("blocked: checkpoint loading requires Task 7 manifest loader")
-        train_cfg_dict = apply_algorithm_profile(class_to_dict(train_cfg), resolved_config)
+        train_cfg_dict = runner_config_for_environment(class_to_dict(train_cfg), resolved_config, env)
+        train_cfg.applied_shapes = train_cfg_dict["applied_shapes"]
 
         runner_class = eval(train_cfg.runner_class_name)
 

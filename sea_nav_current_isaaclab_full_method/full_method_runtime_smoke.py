@@ -65,6 +65,31 @@ def preflight(argv):
     return shared_preflight(argv, runtime_stack="isaaclab_adapter", repo_root=SEA_ROOT,
                             build_parser=build_parser, entrypoint="smoke")
 
+def apply_carrier_run_settings(cfg,request):
+    """Apply the requested seed/nominal duration before gym.make; no simulation."""
+    requested=request.arguments
+    cfg.seed=int(requested.seed)
+    cfg.episode_length_s=float(requested.timeout_seconds)
+    if cfg.episode_length_s!=request.environment["actual_horizon_s"]:
+        raise ValueError("configured carrier horizon differs from preflight")
+    return dict(requested_seed=int(requested.seed),configured_env_seed=int(cfg.seed),
+                env_seed=None,seed_readback_status="not_observed",nominal_horizon_s=cfg.episode_length_s,
+                semantic_timeout_rule="episode_length > round(nominal_horizon_s / policy_dt_s)")
+
+def observe_carrier_run_settings(cfg,evidence,request):
+    evidence=dict(evidence)
+    if float(cfg.episode_length_s)!=request.environment["actual_horizon_s"]:
+        raise ValueError("actual carrier config horizon differs from preflight")
+    observed=getattr(cfg,"seed",None)
+    if observed is not None:
+        if int(observed)!=request.arguments.seed:
+            raise ValueError("actual carrier config seed differs from requested seed")
+        evidence["env_seed"]=int(observed)
+        evidence["seed_readback_status"]="config_readback_not_physics_evidence"
+    else:
+        evidence["seed_readback_status"]="unavailable"
+    return evidence
+
 
 def load_module(name, path):
     spec = importlib.util.spec_from_file_location(name, path)
@@ -154,7 +179,6 @@ def main(request):
     # Select the shared core before importing adapters that inherit its layer.
     sys.path.insert(0, str(sea_root / "training/rsl_rl"))
     from adapters.cbf_shield import CBFShieldConfig, ExactLSECBFShield, FootprintAwareLSECBFLayer, clip_body_command
-    from adapters.collision_replay import CollisionReplayBuffer, CollisionReplayConfig
     from adapters.command_delay import CommandDelayConfig, CommandDelayFilter
     from adapters.footprint_clearance import apply_footprint_clearance
     from adapters.manifest import default_manifest, write_manifest
@@ -191,7 +215,7 @@ def main(request):
 
     task = "Isaac-Velocity-Flat-Unitree-Go2-v0"
     env_cfg = parse_env_cfg(task, device=args.device, num_envs=args.num_envs, use_fabric=True)
-    env_cfg.seed = int(args.seed)
+    seed_evidence = apply_carrier_run_settings(env_cfg,request)
     env_cfg.scene.terrain.class_type = HardRoomTerrainImporter
     env_cfg.scene.terrain.terrain_type = "plane"
     env_cfg.scene.terrain.terrain_generator = None
@@ -207,15 +231,13 @@ def main(request):
                         "provenance_status":"unverified","interface_status":"blocked"}
     carrier = gym.make(task, cfg=env_cfg, render_mode=None)
     active_carrier = carrier
-    carrier_cfg_seed = getattr(carrier.unwrapped.cfg, "seed", None)
-    if carrier_cfg_seed is not None:
-        seed_evidence["env_seed"] = int(carrier_cfg_seed)
+    seed_evidence = observe_carrier_run_settings(carrier.unwrapped.cfg,seed_evidence,request)
     device = carrier.unwrapped.device
     step_dt = float(getattr(carrier.unwrapped, "step_dt", 0.02))
     from rsl_rl.environment_profile import environment_settings
     from rsl_rl.perception_delay import PerceptionDelayConfig, TimestampedPerception
     effective_environment = environment_settings(request.resolved_config,policy_dt_s=step_dt,
-        timeout_seconds=args.timeout_seconds,replay_enabled=False,capacity=args.replay_ring_buffer_steps,
+        timeout_seconds=carrier.unwrapped.cfg.episode_length_s,replay_enabled=False,capacity=args.replay_ring_buffer_steps,
         undo=(args.replay_undo_min,args.replay_undo_max),max_level=args.source_max_goal_level)
     from rsl_rl.environment_profile import reconcile_environment_receipt
     reconcile_environment_receipt(effective_environment,request.environment)
@@ -327,7 +349,6 @@ def main(request):
             }
 
     runtime_command_filter = RuntimeCommandFilter(args.command_filter_mode, command_filter, num_envs, device)
-    replay_buffer = CollisionReplayBuffer(CollisionReplayConfig(), num_envs=num_envs)
     last_loco_action = torch.zeros(num_envs, 12, device=device)
     episode_length_buf = torch.zeros(num_envs, dtype=torch.long, device=device)
     goal_hold_timer = torch.zeros(num_envs, dtype=torch.long, device=device)
@@ -745,28 +766,6 @@ def main(request):
             ray_min_index = int(torch.argmin(rays_post[0]).detach().cpu())
             ray_min_angle_rad = float(ray_angles[ray_min_index].detach().cpu())
 
-            root_velocity_w = getattr(robot.data, "root_vel_w", None)
-            if root_velocity_w is None:
-                root_velocity_w = torch.cat((robot.data.root_lin_vel_w, robot.data.root_ang_vel_w), dim=-1)
-            replay_buffer.push(
-                root_state={
-                    "root_pose": torch.cat((robot.data.root_pos_w, robot.data.root_quat_w), dim=-1).detach().clone(),
-                    "root_velocity": root_velocity_w.detach().clone(),
-                },
-                dof_pos=robot.data.joint_pos.detach().clone(),
-                dof_vel=robot.data.joint_vel.detach().clone(),
-                command=slr_command.detach().clone(),
-                sea_obs_hist=sea_obs_hist.detach().clone(),
-                slr_obs_hist=slr_obs_hist.detach().clone(),
-                task_state={
-                    "room_seed": int(args.seed),
-                    "robot_cell": robot_cell_post.detach().clone(),
-                    "goal_cell": goal_cell.detach().clone(),
-                    "distance_m": distance_post.detach().clone(),
-                },
-                collision=diag["collision_onset"].detach().clone(),
-            )
-
             trace_record = {
                 "env_id": 0,
                 "observation_timestamp":float(decision_time[0]),
@@ -1024,7 +1023,7 @@ def main(request):
             "high_level_command_scale": [1.0, 1.0, 1.0],
             "slr_command_scale": [2.0, 2.0, 0.25],
             "command_filter_alpha": 0.5,
-            "collision_replay_buffer": "recording enabled; replay reset not triggered in this smoke",
+            "collision_replay_buffer": "disabled: no recording or replay restoration in this diagnostic smoke",
             "trace_file": args.trace or None,
             "trace_rows": trace_rows,
             "manifest_out": args.manifest_out or None,
@@ -1166,7 +1165,7 @@ def main(request):
         "known_caveats": [
             "High-level policy is randomly initialized because no official SEA-Nav high-level checkpoint exists in the local repo.",
             "This smoke ports full-method action-chain, reward/done semantics, and trace contracts onto current IsaacLab signals; it is not a 100-episode Hard SR/CR/TR metric run.",
-            "Collision replay is recorded but not used to reset during this smoke; formal eval keeps replay disabled.",
+            "This diagnostic smoke neither records nor restores collision replay; formal eval keeps replay disabled.",
         ],
         "step_summaries": step_summaries,
     }

@@ -112,3 +112,125 @@ def test_materialized_instance_keeps_contract_methods_but_detaches_nested_classe
     source=Contract(); fresh=materialize_config(source)
     fresh.child.values.append(2)
     assert fresh.check()==[1,2] and source.check()==[1]
+
+def cpu_runner_env():
+    import torch
+    env=NS(num_obs=550,rays=torch.ones(2,41),num_nav_actions=3,num_props=12,
+           cfg=NS(env=NS(his_len=10)),num_envs=2,device='cpu',reset_calls=0)
+    def reset():
+        env.reset_calls+=1
+        return torch.zeros(2,550),None
+    env.reset=reset
+    return env
+
+def execute_actual_runner_caller(name,env):
+    """Execute real config-to-runner source statements, never application setup."""
+    import ast
+    from rsl_rl.runners import OnPolicyRunner
+    from rsl_rl.environment_profile import runtime_constructor_settings
+    if name=='gym':
+        # Real inherited PPO configuration classes; no legged_gym package import.
+        base=ROOT/'training/legged_gym/legged_gym/envs/base'
+        namespace={'inspect':__import__('inspect')}
+        for path,clsname in ((base/'base_config.py','BaseConfig'),
+                (base/'legged_robot_config.py','LeggedRobotCfgPPO'),
+                (ROOT/'training/legged_gym/legged_gym/envs/go2/go2_pos_config.py','Go2PosRoughCfgPPO')):
+            node=next(n for n in ast.parse(path.read_text()).body if isinstance(n,ast.ClassDef) and n.name==clsname)
+            exec(compile(ast.Module(body=[node],type_ignores=[]),str(path),'exec'),namespace)
+        path=ROOT/'training/legged_gym/legged_gym/utils/task_registry.py'
+        method=next(n for n in ast.walk(ast.parse(path.read_text())) if isinstance(n,ast.FunctionDef) and n.name=='make_alg_runner')
+        start=next(i for i,n in enumerate(method.body) if isinstance(n,ast.If)
+                   and ast.unparse(n.test)=='resolved_config is None')
+        nodes=method.body[start:-1]  # return is outside a function in this CPU slice.
+        helpers=base.parents[1]/'utils/helpers.py'
+        helper=next(n for n in ast.parse(helpers.read_text()).body if isinstance(n,ast.FunctionDef) and n.name=='class_to_dict')
+        exec(compile(ast.Module(body=[helper],type_ignores=[]),str(helpers),'exec'),namespace)
+        namespace.update(env=env,train_cfg=namespace['Go2PosRoughCfgPPO'](),resolved_config=resolved(),
+                         apply_algorithm_profile=apply_algorithm_profile,OnPolicyRunner=OnPolicyRunner,
+                         args=NS(rl_device='cpu',wandb=False),log_dir=None)
+        from rsl_rl import environment_profile
+        if hasattr(environment_profile,'runner_config_for_environment'):
+            namespace['runner_config_for_environment']=environment_profile.runner_config_for_environment
+    else:
+        path=ROOT/'sea_nav_current_isaaclab_full_method'/name
+        method=next(n for n in ast.parse(path.read_text()).body if isinstance(n,ast.FunctionDef) and n.name=='main')
+        start=next(i for i,n in enumerate(method.body) if isinstance(n,ast.Assign)
+                   and any(isinstance(t,ast.Name) and t.id=='train_cfg' for t in n.targets))
+        stop=next(i for i,n in enumerate(method.body) if isinstance(n,ast.Assign)
+                  and any(isinstance(t,ast.Name) and t.id=='runner' for t in n.targets))
+        nodes=method.body[start:stop+1]
+        config=resolved('isaaclab_adapter')
+        args=NS(rollout_steps=4,init_std=.8,cbf_fov_deg=180.,ppo_learning_rate=.0003,
+                ppo_entropy_coef=.007,ppo_schedule='fixed',ppo_num_learning_epochs=1,ppo_num_mini_batches=1)
+        namespace=dict(adapter_env=env,request=NS(resolved_config=config,
+            environment={'constructor_settings':runtime_constructor_settings(config,vars(args))}),
+            args=args,SimpleNamespace=NS,log_dir=None,OnPolicyRunner=OnPolicyRunner)
+    exec(compile(ast.Module(body=nodes,type_ignores=[]),str(path),'exec'),namespace)
+    return namespace['runner'],namespace.get('runner_cfg',namespace.get('train_cfg_dict'))
+
+@pytest.mark.parametrize('name',['gym','train_full_method_ppo.py','train_full_method_acsi_replay_ppo.py'])
+def test_actual_runner_callers_apply_shapes_once(name):
+    env=cpu_runner_env()
+    runner,cfg=execute_actual_runner_caller(name,env)
+    assert runner.env is env and env.reset_calls==1
+    assert runner.alg.actor_critic.num_rays==41 and runner.alg.actor_critic.his_len==10
+    assert cfg['applied_shapes']==dict(num_actions=3,num_props=12,num_rays=41,his_len=10,num_obs=550)
+    assert not set(cfg['policy']) & {'num_actions','num_props','num_rays','his_len'}
+
+@pytest.mark.parametrize('field,value',[('num_obs',549),('num_props',11),('num_nav_actions',4),('history',9),('rays',40)])
+def test_runner_shape_mismatch_rejected_before_real_constructor(field,value):
+    import torch
+    env=cpu_runner_env()
+    if field=='history': env.cfg.env.his_len=value
+    elif field=='rays': env.rays=torch.ones(2,value)
+    else: setattr(env,field,value)
+    with pytest.raises(ValueError,match='shape'):
+        execute_actual_runner_caller('train_full_method_ppo.py',env)
+    assert env.reset_calls==0
+
+@pytest.mark.parametrize('key,value',[('num_actions',4),('num_props',11),('num_rays',40),('his_len',9)])
+def test_runner_explicit_policy_shape_conflict_is_not_dropped(key,value):
+    import copy
+    from rsl_rl.environment_profile import runner_config_for_environment
+    config={'policy':{key:value},'algorithm':{}}
+    original=copy.deepcopy(config)
+    env=cpu_runner_env()
+    with pytest.raises(ValueError,match='shape|conflict'):
+        runner_config_for_environment(config,resolved('isaaclab_adapter'),env)
+    assert config==original and env.reset_calls==0
+
+def test_ordinary_reset_prefix_consumes_completed_events_once_not_initial_or_operator():
+    import ast
+    import torch
+    from rsl_rl.replay import CurriculumConfig,update_goal_level
+    path=ROOT/'sea_nav_current_isaaclab_full_method/train_full_method_ppo.py'
+    cls=next(n for n in ast.parse(path.read_text()).body if isinstance(n,ast.ClassDef))
+    method=next(n for n in cls.body if isinstance(n,ast.FunctionDef) and n.name=='reset')
+    cutoff=next(i for i,n in enumerate(method.body) if isinstance(n,ast.Expr) and isinstance(n.value,ast.Call)
+                and isinstance(n.value.func,ast.Attribute) and n.value.func.attr=='reset')
+    prefix=compile(ast.Module(body=method.body[:cutoff],type_ignores=[]),str(path),'exec')
+    state=NS(torch=torch,reset_count=0,_pending_curriculum_distance=None,level=torch.tensor([1.]),events=[])
+    def update(distance):
+        state.events.append(distance.clone())
+        state.level,_,_=update_goal_level(state.level,distance,torch.tensor([True]),CurriculumConfig())
+    state._update_curriculum=update
+    exec(prefix,{'self':state})
+    state.reset_count=1
+    exec(prefix,{'self':state})  # runner's second reset before any transition
+    assert state.level.tolist()==[1.] and not state.events
+    state._terminal_distance=torch.tensor([.4])  # unfinished transition/operator reset
+    exec(prefix,{'self':state})
+    assert not state.events
+    step=next(n for n in cls.body if isinstance(n,ast.FunctionDef) and n.name=='step')
+    terminal=next(n for n in step.body if isinstance(n,ast.If) and ast.unparse(n.test)=='done.any()')
+    assign=next(n for n in terminal.body if isinstance(n,ast.Assign)
+                and any(isinstance(t,ast.Attribute) and t.attr=='_pending_curriculum_distance' for t in n.targets))
+    event=compile(ast.Module(body=[assign],type_ignores=[]),str(path),'exec')
+    for distance,expected in ((.4,2.),(2.1,1.)):
+        state._terminal_distance=torch.tensor([distance])
+        exec(event,{'self':state})
+        exec(prefix,{'self':state})
+        exec(prefix,{'self':state})  # repeated explicit reset cannot consume twice
+        assert state.level.tolist()==[expected]
+        assert state._pending_curriculum_distance is None
+    assert len(state.events)==2

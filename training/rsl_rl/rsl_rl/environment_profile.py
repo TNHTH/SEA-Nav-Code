@@ -91,6 +91,27 @@ def runtime_constructor_settings(resolved, arguments):
         use_clipped_value_loss=True,schedule=args.get("ppo_schedule","fixed"),desired_kl=.01)
     return apply_algorithm_profile({"policy":policy,"algorithm":algorithm},resolved)
 
+def runner_config_for_environment(train_config,resolved,env):
+    """Validate runner-owned dimensions, then pass their values exactly once.
+
+    OnPolicyRunner supplies actions/props/history/rays from env explicitly.
+    The complete applied dimensions remain in the receipt, not in **policy.
+    """
+    final=apply_algorithm_profile(train_config,resolved)
+    policy=final["policy"]
+    expected=dict(num_actions=3,num_props=12,num_rays=policy["num_rays"],his_len=policy["his_len"])
+    expected["num_obs"]=(expected["num_props"]+expected["num_rays"]+2)*expected["his_len"]
+    actual=dict(num_actions=env.num_nav_actions,num_props=env.num_props,
+                num_rays=env.rays.shape[1],his_len=env.cfg.env.his_len,num_obs=env.num_obs)
+    if actual!=expected:
+        raise ValueError("environment-owned policy shape conflicts with selected profile: "+repr(actual))
+    for key in ("num_actions","num_props","num_rays","his_len"):
+        if key in policy and policy[key]!=actual[key]:
+            raise ValueError("configured policy shape conflicts with environment: "+key)
+        policy.pop(key,None)
+    final["applied_shapes"]=actual
+    return final
+
 def reconcile_environment_receipt(actual,preflight):
     expected={k:v for k,v in preflight.items() if k not in ('constructor_settings','asset_prerequisites')}
     if actual != expected:
