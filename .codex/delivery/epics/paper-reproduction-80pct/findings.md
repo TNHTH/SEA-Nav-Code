@@ -9,13 +9,13 @@
 
 | Field | Current value | Evidence | Status / limits |
 |---|---|---|---|
-| Artifact / version identity | integrated source `b5b945513acb4d3e48c401653198442654a387e9`; recovery-observed primary `test@7ee07c554bd55070ac3851914c820bf622ecb5a5`; `main=stable=1c5675bbedf1dcbe5a4c1a91830cae528c780793` | 2026-09-07 Task6 integration evidence and resumed local Git preflight | coordination-only successors do not change tested source; verify moving primary HEAD separately |
+| Artifact / version identity | integrated source `b5b945513acb4d3e48c401653198442654a387e9`; last observed primary `test@8c00d0237409e14dff7357919a83b1b5f4239666`; `main=stable=1c5675bbedf1dcbe5a4c1a91830cae528c780793` | 2026-09-07 Task6 integration evidence and resumed local Git preflight | coordination-only successors do not change tested source; verify moving primary HEAD separately |
 | Active evidence instance | Task6 primary342 tests passed in34.53s; five GateA CPU/static passes, Gym/Lab dependency/runtime four blockers | `../task-6-integrated-gate-a.json`; progress.md and independent rereview | non-final integrated evidence; existing ignored inventory unchanged, not frozen empty-checkout evidence |
 | Declared configuration | 2026-09-07 evidence-corrected design and task briefs | scientific/checkpoint audit reports; original 252f3f85 design is historical | action-bound row blocks accepted paper_v1; upstream diagnostic repair proceeds |
 | Confirmed facts | remote snapshots are unrelated roots; only `main` is a complete tree; post-sample CBF and PPO smoothness state mutation are real regressions | Git object analysis and CPU/source comparison | confirmed |
 | Candidate hypothesis | repairing packaging/config/PPO/CBF/replay/runtime/checkpoint contracts will make Rungs 0–2 reliable; simulator viability remains unknown | approved spec and batch mappings | implementation pending |
 | Highest validation rung | Rung1 for Tasks1–6; non-final GateA passed_with_blockers | Task6 scoped Spec/Quality PASS and fresh primary full run | frozen final-candidate Rung2 still pending |
-| Unpublished/unverified work | Tasks1–6 integrated through b5b9455; Task7 fixed ordered2387cf0 then c7b9aa371b8ab3800adea378a7024f043fb58580 from BASE562d4ae, 26 total changed paths including log; same sole writer active on narrow caller fix1 | Original fixed worker431/GateA and controller ordinary28 retain their c7b9aa3 identity; completed bounded caller review124 passed but FAIL for one terrain-bound P2; fix1 has no fixed result yet | local only, not integrated; original complete core/converter review remains incomplete after service restriction, not PASS; no remote write; CBF/frozen/runtime/paper gates remain |
+| Unpublished/unverified work | Tasks1–6 integrated through b5b9455; Task7 ordered2387cf0/c7b9aa3/774027d1a975e318ad2f577b457951f51c82bfad from BASE562d4ae; writers/reviewers idle | Fixed worker433 passed65.70s and GateA five passes/four blockers; original caller P2 ADDRESSED, bounded independent Spec/Quality PASS with119 passed/1 deselected35.89s; fresh review checkout clean including ignored | Task7 not integrated; full core/converter review incomplete after service restriction, needs external authorized review, not another retry; no remote write; CBF/frozen/runtime/paper gates remain |
 
 ## Research Findings
 
@@ -55,6 +55,10 @@ The following baseline defects are historical findings; Tasks 1–3 now repair t
 2026-09-07 publication preflight confirms all three remote heads unchanged and no remote stable/archive tags. Local archive objects are exact; SSH authenticates TNHTH and only a no-op receive-pack dry-run was tested. No authenticated hosting API/browser administration path was found (nor a GitHub connector in current tool metadata); public empty rulesets are not proof of absent classic protection. Exact archive publication/transport authorization and stable protection remain separate final-transaction gates. See publication-preflight.md. These facts do not block serial local CPU repairs.
 
 ## Resources
+
+- `task-7-acceptance-handoff.md`: current fixed source identity, existing bounded evidence and precise external-review blocker. Ordinary caller fix1 is accepted, but no source integration/CBF follow-up/final freeze/push is authorized from partial coverage.
+
+- `task-7-callers-rereview-1.md`: fixed774027d closes the single caller terrain P2 with bounded Spec/Quality PASS and independent119 passed/1 explicit deselection35.89s. Guard/receipt/runtime blockers and reset remain intact. It supersedes the original caller FAIL only for that finding, not the incomplete full core/converter review.
 
 - `task-7-callers-review.md`: bounded ordinary Spec/Quality FAIL, one P2 in inherited Gym play terrain override versus accepted source level/receipt; Task6 explicitly handed this post-override boundary to Task7. Passing124 tests/four-way producer-consumer checks do not close it. Same writer gets only existing play/test caller paths; preserve guard/runtime blockers. A controller first-frame stale-observation suspicion was contradicted by play's explicit reset-to-obs before inference and is not a finding.
 

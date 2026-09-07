@@ -92,3 +92,40 @@ Raw GateA reports are external persistent local siblings, not committed or remot
 Independent core review did not finish because of a service-side safety limitation, and no core review PASS exists. The controller independently supplemented ordinary persistence/102-update/adaptive evidence on fixed2387cf0; that is not a whole-contract review and predates the final snapshot/caller/converter fixes. Independent whole review on the complete fixed range, controller serial integration and frozen final-candidate verification remain required.
 
 This candidate closes local Task7 implementation/test scope only. Gym/Lab runtime and simulator optimizer continuation, exact controller interface/provenance, physical replay/reset, accepted paper_v1, formal100-trial metrics, public redistribution rights and hardware remain blocked/deferred. Model/optimizer continuation restores no RNG or physical state. The separately recorded CBF hotpath finding remains outside Task7, unchanged. Neither main/stable nor any remote ref was advanced.
+
+## Bounded caller fix round 1 addendum — 2026-09-07
+
+Fixed worker HEAD is now `774027d1a975e318ad2f577b457951f51c82bfad`, still detached. Focused fix range: `c7b9aa371b8ab3800adea378a7024f043fb58580..774027d1a975e318ad2f577b457951f51c82bfad`; original full Task7 range is `562d4ae0b56ca977ea433def6dbd05607284e38b..774027d1a975e318ad2f577b457951f51c82bfad`. The earlier431-test and c7b9aa3 evidence above stays bound to that older candidate; it is not relabeled as fix1 evidence.
+
+The original bounded caller review found one P2: accepted Gym play inference preflight binds source_max_goal_level10, but actual play preparation overwrote terrain.num_rows to1 before the existing make_env equality guard. This inherited conflict was explicitly handed off by Task6. The sole production change removes that one row override from `training/legged_gym/legged_gym/scripts/play.py`. It does not remove or alter the registry equality/receipt checks, terrain/config algorithms, other playback/reset behavior, or runtime/controller/paper prerequisites.
+
+The focused commit contains exactly three paths: play.py, `tests/test_checkpoint_runtime_wiring.py` and worker `.codex/delivery/epics/paper-reproduction-80pct/task-7-log.md`. Its source/test scope matches the controller's narrow fix1 registration. No other source, test, config or README path changed in this round; both local registration files remain unstaged. A read-only helper checked test-construction boundaries only; this is not the original reviewer's independent rereview.
+
+The new ordinary parametrized regression executes the actual BaseConfig → LeggedRobotCfg → LeggedRobotPosCfg → Go2PosRoughCfg class definitions with real inspect/NumPy, the complete continuous play configuration-preparation AST slice including its single-env branch, and the actual registry preconstruction slice through apply_gym_environment/reconcile_environment_receipt. It stops before seeding/simulator construction. The positive case consumes a real v2 manifest through real play preflight and observes rows10, cols1, max_init3, exact request-matching receipt with stored_level_bounds[0.,10.], controller-root binding and requested num_envs restoration. The negative case changes prepared rows to9 and still gets the actual equality-guard error before a receipt exists. Both keep runtime_ready=False and create no run-root output or Isaac import. No simulator/environment stand-in is used.
+
+### Fix1 executed verification
+
+All five new pytest invocations used the dedicated absolute CPU interpreter already shown above, `PYTHONDONTWRITEBYTECODE=1`, worker-local `PYTHONPATH="$PWD/training/rsl_rl"`, and `-m pytest -q -p no:cacheprovider`.
+
+| Task7 invocation | Actual selection and revision | Result |
+|---|---|---|
+| 19, genuine RED | new `-k actual_gym_play_preparation` on unchanged c7b9aa3 play source | 1 failed,1 passed,28 deselected in3.75s; exit1 at actual task_registry.py:111 terrain-row guard |
+| 20, GREEN | same selection after the single-line fix | 2 passed,28 deselected in3.66s; exit0 |
+| 21, ordinary related coverage | checkpoint_runtime_wiring, environment_profile, runtime_cli_contract, runtime_manifest_contract and runner_checkpoint test files; `-k 'not expressions'` | 123 passed,1 deselected in36.97s; exit0 |
+| 22, complete precommit suite | `tests training/rsl_rl/tests sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py` | 433 passed in65.61s; exit0 |
+| 23, fresh complete postcommit suite | identical full selection on exact774027d1a975e318ad2f577b457951f51c82bfad | 433 passed in65.70s; exit0 |
+
+The RED was the expected real consumer contradiction, not an AST/import harness failure. Source/test/config files did not change between GREEN, full precommit and fresh full postcommit. The committed worker log records commands19–22 and retained earlier failures; this addendum records actual postcommit command23. No separate raw pytest-log file is claimed; stdout remains in tool outputs. The full existing test suite is implementation regression coverage, not a retry, bypass or replacement of the service-restricted independent review.
+
+Fresh precommit and postcommit GateA commands both exited0 with passed_with_blockers. Exact external reports, each physically read back:
+
+- `/home/twyc/Documents/Codex/2026-09-04/https-github-com-tnhth-sea-nav-2/work/task-7-worker-gate-a-fix1-precommit.json`
+- `/home/twyc/Documents/Codex/2026-09-04/https-github-com-tnhth-sea-nav-2/work/task-7-worker-gate-a-fix1-774027d.json`
+
+Both used `tools/gate_a.py --repo-root "$PWD" --report PATH` with the same dedicated interpreter/environment. Five CPU/static cases passed:91 Python files compiled without output,65 retained baseline paths,20Gym files parsed/nine static-only,seven CPU-safe imports and real actor/value/PPO/storage smoke. Four distinct blockers persist: missing isaacgym, unexecuted real Gym runtime, missing isaaclab and unexecuted real Lab runtime. The report schema has no commit field; the postcommit invocation, filename and this record bind its evidence to774027d. These durable local sibling reports are not committed or remotely visible artifacts.
+
+Python3.8 grammar plus in-memory compile and bash -n passed both precommit and freshly on fixed774027d:91 Python files and one shell script, no bytecode. Exact commit inventory and parent were checked; index is empty, no baseline path was deleted, and final ignored/untracked status contains only the two expected unstaged worker registration files. All other production behavior remains inherited from reviewed/recorded earlier slices.
+
+### Remaining acceptance boundaries
+
+This addendum hands the fixed range to the original caller reviewer for a bounded rereview; no rereview verdict is presumed. The separate full core/converter review remains **INCOMPLETE**, not PASS. The rejected first-observation and None-return conjectures were excluded from this fix. Original runtime/controller/provenance, accepted paper_v1, formal metrics, rights and hardware blockers remain unchanged; the CBF hotpath P2 remains separate and untouched. No integration, named-branch/ref/config change, remote publication, simulator acceptance or final-project completion was performed or authorized by these ordinary results.

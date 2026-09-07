@@ -3,17 +3,17 @@
   "coord_rev": 8,
   "repository": "TNHTH/SEA-Nav-Code",
   "branch": "test",
-  "head": "7ee07c554bd55070ac3851914c820bf622ecb5a5",
+  "head": "8c00d0237409e14dff7357919a83b1b5f4239666",
   "head_semantics": "last observed primary HEAD; a coordination-only successor may exist; verify git rev-parse HEAD on recovery",
-  "phase": "serial_implementation",
-  "next_action": "Task7 bounded caller review oneP2 terrain-bound conflict; same writer fix1 only play.py/test_checkpoint_runtime_wiring.py then original scoped rereview; full core/converter review remains incomplete, no integration",
+  "phase": "awaiting_external_review",
+  "next_action": "Task7 caller fix1 accepted at774027d; full core/converter review remains incomplete after service restriction. Request an authorized external independent review route/results per task-7-acceptance-handoff.md. No service retry, source integration, CBF follow-up, final freeze or remote write.",
   "active_implementation": {
     "task": 7,
     "agent": "/root/implement_batch7",
     "worktree": "../SEA-Nav-Code-batch7",
     "base": "562d4ae0b56ca977ea433def6dbd05607284e38b",
-    "head": "c7b9aa371b8ab3800adea378a7024f043fb58580",
-    "status": "caller_fix_round1_assigned_full_core_review_incomplete",
+    "head": "774027d1a975e318ad2f577b457951f51c82bfad",
+    "status": "idle_caller_fix1_accepted_full_core_review_blocked_external_input_required",
     "scope_file": "task-7-brief.md",
     "scope_count": 26,
     "baseline": "fresh342 passed in33.94s; empty ignored porcelain before/after"
@@ -46,6 +46,12 @@
   ],
   "highest_verified_rung": 1,
   "candidate_oid": null,
+  "acceptance_blocker": {
+    "id": "task7_full_core_converter_independent_review",
+    "status": "incomplete_after_service_restriction",
+    "handoff": "task-7-acceptance-handoff.md",
+    "requires": "authorized external independent review route or complete fixed-revision review result; do not retry or bypass the restricted service"
+  },
   "final_review_open_inputs": [
     {
       "id": "cbf_hotpath",
