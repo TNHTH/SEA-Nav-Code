@@ -55,6 +55,9 @@ The following baseline defects are historical findings; Tasks 1–3 now repair t
 2026-09-07 publication preflight confirms all three remote heads unchanged and no remote stable/archive tags. Local archive objects are exact; SSH authenticates TNHTH and only a no-op receive-pack dry-run was tested. No authenticated hosting API/browser administration path was found (nor a GitHub connector in current tool metadata); public empty rulesets are not proof of absent classic protection. Exact archive publication/transport authorization and stable protection remain separate final-transaction gates. See publication-preflight.md. These facts do not block serial local CPU repairs.
 
 ## Resources
+
+- Final-review input `cbf-hotpath-observation.md`: a focused real TorchDispatch probe at source a660d74 records five scalar extractions in ordinary core/adapter CBF forward, zero in the pure mathematical core. This is CPU operator evidence only; CUDA impact and the safe reconciliation of deterministic validation with the no-host-sync hot-path contract require final review. No concurrent CBF fix has been made.
+
 - Approved design: `docs/superpowers/specs/2026-09-04-sea-nav-reproduction-recovery-design.md`
 - Authoritative source: `11chens/SEA-Nav-Code@fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96`
 - Paper: arXiv `2603.09460v1`, PDF SHA-256 `600a5040b6579fe63615d87a70f174f3fa0b0d018f74440b6707d23d36dfc2e9`

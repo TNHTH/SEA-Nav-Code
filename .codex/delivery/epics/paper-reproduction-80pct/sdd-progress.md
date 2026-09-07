@@ -89,3 +89,7 @@ Task 4: implementation received at `ac0567eed6cf88a17f5178663f0324cffaaab357`; f
 
 Task 4: complete (detached commits 17e53cf..ac0567e, review clean; integrated as a660d74). Independent spec/quality PASS; primary fresh 169 passed in 10.70s and five Gate A CPU/static cases passed with Gym blocked. Reviewed source tree matches integrated source. Task 6 owns the explicitly documented startup/geometry/reward/perception handoff; relevant actual simulator smoke remains blocked.
 Task 5: registered; BASE will be the coordination-only successor of a660d74, detached ../SEA-Nav-Code-batch5. Corrected brief, replay-schema-audit.md and corrected replay-performance-harness.md govern exact compact reconstruction and active-row hot-path evidence. Only one source implementer will be active.
+
+Task 5: active; BASE=5b99f456fbfb9eb2e6fc8eae5a03a1aa584e2b43; detached ../SEA-Nav-Code-batch5 clean before registration and full CPU baseline 169 passed in 10.71s. Fresh implementer `/root/implement_batch5` owns the registered compact replay/ACSI/lifecycle/reset/filter paths. Source implementation remains serial.
+
+Final-review input (not pre-graded/parked): cbf-hotpath-observation.md confirms five eager-CPU scalar extractions in ordinary core/adapter CBF forward versus zero in _compute. Final whole-branch review must judge deterministic validation versus hot-path synchronization constraints; no GPU timing claim or concurrent source change.
