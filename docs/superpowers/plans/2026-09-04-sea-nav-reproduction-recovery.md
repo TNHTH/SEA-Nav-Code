@@ -740,6 +740,8 @@ Read `origin` heads into a temporary namespace, verify owner `TNHTH`, and abort 
 
 Use `git grep` against `SEA_NAV_CANDIDATE_OID` with the versioned patterns for GitHub/OpenAI tokens, private keys, and credential assignments. A match blocks the push until reviewed; an index-only scan is insufficient.
 
+The exact pattern set is `.codex/delivery/epics/paper-reproduction-80pct/secret-patterns.regex`. Verify the pattern file's working blob hash equals its blob at the frozen candidate before using `git grep -l -I -E -f <pattern-file> "$SEA_NAV_CANDIDATE_OID" -- .`. Record candidate OID, pattern blob OID, full committed path inventory and exit status. Emit matching filenames only, never matching credential contents. Exit 1 is no pattern match, exit 0 requires local finding review, and any other status blocks publication as a failed scan. This text-pattern check is not a blanket claim of secret-free binaries or completed supply-chain audit.
+
 - [ ] **Step 3: Publish authorized archive recovery tags and verify them**
 
 Push only `archive/pre-recovery-main-20260904`, `archive/pre-recovery-test-20260904`, and `archive/pre-recovery-slow-20260904`; do not push `upstream/11chens-fbce672c`. Fetch/read back all three object IDs before proceeding.

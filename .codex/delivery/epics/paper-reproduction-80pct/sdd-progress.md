@@ -80,3 +80,5 @@ Ruling: final clean-checkout syntax validation uses Gate A's tracked-source comp
 
 Task 3: complete (detached commits 71c2e77..9e91c72, review clean; integrated as 37f0763). Independent spec/quality PASS, no actionable findings. Fresh primary 85 passed and five Gate A CPU/static cases passed with Gym blocked. Remaining profile/runtime obligations assigned Tasks 4–7.
 Task 4: registered; detached BASE will be the coordination-only successor of 37f0763. Exact scope in task_plan.md and corrected requirements in task-4-brief.md; no Task 4 source edits yet.
+
+Task 4: active; BASE=17e53cf1e0b4ce476b43bdc932baa699cecf3571; detached ../SEA-Nav-Code-batch4 clean before registration and complete explicit CPU baseline 85 passed in 4.07s. Fresh implementer `/root/implement_batch4` owns only registered CBF/factory/loss/test paths; Task 3 worker retained, no concurrent source writer.
