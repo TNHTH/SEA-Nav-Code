@@ -67,6 +67,9 @@ Phase 3 — strict serial implementation
 | `work/SEA-Nav-Code-batch3` | detached `9e91c72` | `/root/implement_batch3` | Task 3 exact paths | reviewed and integrated as `37f0763` | finished, porcelain clean and retained; registration preserved in task-3-registration-history.md; ignored verification caches are not final-candidate evidence |
 | `work/SEA-Nav-Code-batch4` | detached from post-Task-3 coordination commit | Task 4 implementer | `training/rsl_rl/rsl_rl/modules/cbf_lse_layer.py`, `modules/cbf_actor_critic.py`, `algorithms/ppo.py`, new packaged `rsl_rl/policy_factory.py`, `training/rsl_rl/tests/test_cbf_lse_layer.py`, `training/rsl_rl/tests/test_policy_factory.py`, `tests/fixtures/cbf_paper_damped_v1.json`, `tests/test_cbf_shield.py`, adapter `adapters/cbf_shield.py`, CBF-related inherited static gate cases only, local task-4-log; primary task-4-report exception | Task 3 integrated and verified | registered; creation next |
 | Primary read-only publication preflight | `test` | `/root/publication_preflight` | only coordination publication-preflight.md | no source dependency | read-only remote inspection; no Git/remote mutation |
+| Primary read-only replay performance preparation | `test` | `/root/replay_perf_probe` | only coordination replay-performance-harness.md | no implementation dependency | synthetic CPU instrumentation probe; no production or simulator changes |
+
+Task 4 scope extension: only package-bootstrap root/import-order blocks in the three existing adapter entrypoints (`full_method_runtime_smoke.py`, `train_full_method_ppo.py`, `train_full_method_acsi_replay_ppo.py`) and a focused `tests/test_cbf_import_boundary.py`, to retain a single packaged CBF module identity. No runtime profile/CLI/reset behavior is assigned early. Register this extension in the worker before edits; exact rationale is in task-4-brief.md/sdd-progress.md.
 
 ## Decisions Made
 

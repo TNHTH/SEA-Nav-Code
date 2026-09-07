@@ -82,3 +82,5 @@ Task 3: complete (detached commits 71c2e77..9e91c72, review clean; integrated as
 Task 4: registered; detached BASE will be the coordination-only successor of 37f0763. Exact scope in task_plan.md and corrected requirements in task-4-brief.md; no Task 4 source edits yet.
 
 Task 4: active; BASE=17e53cf1e0b4ce476b43bdc932baa699cecf3571; detached ../SEA-Nav-Code-batch4 clean before registration and complete explicit CPU baseline 85 passed in 4.07s. Fresh implementer `/root/implement_batch4` owns only registered CBF/factory/loss/test paths; Task 3 worker retained, no concurrent source writer.
+
+Ruling: include only the three adapter entrypoint bootstrap blocks in Task 4 if reusing the packaged CBF core — observed imports precede bundled rsl_rl selection and subsequent module purge in all three, causing import failure or split module identity for the new shared dependency — costs three tightly scoped path/import-order edits plus CPU/static boundary tests; full runtime behavior/CLI wiring stays Task 6. The original simulator and controller prerequisites remain blocked.
