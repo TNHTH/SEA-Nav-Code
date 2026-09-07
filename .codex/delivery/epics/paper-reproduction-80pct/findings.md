@@ -15,7 +15,7 @@
 | Confirmed facts | remote snapshots are unrelated roots; only `main` is a complete tree; post-sample CBF and PPO smoothness state mutation are real regressions | Git object analysis and CPU/source comparison | confirmed |
 | Candidate hypothesis | repairing packaging/config/PPO/CBF/replay/runtime/checkpoint contracts will make Rungs 0–2 reliable; simulator viability remains unknown | approved spec and batch mappings | implementation pending |
 | Highest validation rung | Rung 1 for Tasks 1–5; non-final Gate A passed_with_blockers | independent Task 5 scoped review and fresh primary run | frozen final-candidate Rung 2 still pending |
-| Unpublished/unverified work | Tasks 1–5 integrated; primary HEAD `4550639d7f8fb5e3c49b4127e818af5c8a5bf15e`; Task 6 reviewed `65dcbbc..844514929726a1cade3303867cc11702b710a04d`; original worker fix round 1/5; Task 7 pending | Independent full review Spec/Quality FAIL, one P1/four P2 despite 294 passed; exact evidence in task-6-review.md; fixed review tree clean | local only; no remote write; Task 6 not integrated; five fixes/scoped rereview, final whole-branch/CBF P2 and runtime/accepted-paper blockers remain |
+| Unpublished/unverified work | Tasks 1–5 integrated; primary HEAD `cd80127c49e1c2b5a99b0286cf40c43669877c14`; Task 6 original `8445149` plus fixed repair `0efc1934cbefc1a9780baced7846484f29eb776e`; Task 7 pending | Original independent full review one P1/four P2; read complete postcommit342-pass addendum/Gate A; original reviewer active on clean fixed fix1 checkout; no source dirt | local only; no remote write; Task 6 not integrated; five independent fix verdicts, final whole-branch/CBF P2 and runtime/accepted-paper blockers remain |
 
 ## Research Findings
 

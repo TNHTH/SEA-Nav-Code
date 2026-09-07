@@ -117,3 +117,50 @@ Detailed command/failure history is in committed `task-6-log.md`; relevant miles
 - CPU tests and AST blocks establish mathematical and call-order contracts, not actual carrier contact mapping, reset side effects, lifecycle, controller interface, timing under CUDA or real robot safety. Source controller startup remains deliberately blocked; no capability bit was promoted to verified.
 - Formal 100-trial evaluation, IsaacLab/Gym installation and real runtime, controller provenance/interface acceptance, public redistribution rights, two-Go2 deployment and `paper_v1` acceptance remain blocked/deferred. No paper label/tag, main/stable promotion, remote write or deployment occurred.
 - Whole-task independent review and clean frozen project-candidate Rungs 0–2 still belong to the controller. This worker candidate should not be described as final completed recovery until those steps and Task 7 are handled.
+
+## Whole-review fix round 1/5 addendum — current candidate 0efc193
+
+This addendum supersedes the original candidate status and current-truth table above. The original `8445149` whole review returned **Spec FAIL / Quality FAIL**, with one P1 and four P2 despite its 294-test pass. That original result remains historical, not acceptance. All five findings are now implemented and CPU/static verified at the fixed worker commit below; original-reviewer scoped rereview is still pending. No integration, remote write, simulator acceptance or final-project completion is claimed.
+
+### Fixed revision and scope
+
+- Fix commit: `0efc1934cbefc1a9780baced7846484f29eb776e` — `fix(runtime): close runner reset smoke and trace review gaps`.
+- Scoped rereview range: `844514929726a1cade3303867cc11702b710a04d..0efc1934cbefc1a9780baced7846484f29eb776e`.
+- Full Task 6 range: `65dcbbc2b13c92af99a9e7d4cba4110880f9b509..0efc1934cbefc1a9780baced7846484f29eb776e`; original three commits plus this fourth commit, in that order.
+- Exact fix: 11 existing tracked paths, 480 insertions / 43 deletions: `task-6-log.md`; shared `environment_profile.py` / `runtime_preflight.py`; Gym `scripts/train.py` / `utils/task_registry.py`; smoke and both adapter trainers; `tests/test_environment_profile.py`, `tests/test_runtime_cli_contract.py`, `tests/test_runtime_manifest_contract.py`.
+- No runner core, CBF, PPO, replay core or Task 7 source changes. Author/committer remain `TNHTH <174231229+TNHTH@users.noreply.github.com>` at repository scope.
+- Worker index is empty. Only the original local `task_plan.md` and `resume_state.json` registration edits remain unstaged; no untracked/ignored outputs were found. The worker log is committed; the two raw Gate A JSON reports are outside the checkout and not claimed as committed artifacts.
+
+### Five findings addressed
+
+1. **P1 actual runner shape kwargs:** `runner_config_for_environment` validates environment actions/props/rays/history/flattened observation size, rejects explicit policy conflicts, then removes the runner-owned duplicated kwargs only from the final runner mapping. Full `applied_shapes` survive in runner config and all three caller result receipts. Real Gym and two-trainer configuration-to-`OnPolicyRunner` source slices now construct the real CPU actor/PPO/runner; no proprietary import or alternate runner factory. Five environment mismatches plus four explicit policy conflicts are rejected before reset, and input configs are unchanged.
+2. **P2 ordinary initialization/operator reset:** initialize pending curriculum event to `None`; only a terminating `step` enqueues a terminal-distance snapshot. Actual reset prefix consumes it once and clears it. Tests execute real prefix and event assignment across constructor/runner double reset, operator reset, completed event, repeated reset and the next episode. A CPU reset interface is not carrier physics evidence.
+3. **P2 smoke seed/horizon:** requested seed and nominal duration are applied before `gym.make`; initialized evidence covers both observed-seed branches. Actual carrier config is checked on readback, with seed/horizon mismatch rejection, and its duration feeds the environment receipt. Fixture starts at seed 999 / horizon 8 s and applies 42 / 60 s. Existing strict `episode_length > round(nominal_horizon_s / policy_dt_s)` semantics remain unchanged; this proves configuration/call order, not physical timing.
+4. **P2 legacy smoke replay:** removed unused buffer construction, import and legacy recording from the declared no-replay diagnostic. Real YAML preflight rejects replay activation; the real first trace evidence expressions and logger write produce one closed JSONL row without replay dependency. Both result/caveat descriptions now state no recording or restoration. The ACSI forced-real-replay smoke blocker remains unchanged.
+5. **P2 forced training materialization:** both trainer CLIs accept explicit `--trace PATH`, default `None`. Shared preflight records `trace_enabled`, skips disabled optional output before canonicalization, preserves enabled output guards, and leaves smoke tracing enabled and Gym tracing disabled. Actual trainer logger/policy attachment is conditional. Existing stage/time/clone/write guards are verified from the actual environment `step` statements. N=2 and N=2048 CPU operator probes show disabled trace has zero clone, `_to_copy` and `_local_scalar_dense`; enabled controls have four stage clones, 7N scalar extractions, and exactly N physical rows with all four action stages. This is isolated trace-branch scaling evidence, not multi-env ordinary PPO support (ordinary preflight still requires one environment), simulation or GPU timing. Publication binds the actual requested logger path and closed physical row count; a requested but prerequisite-blocked run has zero rows, null physical path and `trace_verified=False`, never a fabricated trace or runtime pass.
+
+### Exact red/green and fresh verification evidence
+
+All tests use the dedicated sibling `../sea-nav-cpu-venv/bin/python` (Python 3.10.12 / Torch 2.6.0+cpu), `PYTHONDONTWRITEBYTECODE=1`, `PYTHONPATH="$PWD/training/rsl_rl"`, and `-m pytest -q -p no:cacheprovider` from the worker. Full command remains the explicit three-selection command shown in the original report.
+
+| Finding / selected tests | Initial RED | GREEN |
+|---|---|---|
+| 1: `tests/test_environment_profile.py -k 'actual_runner_callers or runner_shape_mismatch'` | 8 failed, 9 deselected, 1.50 s | 8 passed, 9 deselected, 1.83 s |
+| 2: `tests/test_environment_profile.py -k 'ordinary_reset_prefix'` | 1 failed, 17 deselected, 0.86 s | 1 passed, 17 deselected, 0.82 s |
+| 3: `tests/test_runtime_cli_contract.py -k 'smoke_actual_seed_and_horizon'` | 2 failed, 27 deselected, 0.06 s | 2 passed, 27 deselected, 0.07 s |
+| 4: CLI + manifest tests, `-k 'smoke_rejects_replay or smoke_first_evidence' --tb=short` | 2 failed, 35 deselected, 0.92 s | 2 passed, 35 deselected, 0.93 s |
+| 5: CLI + manifest tests, selector below, `--tb=short` | 30 failed, 1 passed, 37 deselected, 6.09 s | 31 passed, 37 deselected, 7.14 s |
+
+Finding 5 selector: `-k 'trace_actual_cli or trace_remains or explicit_training_trace or blocked_training_cli or step_trace_branch or disabled_writer or trace_publication'`. Its intermediate 4 failed / 27 passed / 37 deselected in 6.92 s came from the new AST test selecting ACSI command-filter `step` instead of environment `step`; corrected the test selection, not the production contract. The one initially passing case was the existing writer's disabled early-return behavior, which did not make the old actual training route disabled. Four additional shape-conflict cases, seed mismatch and explicit Gym-disabled checks are included in the fresh full run, not relabeled as part of the earlier focused counts.
+
+Fresh full evidence for this fix:
+
+- Precommit full suite: **342 passed in 33.96 s**, exit 0.
+- Postcommit full suite at `0efc1934cbefc1a9780baced7846484f29eb776e`: **342 passed in 34.20 s**, exit 0.
+- Postcommit Python 3.8 `ast.parse(feature_version=(3,8))`: **83 tracked files**, no bytecode emitted.
+- `bash -n sea_nav_current_isaaclab_full_method/run_full_method_runtime_smoke.sh`, `git diff --check 844514929726a1cade3303867cc11702b710a04d..HEAD`, `git diff --cached --quiet`: exit 0. Committed path inventory verified using `git show --name-status --format= HEAD`; no baseline path deletion.
+- Staged Gate A: `../task-6-worker-gate-a-fix1-precommit.json`, exit 0, `passed_with_blockers` (precommit source evidence only).
+- Postcommit Gate A command: `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD/training/rsl_rl" ../sea-nav-cpu-venv/bin/python tools/gate_a.py --repo-root "$PWD" --report ../task-6-worker-gate-a-fix1-0efc193.json`, exit 0, `passed_with_blockers`. Physical JSON was read back: five CPU/static passes; 83 syntax files, 65 complete baseline paths, 20 parsed Gym package files / nine static-only simulator-bound files, seven CPU-safe imports, real actor/value/PPO/storage smoke; all four Gym/Lab dependency/runtime rows remain blocked. Report path names and this execution record bind the evidence to the commit; the report schema itself does not contain a commit field.
+- Pytest stdout exists in tool outputs, not in a newly claimed raw log file. Only this report addendum is written in primary; no primary source/index/ref change.
+
+Highest evidence remains eager CPU/static plus a non-final worker Gate A. The original independent reviewer must now review the fixed scoped range; controller then owns serial integration and fresh integrated verification. Real controller/assets, Gym/Lab lifecycle, forced replay physics, checkpoints (Task 7), 100-trial metrics, public redistribution, accepted paper identity and hardware remain blocked/deferred. No prerequisite gate was bypassed and no main/stable/remote ref was advanced.

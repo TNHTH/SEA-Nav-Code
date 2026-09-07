@@ -2,6 +2,12 @@
 
 ## Session: 2026-09-07
 
+- Read complete fix1 addendum and actual postcommit Gate A JSON: `0efc193` full342 passed34.20s, five CPU/static passes and four Gym/Lab dependency/runtime blockers; grammar83, shell and range/index checks passed. New detached ../SEA-Nav-Code-batch6-review-fix1 verified exact HEAD and empty full ignored porcelain; original reviewer assigned complete 8445149..0efc193 diff and five scoped verdicts. Source/report evidence is local only; do not infer acceptance from worker tests or clear findings before independent review.
+
+- Task 6 fix round1 received at `0efc1934cbefc1a9780baced7846484f29eb776e`; verified exact 11-file diff from8445149, unchanged actor/PPO/runner/replay cores, only two worker registration files dirty. Worker reports fresh precommit342 passed33.96s and GateA/83-source grammar/shell/diff checks; postcommit report still pending. Registered a new independent fix1 review checkout to preserve the original whole-review8445149 snapshot. Five findings stay open until scoped verdicts; no integration or remote write.
+
+- Worker fix checkpoint: finding4 no-replay smoke migration 2 passed/35 deselected in .93s, durable worker log updated. Finding5 added 31 targeted cases, initial RED30 failed/1 passed; first implementation rerun 27 passed/4 test AST-selector failures (selected ACSI filter.step instead of environment.step). Correct selector rerun and final whole suite/commit still pending. Explicit training trace opt-in/default disabled and requested/actual logger path binding are implementation candidates, not accepted evidence yet.
+
 - Worker whole-fix milestone verified in durable task-6-log.md (still HEAD8445149 plus owned uncommitted fixes): finding1 actual three-caller runner/mismatch RED8→GREEN8; finding2 actual initialization/repeated/completed-event reset prefix RED1→GREEN1; finding3 smoke seed/horizon setup/readback RED2→GREEN2. Later replay/trace fixes and final full rerun/commit/review remain pending. These targeted results do not close the five whole-review findings yet.
 
 - Corrected trusted pinned-input probe exited 0: matching digest, explicit mount_readonly=True, denied write-open, and child read-back of requested CPU/AS/FSIZE/NOFILE hard+soft limits. Recorded exact command/output and the initial EACCES-vs-EROFS calibration failure in legacy-sandbox-capability.md. This later child did not import Torch or load pickle; the values are not validated converter defaults and do not certify limit-trigger behavior or output/race defenses.
