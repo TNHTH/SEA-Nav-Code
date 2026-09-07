@@ -55,6 +55,34 @@ def test_fallback_failure_propagates_without_ack_or_new_episode():
     assert not b.cancel_reasons
 
 
+@pytest.mark.parametrize('failing_hook', ['prepare_rows', 'refresh_rows'])
+def test_failed_normal_fallback_hook_never_finishes_or_cancels(failing_hook):
+    # Pure lifecycle callbacks model failure timing, not simulator behavior.
+    b=ring(capacity=2,undo=(1,1))
+    push(b,[0],[0]); push(b,[0],[1],True)
+    selected=b.reserve_pre_collision(torch.tensor([0]),undo_steps=1)
+    events=[]
+    def validate(_):
+        events.append('validate')
+        raise RuntimeError('invalid scene before replay preparation')
+    def normal(ids):
+        assert ids.tolist()==[0]
+        for stage in ('prepare_rows','physical_write','refresh_rows'):
+            events.append(stage)
+            if stage==failing_hook:
+                raise RuntimeError(stage)
+    def forbidden(*_):
+        raise AssertionError('no replay write/reconstruction/finish after failed fallback hook')
+    with pytest.raises(RuntimeError,match=failing_hook):
+        execute_reset_transaction(torch.tensor([0]),torch.tensor([True]),selected,b,
+                                  normal,forbidden,forbidden,forbidden,validate=validate)
+    assert events==(['validate','prepare_rows'] if failing_hook=='prepare_rows' else
+                    ['validate','prepare_rows','physical_write','refresh_rows'])
+    assert b.pending_token[0]==selected.tokens[0]
+    assert b.collision_onset[0]==1
+    assert not b.cancel_reasons
+
+
 def test_transaction_rejects_reservation_outside_requested_rows_before_effects():
     b=ring(capacity=5,undo=(1,4))
     push(b,[1],[0]); push(b,[1],[1],True)

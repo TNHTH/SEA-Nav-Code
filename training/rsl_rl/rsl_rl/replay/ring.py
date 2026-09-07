@@ -86,6 +86,15 @@ class ReplaySelection:
                                self.ring_id, self.write_versions[mask])
 
 
+@dataclass(frozen=True)
+class ReplayCancellation:
+    """Most recent cancellation for one row, retained across episode changes."""
+    episode_id: int
+    token: int
+    task_generation: int
+    reason: str
+
+
 class CollisionReplayBuffer:
     def __init__(self, config=None, num_envs=1, *, spec=None, device="cpu"):
         self.config = config or CollisionReplayConfig()
@@ -103,7 +112,8 @@ class CollisionReplayBuffer:
         for name in ("last_step", "collision_onset", "pending_token"):
             setattr(self, name, torch.full((num_envs,), -1, dtype=torch.long, device=device))
         self.last_collision_active = torch.zeros(num_envs, dtype=torch.bool, device=device)
-        self.cancel_reasons = {}
+        # One recent diagnostic per environment, not one per lifetime token.
+        self.last_cancellations = {}
 
     def _ids(self, ids):
         ids = torch.as_tensor(ids, dtype=torch.long, device=self.device).flatten()
@@ -207,8 +217,16 @@ class CollisionReplayBuffer:
     def cancel_restore(self, selection, reason):
         self._validate_token(selection, check_slot=False)
         self.pending_token[selection.env_ids] = -1
-        for env_id, token in zip(selection.env_ids.tolist(), selection.tokens.tolist()):
-            self.cancel_reasons[(env_id, token)] = str(reason)
+        rows = zip(selection.env_ids.tolist(), selection.tokens.tolist(),
+                   selection.batch.episode_ids.tolist(), selection.batch.task_generations.tolist())
+        for env_id, token, episode_id, task_generation in rows:
+            self.last_cancellations[env_id] = ReplayCancellation(
+                episode_id, token, task_generation, str(reason))
+
+    @property
+    def cancel_reasons(self):
+        """Compatibility snapshot of latest reasons; at most num_envs entries."""
+        return {(env_id, event.token): event.reason for env_id, event in self.last_cancellations.items()}
 
     @property
     def stored_steps(self):

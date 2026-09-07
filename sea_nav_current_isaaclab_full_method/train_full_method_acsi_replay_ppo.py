@@ -994,6 +994,10 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
                                      "distance":distance[fresh].clone(),"up":up,"down":down}
         self._reset_curriculum_updated[fresh] = True
         self.replay_task_generation[fresh] += 1
+        contract = (self._require_replay_runtime_contract()
+                    if self.collision_replay_config.enabled_during_training else None)
+        if contract is not None:
+            contract.prepare_rows(self, ids)
         seed = args.seed if self.reset_count == 0 else None
         obs,_ = self.carrier.unwrapped.reset(seed=seed,env_ids=ids)
         if not hasattr(self,"policy_obs"):
@@ -1008,6 +1012,8 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
             self.start_cell[ids],self.goal_cell[ids] = self.initial_robot_cell[ids],self.initial_goal_cell[ids]
             yaw = None
         self._reset_root_pose,self._reset_root_velocity = self._place_robot_at_start(self.start_cell,yaw,env_ids=ids)
+        if contract is not None:
+            contract.refresh_rows(self, ids)
 
     def _validate_replay_selection(self, selection):
         self.replay_buffer.validate_selection(selection)
@@ -1294,6 +1300,7 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
             done = semantic_done
         else:
             done = semantic_done | carrier_done
+            self._terminal_timeout |= carrier_truncated.to(self.device)
         self.reset_buf = done.clone()
         self.rew_buf = reward.clone()
         self._capture_replay_record(collision=self.last_collision_active)
@@ -1606,7 +1613,7 @@ def main():
                 "timeout_count": adapter_env.timeout_count,
                 "goal_reached_count": adapter_env.goal_reached_count,
                 "replay_push_count": adapter_env.replay_push_count,
-                "replay_collision_record_count": adapter_env.replay_collision_record_count,
+                "replay_collision_record_count": int(adapter_env.replay_collision_record_count),
                 "replay_sample_count": adapter_env.replay_sample_count,
                 "replay_reset_count": adapter_env.replay_reset_count,
                 "replay_fallback_count": adapter_env.replay_fallback_count,
@@ -1733,7 +1740,7 @@ def main():
         "replay_ring_buffer_steps": adapter_env.collision_replay_config.ring_buffer_steps,
         "forced_replay_smoke": replay_smoke_result,
         "replay_push_count": adapter_env.replay_push_count,
-        "replay_collision_record_count": adapter_env.replay_collision_record_count,
+        "replay_collision_record_count": int(adapter_env.replay_collision_record_count),
         "replay_sample_count": adapter_env.replay_sample_count,
         "replay_reset_count": adapter_env.replay_reset_count,
         "replay_fallback_count": adapter_env.replay_fallback_count,

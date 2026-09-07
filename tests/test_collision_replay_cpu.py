@@ -119,3 +119,35 @@ def test_overwrite_is_stale_even_if_bad_producer_reuses_step_id():
     push(b,[0],[0])
     with pytest.raises(ValueError,match="stale"):
         b.acknowledge_restore(selected)
+
+
+def test_cancellation_history_is_bounded_per_row_across_retries_and_episodes():
+    b=ring(n=2,capacity=2,undo=(1,1))
+    for env in (0,1):
+        push(b,[env],[0]); push(b,[env],[1],True)
+    neighbor=b.reserve_pre_collision(torch.tensor([1]),undo_steps=1)
+    b.cancel_restore(neighbor,'neighbor cancellation')
+    for attempt in range(1000):
+        selected=b.reserve_pre_collision(torch.tensor([0]),undo_steps=1)
+        assert selected.env_ids.tolist()==[0]
+        b.cancel_restore(selected,'retry %d' % attempt)
+    assert len(b.cancel_reasons)==2
+    assert b.cancel_reasons[(1,1)]=='neighbor cancellation'
+    assert b.cancel_reasons[(0,1000)]=='retry 999'
+    assert b.last_cancellations[0].episode_id==0
+    assert b.last_cancellations[0].token==1000
+    b.begin_episode(torch.tensor([0]),task_generations=torch.tensor([8]))
+    push(b,[0],[0]); push(b,[0],[1],True)
+    selected=b.reserve_pre_collision(torch.tensor([0]),undo_steps=1)
+    b.cancel_restore(selected,'next episode')
+    assert len(b.cancel_reasons)==len(b.last_cancellations)==2
+    assert (0,1000) not in b.cancel_reasons
+    assert b.last_cancellations[0].episode_id==1
+    assert b.last_cancellations[0].task_generation==8
+    assert b.last_cancellations[0].token==1001
+    retry=b.reserve_pre_collision(torch.tensor([0]),undo_steps=1)
+    with pytest.raises(ValueError,match='stale'):
+        b.cancel_restore(selected,'old token must not clear current retry')
+    assert b.pending_token[0]==retry.tokens[0]
+    b.acknowledge_restore(retry)
+    assert b.pending_token[0]==-1
