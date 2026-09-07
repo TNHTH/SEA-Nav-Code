@@ -9,13 +9,13 @@
 
 | Field | Current value | Evidence | Status / limits |
 |---|---|---|---|
-| Artifact / version identity | integrated source `test@37f07632364c3f6cb855e98c5c23579da9509504`; `main=stable=1c5675bbedf1dcbe5a4c1a91830cae528c780793` | 2026-09-07 Task 3 cherry-pick and verification | coordination-only successor does not change the tested source |
-| Active evidence instance | Task 3 primary checkout run: 85 tests passed in 4.18s; Gate A five CPU/static passes and real Gym blocked | `/tmp/sea-nav-task3-integrated.gEKwDK/gate-a.json`; summary committed in progress.md | temporary raw report is not a durable final-candidate artifact |
+| Artifact / version identity | integrated source `test@a660d74af257d252b734eec38ae769312c6e90f7`; `main=stable=1c5675bbedf1dcbe5a4c1a91830cae528c780793` | 2026-09-07 Task 4 cherry-pick and verification | coordination-only successor does not change the tested source |
+| Active evidence instance | Task 4 primary checkout run: 169 tests passed in 10.70s; Gate A five CPU/static passes and real Gym blocked | `../task-4-integrated-gate-a.json`; summary in progress.md | non-final batch evidence; not a frozen-candidate artifact |
 | Declared configuration | 2026-09-07 evidence-corrected design and task briefs | scientific/checkpoint audit reports; original 252f3f85 design is historical | action-bound row blocks accepted paper_v1; upstream diagnostic repair proceeds |
 | Confirmed facts | remote snapshots are unrelated roots; only `main` is a complete tree; post-sample CBF and PPO smoothness state mutation are real regressions | Git object analysis and CPU/source comparison | confirmed |
 | Candidate hypothesis | repairing packaging/config/PPO/CBF/replay/runtime/checkpoint contracts will make Rungs 0–2 reliable; simulator viability remains unknown | approved spec and batch mappings | implementation pending |
-| Highest validation rung | Rung 1 for Tasks 1–3; non-final Gate A passed_with_blockers | independent Task 3 review and primary run | frozen final-candidate Rung 2 still pending |
-| Unpublished/unverified work | Tasks 1–3 integrated; Task 4 registered, Tasks 4–7 not implemented | 2026-09-07 Git readback and review ledger | local only; no remote write; full scientific consumer application still future |
+| Highest validation rung | Rung 1 for Tasks 1–4; non-final Gate A passed_with_blockers | independent Task 4 review and primary run | frozen final-candidate Rung 2 still pending |
+| Unpublished/unverified work | Tasks 1–4 integrated; Task 5 registered, Tasks 5–7 not implemented | 2026-09-07 Git readback and review ledger | local only; no remote write; runtime scientific application still future |
 
 ## Research Findings
 
