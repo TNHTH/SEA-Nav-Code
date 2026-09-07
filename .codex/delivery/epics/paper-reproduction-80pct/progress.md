@@ -2,6 +2,8 @@
 
 ## Session: 2026-09-07
 
+- Independent Task 5 review returned spec FAIL / quality FAIL, four P2. The reported counter serialization and cancellation growth have bounded CPU reproductions; fallback hooks and carrier timeout omission are established at actual callers. Controller verified those source locations and assigned fix round 1/5 to the original worker. The initial 202-test pass is insufficient for these newly identified cases; source remains outside test pending fixes and scoped re-review.
+
 - Task 5 full report/commit received at `53c479dea2a2ff43fcfe5aa718da29395c5df191`, 17 files, 1476 insertions/769 deletions. Portable staged Gate A compiled 72 tracked Python files, retained 65 baseline paths, passed five CPU/static cases and explicitly blocked Gym. Prepared complete 164955-character range package and dispatched independent `/root/review_batch5` for spec/quality review. Runtime-contract prerequisites are documented, not counted as completed physical integration. No cherry-pick yet.
 
 - Independent reward-cpu-oracles.md provides eight fixed scalar cases for Task 6, including one-time dt totals (paper diagnostic .8/.4; upstream .38/.19) and a Torch 2.6 probe confirming bool addition acts as OR. Controller checked these against the recorded formulas; the cases use zero contact counts and establish no simulator-body equivalence or accepted paper identity. Added as Task 6 test-input reference only.

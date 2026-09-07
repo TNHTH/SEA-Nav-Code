@@ -15,7 +15,7 @@
 | Confirmed facts | remote snapshots are unrelated roots; only `main` is a complete tree; post-sample CBF and PPO smoothness state mutation are real regressions | Git object analysis and CPU/source comparison | confirmed |
 | Candidate hypothesis | repairing packaging/config/PPO/CBF/replay/runtime/checkpoint contracts will make Rungs 0–2 reliable; simulator viability remains unknown | approved spec and batch mappings | implementation pending |
 | Highest validation rung | Rung 1 for Tasks 1–4; non-final Gate A passed_with_blockers | independent Task 4 review and primary run | frozen final-candidate Rung 2 still pending |
-| Unpublished/unverified work | Tasks 1–4 integrated; Task 5 registered, Tasks 5–7 not implemented | 2026-09-07 Git readback and review ledger | local only; no remote write; runtime scientific application still future |
+| Unpublished/unverified work | Tasks 1–4 integrated; detached Task 5 `53c479dea2a2ff43fcfe5aa718da29395c5df191` in fix round 1 for four P2; Tasks 6–7 pending | task-5-review.md: spec/quality FAIL; initial 202-test pass did not cover the four findings | local only; Task 5 not integrated; no remote write; runtime scientific application still future |
 
 ## Research Findings
 
