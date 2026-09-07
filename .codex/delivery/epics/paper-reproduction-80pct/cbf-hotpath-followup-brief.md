@@ -145,3 +145,27 @@ for label, rays in [('sparse_coo', torch.ones(2,41).to_sparse()),
 print('Bounded candidate-precedence failure confirmed; production unchanged; no CUDA or simulation.')
 PY
 ```
+
+## Actual exporter CPU harness feasibility
+
+Controller at primary5d0aa490b0567cc9a8166e0d88834aadfaad7352 also executed
+the actual unchanged `helpers.py::export_policy_as_jit` definition, isolated by
+AST into a module containing only real Torch/copy/os dependencies. No fake Gym
+module or reimplemented exporter was used. The source filename/line locations
+were retained for TorchScript inspection. With seed421 and a real small CBF
+actor (all hidden dimensions[8], observations zeros[2,550]), the function's
+actual script/save path produced policy.pt in a disposable CPU probe directory.
+After real torch.jit.load, output matched actor.act_inference with atol=rtol=0
+for core, zero-footprint adapter and named .55m footprint ablation. Setting the
+first current-frame ray observation to -1000 made exp2 underflow; every loaded
+export rejected it with the original positive-ray error. isaacgym/legged_gym
+were absent from sys.modules at completion.
+
+Command used the dedicated CPU interpreter with PYTHONDONTWRITEBYTECODE=1,
+PYTHONPATH="$PWD/training/rsl_rl", and -B, via an inline Python AST harness.
+Exit0 in1.07s; three output rows each reported
+`actual_export_function_script_save_load_exact_output_and_invalid_rejection=passed`.
+These are baseline harness observations, not a CBF repair test or simulation
+acceptance. The generated .pt files were disposable and are not delivery or
+recovery artifacts. Implement the corresponding actual-function regression
+within the proposed test inventory; do not replace it with a copied wrapper.

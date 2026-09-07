@@ -15,7 +15,7 @@
 | Confirmed facts | remote snapshots are unrelated roots; only `main` is a complete tree; post-sample CBF and PPO smoothness state mutation are real regressions | Git object analysis and CPU/source comparison | confirmed |
 | Candidate hypothesis | repairing packaging/config/PPO/CBF/replay/runtime/checkpoint contracts will make Rungs 0–2 reliable; simulator viability remains unknown | approved spec and batch mappings | implementation pending |
 | Highest validation rung | Rung1 for Tasks1–6; non-final GateA passed_with_blockers | Task6 scoped Spec/Quality PASS and fresh primary full run | frozen final-candidate Rung2 still pending |
-| Unpublished/unverified work | Tasks1–6 integrated through b5b9455; Task7 core fixed2387cf02d85a1a9a52b0e85da54c7ebad09b0cec from BASE562d4ae, exact eight-file slice; independent review assigned while same writer continues remaining callers/converter/docs | Worker committed log: full387 passed34.30s before final test regrouping, then focused45 passed1.54s; no independent core verdict yet | local only, not integrated; no remote write; whole Task7, CBF P2, frozen verification and runtime/paper blockers remain |
+| Unpublished/unverified work | Tasks1–6 integrated through b5b9455; Task7 core fixed2387cf02d85a1a9a52b0e85da54c7ebad09b0cec from BASE562d4ae; same writer continues callers/converter/docs; original independent reviewer errored at service safety restriction | Worker387/45 results remain worker evidence; review snapshot still clean including ignored and no core report exists; ordinary functional review may continue separately | local only, not integrated; complete core/whole review remains incomplete, not PASS; no remote write; CBF/frozen/runtime/paper gates remain |
 
 ## Research Findings
 
@@ -55,6 +55,10 @@ The following baseline defects are historical findings; Tasks 1–3 now repair t
 2026-09-07 publication preflight confirms all three remote heads unchanged and no remote stable/archive tags. Local archive objects are exact; SSH authenticates TNHTH and only a no-op receive-pack dry-run was tested. No authenticated hosting API/browser administration path was found (nor a GitHub connector in current tool metadata); public empty rulesets are not proof of absent classic protection. Exact archive publication/transport authorization and stable protection remain separate final-transaction gates. See publication-preflight.md. These facts do not block serial local CPU repairs.
 
 ## Resources
+
+- `task-7-core-functional-review.md`: controller ordinary functional subset at fixed2387cf0 passed24 tests plus actual102-update persistence/13-state Adam restore/adaptive103rd update LR.00345. Source-author independent but deliberately limited; original complete reviewer service failure remains incomplete with no Spec/Quality verdict. No integration or bypass inferred.
+
+- The CBF follow-up brief now also records actual Gym exporter CPU-harness feasibility: isolate the unchanged function by AST, invoke its real script/save path, load the real artifact, compare exact outputs and reject transformed underflow rays for core/adapter/.55m ablation. No proprietary package import or copied wrapper, no source fix or deployment acceptance.
 
 - `cbf-hotpath-followup-brief.md`: prepared narrow post-Task7 scope and actual operator/PPO/export checks, plus a new bounded CPU candidate-precedence failure: NaN nominal command with native sparse or quantized rays gets the original ValueError but the simplified aggregate candidate raises a later unsupported-backend error. Preserve layout/quantization fallback in the eventual implementation. This is not a production defect, active ownership, design exception or P2 closure; Task7 remains the only source writer.
 
