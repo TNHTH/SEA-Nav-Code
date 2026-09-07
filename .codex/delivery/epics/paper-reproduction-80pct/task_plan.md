@@ -25,8 +25,8 @@ Phase 3 — strict serial implementation
 ### Phase 2: Executable implementation plan
 - [x] Save `docs/superpowers/plans/2026-09-04-sea-nav-reproduction-recovery.md` with exact TDD steps and commit boundaries.
 - [x] Run spec-coverage, placeholder, and interface-consistency self-review.
-- [ ] Commit the implementation plan and this coordination state on `test`.
-- **Status:** complete pending this exact-path commit
+- [x] Commit the implementation plan and this coordination state on `test` (`1259bae`).
+- **Status:** complete
 
 ### Phase 3: Strict serial implementation
 - [ ] Batch 1 — portable Gate A and lazy optional `wandb`.
@@ -62,7 +62,7 @@ Phase 3 — strict serial implementation
 |---|---|---|---|---|---|
 | `work/SEA-Nav-Code` | `test@22fa426` | controller | plan/coordination now; each integrated batch serially | approved spec | active |
 | `work/SEA-Nav-Code-latest-review` | detached `b53d3fe` | read-only source audit | none | none | clean/read-only |
-| future detached batch checkout | current frozen `test` parent | one implementer at a time | exact paths listed in implementation plan | prior batch integrated and verified | not created |
+| `work/SEA-Nav-Code-batch1` | detached `1259bae` | task1 implementer | tools/gate_a.py, tests/test_runner_optional_wandb.py, tests/test_gate_a_portable.py, runner, adapter manifest/config/Gate A/shell, local task record | plan committed | active |
 
 ## Decisions Made
 

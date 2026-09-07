@@ -1,5 +1,16 @@
 # Progress Log
 
+## Session: 2026-09-07
+
+- Resumed from clean `test@1259bae`; the plan commit exists, and all seven code tasks remain pending.
+- Registered detached Task 1 checkout at `../SEA-Nav-Code-batch1`; no additional branch created.
+- Reproduced the system Torch / NumPy 2 ABI failure. The old temporary NumPy override no longer exists; rebuilding a task-scoped NumPy 1.26.4 override without changing system packages.
+- User authorization for repairs, commits, and pushing the final reviewed result remains active.
+- Created dedicated `work/sea-nav-cpu-venv` using uv; verified Python 3.10.12 / Torch 2.6.0+cpu / NumPy 1.26.4 / pytest 8.4.2 / PyYAML 6.0.2. No system package changed.
+- Read-only origin probe confirmed original three remote heads unchanged; SSH authenticates as TNHTH. No remote writes.
+- Scientific and checkpoint audits exposed concrete gaps in the original plan; updated spec and briefs with source-bound corrections before dependent implementation.
+- Task 1 source commit `0dd407e` produced in detached checkout; implementer reports 27 passing CPU tests, legacy 16-case gate, and Gym blocked. Independent review in progress.
+
 ## Session: 2026-09-04
 
 ### Current Status

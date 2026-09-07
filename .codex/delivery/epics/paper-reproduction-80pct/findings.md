@@ -9,13 +9,13 @@
 
 | Field | Current value | Evidence | Status / limits |
 |---|---|---|---|
-| Artifact / version identity | `test@22fa4260ef07c3ed53d2476d0b653900887c5859`; `main=stable=1c5675bbedf1dcbe5a4c1a91830cae528c780793` | `git rev-parse`, `git for-each-ref` | current local state |
-| Active evidence instance | complete local clone plus detached read-only `b53d3fe` worktree | `git worktree list --porcelain` | clean before coordination files |
-| Declared configuration | design SHA-256 `252f3f85780378af1ea53eb7e2b6fc93cdc8bd3fe9b4a9a6b134d2e81f116807` | committed design file | approved recovery contract |
+| Artifact / version identity | `test@1259bae1b2e2635e410a315ab6bf92451df8762b`; `main=stable=1c5675bbedf1dcbe5a4c1a91830cae528c780793` | 2026-09-07 Git preflight | current local state |
+| Active evidence instance | complete local clone, detached read-only `b53d3fe`, and Task 1 detached checkout from `1259bae` | 2026-09-07 worktree inventory | source unchanged; Task 1 next |
+| Declared configuration | 2026-09-07 evidence-corrected design and task briefs | scientific/checkpoint audit reports; original 252f3f85 design is historical | action-bound row blocks accepted paper_v1; upstream diagnostic repair proceeds |
 | Confirmed facts | remote snapshots are unrelated roots; only `main` is a complete tree; post-sample CBF and PPO smoothness state mutation are real regressions | Git object analysis and CPU/source comparison | confirmed |
 | Candidate hypothesis | repairing packaging/config/PPO/CBF/replay/runtime/checkpoint contracts will make Rungs 0–2 reliable; simulator viability remains unknown | approved spec and batch mappings | implementation pending |
 | Highest validation rung | Rung 0 on historical source; final candidate has not yet been built | prior syntax/Git/Gate A evidence | do not claim final pass yet |
-| Unpublished/unverified work | repository-local coordination and implementation plan; Batches 1–7 not yet implemented | working tree status | local only |
+| Unpublished/unverified work | plan committed as `1259bae`; Batches 1–7 not yet implemented; current coordination updates pending | working tree status | local only |
 
 ## Research Findings
 - `main` retains the full training/deployment/adapter tree; `origin/test` and `b53d3fe` each omit 53 baseline paths and must never replace it wholesale.
@@ -26,6 +26,10 @@
 - `wandb` is imported eagerly even when disabled; Gate A includes machine paths and may leave preview files in the checkout.
 - Runner class lookup uses `eval`, while checkpoint loading accepts ordinary pickle; both are unnecessary trust boundaries.
 - This host lacks Isaac Gym/IsaacLab. CPU/static evidence can reach Rung 2 only; simulator, metrics, publication rights, and robot gates remain separate blockers.
+- 2026-09-07 source recheck: Table V literally prints positive lateral/yaw lower bounds; upstream uses negatives. Record unresolved paper action bounds as blocked instead of silently correcting them.
+- Gym integrates reward coefficients over policy dt; adapter omitted this factor. Equal raw weights differ by 50x at dt=.02. Task 6 must apply it once and preserve formula/profile identity.
+- Upstream ACSI uses two distinct random gates, and the adapter currently never advances its goal curriculum. Task 5 owns explicit decision and update semantics.
+- Checkpoint optimizer schema must handle real integer Adam state keys/None, exact completed-update counts, and publication of immutable payload generations through an atomic manifest.
 
 ## Technical Decisions
 

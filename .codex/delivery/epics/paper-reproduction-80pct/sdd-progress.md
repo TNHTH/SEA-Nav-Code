@@ -1,0 +1,37 @@
+# SDD ledger — plan: docs/superpowers/plans/2026-09-04-sea-nav-reproduction-recovery.md
+
+## 2026-09-07 recovery
+
+Verified `test@1259bae1b2e2635e410a315ab6bf92451df8762b`, clean; Tasks 1–7 are not implemented. This ledger is inside the AGENTS-mandated coordination directory, overriding the skill's default scratch path.
+
+| Pair/task | Producer / consumer or internal check | Resolution |
+|---|---|---|
+| 1→2 | portable manifest / identity-bound manifest | preserve compatible callers until Task 2 wiring |
+| 1→5→6→7 | legacy Gate A and new CPU gate | serial updates and inherited regression suite |
+| 1→7 | runner lazy logging / checkpoint registry | serial, no concurrent runner writes |
+| 2→3→4 | profile selection / pure action means / CBF geometry | explicit delta and configuration passed through to consumers |
+| 2→5→6→7 | typed config / replay policy / entry points / hash-bound checkpoints | configuration must be applied, not merely serialized |
+| 3→4→7 | actor, PPO / diagnostics / safe state persistence | Task 4 retains tensor forward API; Task 7 keeps action behavior |
+| 5→6→7 | trainer reset / runtime inputs / checkpoint wiring | strictly sequential |
+| Task 1 | gate tests vs lazy import, root discovery, output | implement behavioral tests; no fake Isaac modules |
+| Task 2 | typed registry vs profile selection | explicit repair delta; simulator integration completed in Task 6 |
+| Task 3 | tests vs pure actor helper | complete small-network fixtures before RED; no post-sample transform |
+| Task 4 | diagnostics vs damped formula | clamped correction eta and raw eta must be unambiguous; validate real export compatibility |
+| Task 5 | CPU partition vs actual simulator resets | three sets normal/replay/fallback; CPU tests cannot prove physical writes |
+| Task 6 | runtime inputs vs real consumers | every resolved value must reach the relevant consumer or be blocked explicitly |
+| Task 7 | safe recursive schema vs optimizer format | standard optimizer integer keys need reversible schema encoding; no unsafe fallback |
+
+Ruling: use the repository coordination path for all SDD artifacts — AGENTS.md explicitly overrides the skill default — costs only adaptation of helper paths.
+Ruling: continue from the documented broken baseline while repairing it — the user already authorized repairs and continuation — baseline failures remain recorded, never counted as new regressions.
+
+Task 1: active; BASE=1259bae1b2e2635e410a315ab6bf92451df8762b; detached checkout `../SEA-Nav-Code-batch1`; scope is Task 1 exact file list plus local task record.
+
+Ruling: validate CPU contracts in the dedicated Python 3.10 / Torch 2.6.0+cpu environment — system Torch 1.8 lacks safe loading and the old NumPy override was temporary — this does not establish compatibility with the unavailable frozen Gym runtime.
+
+2026-09-07: environment probe passed for Torch 2.6.0+cpu, NumPy 1.26.4, pytest 8.4.2, PyYAML 6.0.2. Task 2 dependency pins must describe this verified CPU environment, superseding the plan's machine-inherited pytest 6.2.5 / PyYAML 5.4.1 pins.
+
+Ruling: block accepted paper_v1 runs on literal Table V action-bound ambiguity — PDF and upstream disagree and an inferred sign correction is not authoritative evidence — CPU repair continues, but paper-labeled training waits for resolution.
+
+Ruling: extend Tasks 2/4/5/6 application contracts to cover reward equations/dt, two ACSI draws, shared CBF fixtures and perception timestamps — otherwise the planned registry would only describe unapplied values — additional focused CPU tests are required.
+
+Ruling: allow nonnegative integer IDs only in validated optimizer state and publish immutable checkpoint generations manifest-last — real Adam state and interrupted two-file saves contradict the original sketch — adds schema-specific validation and fault tests.

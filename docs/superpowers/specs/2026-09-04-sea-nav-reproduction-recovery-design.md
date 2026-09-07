@@ -1,6 +1,6 @@
 # SEA-Nav Reproduction Recovery Design
 
-**Status:** Revised for written-spec approval after P1/P2 review
+**Status:** Approved recovery direction; evidence corrections recorded 2026-09-07
 
 **Date:** 2026-09-04
 
@@ -140,7 +140,7 @@ A machine-readable parity registry is the source for generated documentation and
 | reward weights | termination/reach/velocity/clearance/stuck/collision/angular = `-100/10/15/15/-5/-4/-0.05` | velocity `4`, clearance `5`; the other listed values match | paper values and formulas | `profile_fork` |
 | smoothness weights | `lambda_pi=0.05`, `lambda_V=0.005` | inner `1/0.1` times outer `0.05`, yielding the same effective weights | explicit effective `0.05/0.005` terms | `resolved_effective` |
 | PPO smoothness auxiliary-state ownership | mathematical loss terms refer to their stated current/interpolated inputs; hidden mutable actor state is not specified | two `act()` calls leave distribution/alpha/rays/`u_bar`/`u_s` owned by the interpolated observation before alpha/intervention losses | pure `action_mean_for`; policy/range/alpha/intervention remain owned by `obs_batch`; record `ppo_state_identity_repair` | `implementation_delta` |
-| action range loss | low `[-0.5,-0.8,-1]`, high `[1.7,0.8,1]` | matches PPO range loss | paper values; execution bounds recorded separately | `resolved` |
+| paper table action bounds | Table V literally prints low `[-0.5,+0.8,+1]`, high `[1.7,+0.8,+1]` | PPO uses low `[-0.5,-0.8,-1]`, high `[1.7,+0.8,+1]` | unresolved apparent sign omission; no correction invented | `blocked` |
 | execution bounds | not identical to a published clipping contract | Go2 command limits `[-0.5,-1,-1]` to `[2,1,1]` | retain as a separate hardware/runtime contract | `record_only_runtime` |
 | ray delay | continuous `Uniform(40,80) ms` | refresh selects history `-3/-4`: at `dt=20 ms`, 40/60 ms old at refresh, then held for a 100 ms cadence and can be 120/140 ms old at the last pre-refresh output | seeded time-based `Uniform(40,80) ms`; actual per-step age recorded | `profile_fork` |
 | ACSI curriculum | `Pmin=.1`, `Pmax=.5`, `dup=.5 m`, `ddown=2 m`, Eq. 1 | values exist, but probability uses `goal_levels/1.5` | Eq. 1 with all state transitions logged | `profile_fork` |
@@ -148,6 +148,16 @@ A machine-readable parity registry is the source for generated documentation and
 | time horizons | training episode `60 s`; evaluation timeout `30 s` | training episode `60 s`; no complete paper metric runner | separate immutable training/evaluation fields | `resolved` |
 
 Any row whose `resolution_status` is `blocked` blocks the label `paper_v1`; it does not block a clearly labeled upstream-code or adapter diagnostic run.
+
+#### 2026-09-07 evidence corrections
+
+The cached PDF rendering and extracted text both confirm the literal action bounds above. The earlier “matched action range” conclusion is superseded. Accepted `paper_v1` runs therefore remain blocked until the ambiguity is resolved with authoritative evidence; known paper equations may still have CPU unit tests. The complete audit is `.codex/delivery/epics/paper-reproduction-80pct/scientific-wiring-audit.md`.
+
+Reward parity includes formulas and time integration, not only weights: Table III's velocity/clearance/stuck/angular expressions differ from the authoritative implementations, and the Gym base class multiplies active weights by policy `dt`. The adapter currently omits that multiplication, producing a 50-fold scale difference at 20 ms for equal raw terms. Encode formula mode, raw and effective weights, and a paper-silent upstream fallback for time integration. Apply the factor exactly once in each stack.
+
+Paper Eq. 1 is `Pmin + (Pmax-Pmin)*clip(Lgoal,0,1)`, with strict-distance increment/decrement events. Upstream applies `clip(Lgoal/1.5,max=1)` at the collision termination gate and an independent `replay_prob=.8` reset gate. Preserve and expose both for the upstream profile. Paper decision-stage and 10 Hz acquisition/40–80 ms latency interpretations are recorded operational assumptions or blocked rows; never silently describe their products or held sample ages as the literal equation/distribution. The adapter must advance its curriculum at the declared episode event.
+
+Shared configuration belongs in the packaged `rsl_rl` layer, with an adapter compatibility import if needed. Tasks 4–6 must apply resolved values to actual actor/PPO/environment consumers. Nonzero footprint preprocessing changes the CBF equation inputs and requires a named ablation; both CBF implementations consume shared versioned golden vectors and use nonnegative correction `eta` (with a separate `eta_raw` if exposed).
 
 Registry tests encode PyTorch sampling semantics rather than prose approximations. `torch.randint(low, high, ...)` has an exclusive upper bound. Thus the historical ray index expression samples only `-3/-4`, and an inclusive replay range `[100,150]` must use `high=151` or an equivalent inclusive sampler; tests must prove both endpoints are reachable. The historical ray implementation is labeled as a discrete 100 ms sample-and-hold delay, not as paper-equivalent `Uniform(40,80) ms`.
 
@@ -227,11 +237,11 @@ Deployment treats the two paper setups independently: onboard Unitree L1 plus st
 ## 11. Checkpoint and dynamic class-loading security
 
 - `eval` is replaced by explicit policy and algorithm registries. Unknown names raise `ValueError` without evaluating input.
-- Checkpoint schema v2 contains only `model_state_dict`, an optional validated `optimizer_state_dict`, and `iteration`; arbitrary `infos` objects are never serialized. Deserialized containers are recursively restricted to tensors, primitive scalars, lists/tuples, and string-keyed dictionaries before state is applied.
+- Checkpoint schema v2 contains only `model_state_dict`, an optional validated `optimizer_state_dict`, and `iteration`; arbitrary `infos` objects are never serialized. Deserialized containers are recursively restricted to tensors, `None`, primitive scalars, lists/tuples, and string-keyed dictionaries, except that validated `optimizer_state_dict.state` permits nonnegative integer parameter IDs required by PyTorch.
 - The adjacent, schema-validated manifest contains a canonical relative regular-file path, byte size, SHA-256, checkpoint schema, iteration, producer commit, resolved-config hash, and allowed state sections. Hash and containment checks occur before deserialization; symlinks, path escape, size mismatch, and unknown fields fail closed.
 - Safe resume requires a locked runtime whose `torch.load` explicitly supports `weights_only` (PyTorch 1.13 or newer) and always passes `weights_only=True`. The environment gate checks the function signature and a schema-v2 round trip. A frozen simulator combination lacking this API may train from fresh or safe initialization, but resume is reported `blocked`; it never falls back to ordinary pickle loading.
 - Legacy pickle resume is rejected by all training, CI, and robot commands. If an indispensable, pre-hashed local legacy checkpoint must be recovered, it uses a separate one-shot offline converter with no network or credentials, read-only input, an empty output directory, and independent output verification. There is no `--trust-legacy` switch and no broadened global allowlist.
-- Save publishes checkpoint and manifest from temporary regular files using atomic replacement; crash-durability claims additionally require directory synchronization. Regression tests use a malicious `__reduce__` payload and prove no side-effect file is created.
+- Save publishes an immutable content-addressed payload generation, then atomically replaces the manifest as the publication commit point; crash-durability claims additionally require directory synchronization. Load hashes and deserializes the same no-follow-opened regular-file descriptor. `iteration` means completed PPO updates; model/optimizer continuation does not claim restoration of RNG or physical trajectories. Regression tests use a malicious `__reduce__` payload and prove no side-effect file is created. Any unsafe legacy converter is a separate sandboxed operator tool, never an in-process runtime helper.
 
 ## 12. Dependencies, artifacts, licensing, and CI
 

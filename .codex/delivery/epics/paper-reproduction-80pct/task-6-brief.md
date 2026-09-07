@@ -1,0 +1,93 @@
+## Binding execution corrections (2026-09-07)
+
+Read the updated design and the named audit report for this task. These corrections supersede conflicting earlier examples. Use the dedicated CPU interpreter at `../sea-nav-cpu-venv/bin/python`; system Torch 1.8 cannot validate these contracts. Keep training/shared code Python-3.8-compatible. No simulator stubs or claims above CPU/static Rung 2.
+
+Read scientific-wiring-audit.md. Extend ownership to Gym train/play/task_registry configuration wiring and pure reward/perception helpers in rsl_rl as required. Final accepted profile must be applied to actual PPO/CBF/reward/ACSI/perception consumers, never just dumped in manifest. Upstream actor FOV=180 while sensor FOV=240; footprint zero outside named ablations; reward integrates dt once, source expressions retained, paper literal expressions tested as diagnostic math while accepted paper label blocked. Separate sensor acquisition latency/hold from actuator delay. Record four action stages and actual time horizons; trace row counts compare physical file. Config-projected fields unsupported by runtime should cause explicit rejection, not ignored defaults. No real sim claims. Keep external low-level controller provenance/interface unresolved as blocked runtime prerequisite; do not implement deferred formal evaluator/deployment.
+
+## Global Constraints
+
+- Working branches must remain exactly `main`, `stable`, and `test`; all repair commits land only on `test`.
+- Integrate the dependency graph strictly as `1→2→3→4→5→6→7`; do not create concurrent detached commits touching PPO/CBF/runner/reset/trainer files.
+- `main` and `stable` remain at `1c5675bbedf1dcbe5a4c1a91830cae528c780793` during this recovery.
+- `paper_v1` uses Eq. 4 with `epsilon_d=1.0` and describes the result as a damped safety bias, never a hard-safe projection.
+- Action stages are `distribution_mean`, `policy_action`, `clipped_policy_action`, and `executed_command`.
+- Every repaired run explicitly records `implementation_delta=["ppo_state_identity_repair"]`; the resolver never adds it silently.
+- CPU tests may import `rsl_rl`; `legged_gym` receives syntax/AST/tree checks only because importing its task stack requires unavailable `isaacgym`.
+- Missing Isaac Gym/IsaacLab, formal 100-trial metrics, publication rights, and real hardware are `blocked`, never mocked into a pass.
+- Use exact-path staging. Each task ends with an independently reviewable commit and a clean focused test run.
+
+---
+
+### Task 6: Recover portable runtime contracts without claiming simulator execution
+
+**Files:**
+- Create: `sea_nav_current_isaaclab_full_method/adapters/runtime_commands.py`
+- Create: `tests/test_runtime_cli_contract.py`
+- Create: `tests/test_runtime_manifest_contract.py`
+- Create: `tests/test_runtime_commands.py`
+- Modify: `sea_nav_current_isaaclab_full_method/full_method_runtime_smoke.py`
+- Modify: `sea_nav_current_isaaclab_full_method/train_full_method_acsi_replay_ppo.py`
+- Modify: `sea_nav_current_isaaclab_full_method/train_full_method_ppo.py`
+- Modify: `sea_nav_current_isaaclab_full_method/run_full_method_runtime_smoke.sh`
+- Modify: `sea_nav_current_isaaclab_full_method/configs/sea_nav_full_current.yaml`
+- Modify: `sea_nav_current_isaaclab_full_method/adapters/manifest.py`
+- Modify: `sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py`
+
+**Interfaces:**
+- Add immutable `RuntimePaths(launcher, run_root, asset_root, checkpoint_manifest)`.
+- Add `validate_runtime_paths`, `blocked_result`, and `validate_command_update` in a simulator-free module.
+- Runtime manifests bind exact resolved config, launcher, assets, checkpoint manifest, runtime stack, result status, and trace count.
+
+- [ ] **Step 1: Add red pure-runtime tests**
+
+```python
+def test_missing_launcher_is_blocked_not_passed():
+    result = blocked_result(
+        stack="isaaclab_adapter",
+        reason="launcher unavailable",
+        remediation="provide a locked IsaacLab launcher",
+    )
+    assert result["status"] == "blocked"
+    assert result["stack"] == "isaaclab_adapter"
+
+
+def test_command_update_rejects_unknown_keys():
+    with pytest.raises(ValueError, match="unknown command fields"):
+        validate_command_update({"goal_x": 1.0, "shell": "rm"})
+```
+
+Add canonical run-root, launcher executable, optional asset/checkpoint containment, numeric finite command, resolved-config hash, and physical JSONL row-count cases.
+
+- [ ] **Step 2: Prove runtime-contract tests are red**
+
+Run: `PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -q tests/test_runtime_cli_contract.py tests/test_runtime_manifest_contract.py tests/test_runtime_commands.py`
+
+Expected: simulator-free runtime contract module is missing.
+
+- [ ] **Step 3: Implement pure runtime inputs and blocked-result serialization**
+
+Move path and goal/reset command validation out of simulator entry points. Require explicit launcher, run root, asset root, resolved configuration, and checkpoint manifest. A missing runtime dependency emits a structured blocked result with remediation and non-success evidence; it never reuses a historical passed manifest. Keep `AppLauncher`, USD/scene creation, controller calls, and `carrier.step` imports in the simulator scripts only.
+
+- [ ] **Step 4: Selectively port reviewed runtime behavior**
+
+Port only argument parsing, command-file updates, resolved-config serialization, trace/result identity, and replay-reset wiring that has a CPU/static contract. Do not import machine-bound live-test scripts or unverified start/stop behavior from `b53d3fe`. Do not enable checkpoint resume until Task 7.
+
+- [ ] **Step 5: Run portable runtime verification**
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -q tests/test_runtime_cli_contract.py tests/test_runtime_manifest_contract.py tests/test_runtime_commands.py
+bash -n sea_nav_current_isaaclab_full_method/run_full_method_runtime_smoke.sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile sea_nav_current_isaaclab_full_method/adapters/runtime_commands.py sea_nav_current_isaaclab_full_method/full_method_runtime_smoke.py sea_nav_current_isaaclab_full_method/train_full_method_acsi_replay_ppo.py sea_nav_current_isaaclab_full_method/train_full_method_ppo.py
+PYTHONDONTWRITEBYTECODE=1 python3 sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py
+```
+
+Expected: CPU/static checks pass; both real simulator stacks remain separately blocked.
+
+- [ ] **Step 6: Commit Task 6**
+
+```bash
+git add sea_nav_current_isaaclab_full_method/adapters/runtime_commands.py tests/test_runtime_cli_contract.py tests/test_runtime_manifest_contract.py tests/test_runtime_commands.py sea_nav_current_isaaclab_full_method/full_method_runtime_smoke.py sea_nav_current_isaaclab_full_method/train_full_method_acsi_replay_ppo.py sea_nav_current_isaaclab_full_method/train_full_method_ppo.py sea_nav_current_isaaclab_full_method/run_full_method_runtime_smoke.sh sea_nav_current_isaaclab_full_method/configs/sea_nav_full_current.yaml sea_nav_current_isaaclab_full_method/adapters/manifest.py sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py
+git commit -m "feat: make runtime contracts portable"
+```
+
+---

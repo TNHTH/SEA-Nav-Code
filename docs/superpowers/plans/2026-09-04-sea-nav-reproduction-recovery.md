@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-04-sea-nav-reproduction-recovery-design.md`
 
+**Execution corrections (2026-09-07):** The evidence corrections in the spec and the versioned scientific/checkpoint audit reports in `.codex/delivery/epics/paper-reproduction-80pct/` supersede conflicting examples below. Accepted `paper_v1` runs are blocked by literal Table V action bounds. Task 2 owns a shared `rsl_rl/experiment_config.py` loader and adapter compatibility import, explicit application projections, and verified CPU dependency pins (Python 3.10, torch 2.6.0+cpu, NumPy 1.26.4, pytest 8.4.2, PyYAML 6.0.2). Task 4 additionally owns profile-driven PPO coefficients, both CBF implementations, and shared golden vectors. Task 5 includes pure Eq. 1 and declared upstream two-stage decisions plus real consumer wiring. Task 6 must apply reward formulas/dt and timestamped perception to consumers. Task 7 uses validated integer optimizer state IDs, immutable payload generations, manifest-last publication, same-descriptor safe loading, and accurate completed-update counts; unsafe conversion is isolated in an operator-only tool. Current task briefs carry the exact execution correction for each task.
+
 ## Global Constraints
 
 - Working branches must remain exactly `main`, `stable`, and `test`; all repair commits land only on `test`.

@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "coord_rev": 1,
+  "coord_rev": 2,
   "repository": "TNHTH/SEA-Nav-Code",
   "branch": "test",
-  "head": "22fa4260ef07c3ed53d2476d0b653900887c5859",
+  "head": "1259bae1b2e2635e410a315ab6bf92451df8762b",
   "phase": "serial_implementation",
-  "next_action": "commit the reviewed plan and coordination files, then dispatch Task 1 from a detached worktree",
+  "next_action": "implement and review Task 1 in ../SEA-Nav-Code-batch1, then integrate into test",
   "strict_batch_order": [1, 2, 3, 4, 5, 6, 7],
   "active_write_owner": "controller",
   "active_owned_paths": [
