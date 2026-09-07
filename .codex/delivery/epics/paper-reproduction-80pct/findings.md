@@ -56,6 +56,10 @@ The following baseline defects are historical findings; Tasks 1–3 now repair t
 
 ## Resources
 
+- `cbf-checked-path-probe.md`: complete independent in-memory CPU report read; aggregate validity retains one host decision while preserving tested output/gradient/error and TorchScript behavior (core/adapter/footprint B=2/2048: 5→1). Ordinary diagnostics remain unoptimized. A direct _assert_async substitution loses the check in this actual scripted save/load experiment and is not an acceptable CBF replacement. No source fix, performance-policy amendment, CUDA speedup or P2 closure is claimed; serial post-Task7 implementation/review still required.
+
+- `legacy-sandbox-capability.md`: trusted fresh bwrap namespace probe actually imported task Torch 2.6.0+cpu with weights_only support, only loopback visible and no /home mounted. This supersedes mere tool discovery as host capability evidence, not as converter/input/output/resource-limit acceptance; no checkpoint or untrusted code ran.
+
 - Task 6 moving-tree output-edge self-review found candidate-path overwrites, profile stay-threshold drift, cleanup ordering and nested-manifest output defects. Sole implementer is addressing them; fixed-commit whole Task 6 review and full suite remain mandatory. The prior in-memory CBF fused-validation diagnostic produced an unusable tool result, so no improvement is established; a separate bounded read-only CPU probe is registered for preparation only.
 
 - `gym-import-order-boundary.md`: current in-progress shared preflight eagerly loads Torch before Gym. A public IsaacGymEnvs issue provides the known gymdeps import-order error and official train source imports Gym first. Task 6 must preserve early pure rejection without poisoning the Gym parent import order; fresh-process tests and runtime capability blockers are required, with no simulator claim. This warning was issued during implementation, not a final review verdict.
