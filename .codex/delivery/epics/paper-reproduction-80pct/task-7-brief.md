@@ -14,6 +14,24 @@ Checkpoint/startup migration also owns the narrow current-usage sections of `REA
 
 ## Exact Task 7 registration after verified Task 6
 
+### Bounded caller review fix round 1 (after c7b9aa3)
+
+The ordinary caller reviewer reproduced one inherited but explicitly handed-off
+P2: accepted Gym play request has source_max_goal_level=10, while play overrides
+terrain.num_rows to1 before the existing make_env guard rejects it. Task6 report
+line115 assigns post-override effective configuration to Task7; missing simulator
+prerequisites do not resolve this CPU-provable contradiction. Same writer owns
+only the already-registered play.py and tests/test_checkpoint_runtime_wiring.py
+for this fix, plus its log/report/registration. Retain the bound terrain row
+configuration through play preparation and actual guard/receipt, without
+removing equality checks, changing terrain algorithms/config files, altering
+other playback/reset behavior, or relaxing runtime/paper/controller blockers.
+Use actual config/play/registry CPU statements for RED/GREEN. Root's additional
+first-frame-observation suspicion is excluded: play:153-154 explicitly replaces
+obs from reset before inference. A bounded original-reviewer re-review and
+fresh fixed-code verification are required; the separate incomplete full
+core/converter review is not cleared by this ordinary fix.
+
 Task 6 is integrated as `dbc609d`, `b52808d`, `4183d2b`, `b5b945513acb4d3e48c401653198442654a387e9`; original reviewer closed all five whole-review findings. Primary fresh full suite: 342 passed in34.53s; five Gate A CPU/static passes and four explicit Gym/Lab dependency/runtime blockers. Source/test/tools/config tree equals reviewed `0efc193`, with no baseline deletions. Only after this acceptance may the next detached Task 7 source worker begin.
 
 Exact 26-path inventory (supersedes the shorter original Files section; no edits outside it without controller registration):
