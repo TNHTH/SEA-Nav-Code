@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -118,7 +119,25 @@ def test_discover_repo_root_accepts_nested_and_explicit_paths() -> None:
 
 
 def test_default_manifest_uses_repository_relative_paths() -> None:
-    manifest = default_manifest(str(ROOT / "sea_nav_current_isaaclab_full_method"))
+    rsl_rl_root = ROOT / "training" / "rsl_rl"
+    sys.path.insert(0, str(rsl_rl_root))
+    try:
+        from rsl_rl.experiment_config import resolve_run_config
+
+        resolved = resolve_run_config(
+            registry_path=ROOT / "configs" / "parity_registry.yaml",
+            algorithm_profile="upstream_fbce672c",
+            runtime_stack="isaaclab_adapter",
+            implementation_delta=("ppo_state_identity_repair",),
+        )
+    finally:
+        sys.path.remove(str(rsl_rl_root))
+    manifest = default_manifest(
+        repo_root=ROOT,
+        adapter_root=ROOT / "sea_nav_current_isaaclab_full_method",
+        resolved_config=resolved,
+        validation_rung="unverified",
+    )
     payload = manifest.to_dict()
 
     assert payload["source_repo"] == "."
@@ -126,6 +145,33 @@ def test_default_manifest_uses_repository_relative_paths() -> None:
     for value in [payload["source_repo"], payload["adapter_root"], *payload["upstream_reference_paths"]]:
         assert not Path(value).is_absolute(), value
         assert "/home/" not in value
+
+
+def test_default_manifest_rejects_legacy_identity_free_call() -> None:
+    with pytest.raises(TypeError, match="explicit.*resolved_config.*Task 6"):
+        default_manifest(str(ROOT / "sea_nav_current_isaaclab_full_method"))
+
+
+def test_manifest_module_imports_without_rsl_rl_on_path() -> None:
+    adapter_dir = ROOT / "sea_nav_current_isaaclab_full_method" / "adapters"
+    env = {"PATH": os.environ["PATH"], "PYTHONDONTWRITEBYTECODE": "1", "PYTHONNOUSERSITE": "1"}
+    code = (
+        "import sys; "
+        "sys.modules['rsl_rl'] = None; "
+        f"sys.path.insert(0, {str(adapter_dir)!r}); "
+        "import manifest; "
+        "print(manifest.AdapterManifest.__name__)"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "AdapterManifest"
 
 
 def test_committed_manifest_does_not_claim_missing_current_evidence() -> None:

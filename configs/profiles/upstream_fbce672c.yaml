@@ -27,7 +27,8 @@ selected_contracts:
   execution_bounds: {executed_command_low: [-0.5, -1.0, -1.0], executed_command_high: [2.0, 1.0, 1.0]}
   ray_delay:
     delay_mode: discrete_history_sample_and_hold
-    acquisition_period_s: 0.1
+    acquisition_period_s: 0.02
+    output_refresh_period_s: 0.1
     history_indices: [-3, -4]
     refresh_sample_age_s: [0.04, 0.06]
     maximum_held_age_s: 0.14

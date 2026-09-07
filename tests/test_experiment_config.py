@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import copy
 import hashlib
 import importlib.metadata
 import json
@@ -35,6 +36,7 @@ from rsl_rl.experiment_config import (  # noqa: E402
     build_replay_kwargs,
     load_parity_registry,
     resolve_run_config,
+    resolved_config_to_dict,
     validate_registry,
     write_resolved_config,
 )
@@ -47,9 +49,33 @@ def _evidence():
     }
 
 
-def _row(contract="sample", status="resolved", paper_value=None, upstream_value=None):
-    paper_value = {"value": 1} if paper_value is None else paper_value
-    upstream_value = paper_value if upstream_value is None else upstream_value
+def _row(contract="damped_cbf", status="resolved", paper_value=None, upstream_value=None):
+    selections = {
+        "damped_cbf": {
+            "paper_v1": {
+                "cbf_mode": "paper_damped",
+                "epsilon_d": 1.0,
+                "result_classification": "differentiable_safety_bias",
+            },
+            "upstream_fbce672c": {
+                "cbf_mode": "paper_damped",
+                "epsilon_d": 1.0,
+                "result_classification": "differentiable_safety_bias",
+            },
+        },
+        "ppo_state_identity_repair": {
+            "paper_v1": {"ppo_auxiliary_state_mode": "pure_action_mean_for_preserves_current_minibatch_state"},
+            "upstream_fbce672c": {
+                "ppo_auxiliary_state_mode": "pure_action_mean_for_preserves_current_minibatch_state"
+            },
+        },
+        "cbf_geometry": {
+            "paper_v1": {"cbf_fov_deg": 240.0},
+            "upstream_fbce672c": {"cbf_fov_deg": 180.0},
+        },
+    }[contract]
+    paper_value = selections["paper_v1"] if paper_value is None else paper_value
+    upstream_value = selections["upstream_fbce672c"] if upstream_value is None else upstream_value
     return {
         "contract": contract,
         "paper_value": paper_value,
@@ -110,6 +136,26 @@ def _resolve_upstream(registry_path=REGISTRY, implementation_delta=("ppo_state_i
     )
 
 
+def _matching_invalid_selection(tmp_path, contract, updates):
+    registry_payload = yaml.safe_load(REGISTRY.read_text(encoding="utf-8"))
+    row = next(row for row in registry_payload["rows"] if row["contract"] == contract)
+    selected = row["selected_values"]["upstream_fbce672c"]
+    selected.update(copy.deepcopy(updates))
+
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    for profile in ALGORITHM_PROFILES:
+        source = yaml.safe_load((PROFILES / f"{profile}.yaml").read_text(encoding="utf-8"))
+        if profile == "upstream_fbce672c":
+            source["selected_contracts"][contract].update(copy.deepcopy(updates))
+        (profiles_dir / f"{profile}.yaml").write_text(
+            yaml.safe_dump(source, sort_keys=True), encoding="utf-8"
+        )
+    path = tmp_path / "registry.yaml"
+    path.write_text(yaml.safe_dump(registry_payload, sort_keys=True), encoding="utf-8")
+    return path
+
+
 def test_public_value_objects_are_frozen_and_adapter_import_is_compatible():
     assert dataclasses.is_dataclass(ParityRow)
     assert dataclasses.is_dataclass(RunIdentity)
@@ -126,6 +172,45 @@ def test_public_value_objects_are_frozen_and_adapter_import_is_compatible():
 
     assert adapter_config.ParityRow is ParityRow
     assert adapter_config.resolve_run_config is resolve_run_config
+
+
+def test_resolved_data_is_deeply_immutable():
+    config = _resolve_upstream()
+    with pytest.raises(TypeError):
+        config.selected_contracts["reward_weights"]["raw_weights"]["velocity"] = 99.0
+    with pytest.raises(TypeError):
+        build_policy_kwargs(config).values["epsilon_d"] = 7.0
+    with pytest.raises(TypeError):
+        build_env_profile_values(config).values["history_indices"][0] = -99
+
+
+def test_materialized_consumer_values_and_serialization_are_detached():
+    config = _resolve_upstream()
+    policy_values = build_policy_kwargs(config).materialize_values()
+    policy_values["epsilon_d"] = 7.0
+    assert build_policy_kwargs(config).values["epsilon_d"] == 1.0
+
+    serialized = resolved_config_to_dict(config)
+    serialized["selected_contracts"]["reward_weights"]["raw_weights"]["velocity"] = 99.0
+    serialized["application_projections"][0]["values"]["epsilon_d"] = 7.0
+    fresh = resolved_config_to_dict(config)
+    assert fresh["selected_contracts"]["reward_weights"]["raw_weights"]["velocity"] == 4.0
+    assert fresh["application_projections"][0]["values"]["epsilon_d"] == 1.0
+
+
+def test_serialization_and_manifest_reject_broken_resolved_hash():
+    from sea_nav_current_isaaclab_full_method.adapters.manifest import default_manifest
+
+    config = dataclasses.replace(_resolve_upstream(), resolved_sha256="0" * 64)
+    with pytest.raises(ValueError, match="resolved configuration integrity"):
+        resolved_config_to_dict(config)
+    with pytest.raises(ValueError, match="resolved configuration integrity"):
+        default_manifest(
+            repo_root=ROOT,
+            adapter_root=ROOT / "sea_nav_current_isaaclab_full_method",
+            resolved_config=config,
+            validation_rung="unverified",
+        )
 
 
 def test_registry_carries_all_evidence_corrected_scientific_contracts():
@@ -160,8 +245,8 @@ def test_registry_carries_all_evidence_corrected_scientific_contracts():
 
     bounds = by_name["paper_table_action_bounds"]
     assert bounds.resolution_status == "blocked"
-    assert bounds.paper_value == {"low": [-0.5, 0.8, 1.0], "high": [1.7, 0.8, 1.0]}
-    assert bounds.upstream_effective_value == {"low": [-0.5, -0.8, -1.0], "high": [1.7, 0.8, 1.0]}
+    assert bounds.paper_value == {"low": (-0.5, 0.8, 1.0), "high": (1.7, 0.8, 1.0)}
+    assert bounds.upstream_effective_value == {"low": (-0.5, -0.8, -1.0), "high": (1.7, 0.8, 1.0)}
 
     reward = by_name["reward_formula"]
     assert reward.paper_value["angular_velocity"] == "l2_norm_xy"
@@ -169,17 +254,58 @@ def test_registry_carries_all_evidence_corrected_scientific_contracts():
     assert by_name["reward_time_integration"].selected_values["paper_v1"]["integrate_over_policy_dt"] is True
 
     acsi = by_name["acsi_decision_stage"]
-    assert acsi.paper_value["decision_stages"] == ["collision_replay_decision_carried_to_reset"]
-    assert acsi.upstream_effective_value["decision_stages"] == [
+    assert acsi.paper_value["decision_stages"] == ("collision_replay_decision_carried_to_reset",)
+    assert acsi.upstream_effective_value["decision_stages"] == (
         "collision_onset_termination_draw",
         "terminal_replay_draw",
-    ]
+    )
     perception = by_name["perception_timing_semantics"]
     assert perception.resolution_status == "blocked"
     assert perception.paper_value["acquisition_period_s"] == 0.1
     assert perception.paper_value["transport_latency_s"] == {"distribution": "uniform", "low": 0.04, "high": 0.08}
     assert perception.paper_value["output_mode"] == "sample_and_hold"
     assert by_name["cbf_footprint_preprocessing"].selected_values["upstream_fbce672c"]["footprint_radius_m"] == 0.0
+
+
+def test_upstream_ray_acquisition_and_output_refresh_cadences_are_distinct():
+    rows = {row.contract: row for row in load_parity_registry(REGISTRY)}
+    upstream = rows["ray_delay"].selected_values["upstream_fbce672c"]
+    paper = rows["ray_delay"].selected_values["paper_v1"]
+    assert paper["acquisition_period_s"] == 0.1
+    assert upstream["acquisition_period_s"] == 0.02
+    assert upstream["output_refresh_period_s"] == 0.1
+    expected_ages = tuple((abs(index) - 1) * upstream["acquisition_period_s"] for index in upstream["history_indices"])
+    assert upstream["refresh_sample_age_s"] == pytest.approx(expected_ages)
+    refresh_steps = round(upstream["output_refresh_period_s"] / upstream["acquisition_period_s"])
+    expected_maximum_age = max(expected_ages) + (refresh_steps - 1) * upstream["acquisition_period_s"]
+    assert upstream["maximum_held_age_s"] == pytest.approx(expected_maximum_age)
+
+
+def test_differing_evaluation_horizons_are_a_profile_fork():
+    row = {row.contract: row for row in load_parity_registry(REGISTRY)}["time_horizons"]
+    assert row.resolution_status == "profile_fork"
+    assert row.selected_values["paper_v1"]["evaluation_timeout_s"] == 30.0
+    assert row.selected_values["upstream_fbce672c"]["evaluation_timeout_s"] is None
+    assert row.selected_values["paper_v1"] != row.selected_values["upstream_fbce672c"]
+
+
+@pytest.mark.parametrize(
+    "contract, updates, message",
+    [
+        ("damped_cbf", {"invented_parameter": True}, "damped_cbf.*fields"),
+        ("damped_cbf", {"epsilon_d": "not-a-number"}, "damped_cbf.*epsilon_d"),
+        ("damped_cbf", {"epsilon_d": float("nan")}, "damped_cbf.*epsilon_d"),
+        ("cbf_geometry", {"cbf_fov_deg": 0.0}, "cbf_geometry.*cbf_fov_deg"),
+        ("cbf_geometry", {"cbf_fov_deg": 361.0}, "cbf_geometry.*cbf_fov_deg"),
+        ("ray_delay", {"delay_mode": "invented_scheduler"}, "ray_delay.*delay_mode"),
+    ],
+)
+def test_matching_registry_and_profile_invalid_selections_are_rejected(
+    tmp_path, contract, updates, message
+):
+    registry = _matching_invalid_selection(tmp_path, contract, updates)
+    with pytest.raises(ValueError, match=message):
+        _resolve_upstream(registry)
 
 
 @pytest.mark.parametrize(
@@ -242,7 +368,7 @@ def test_validate_registry_rejects_malformed_rows(mutation, message):
 
 
 def test_validate_registry_rejects_duplicate_contracts():
-    with pytest.raises(ValueError, match="duplicate.*sample"):
+    with pytest.raises(ValueError, match="duplicate.*damped_cbf"):
         validate_registry([_row(), _row()])
 
 
@@ -304,11 +430,14 @@ def test_profile_validation_input_cannot_override_registry(tmp_path):
 
 
 def test_missing_profile_selection_is_rejected(tmp_path):
-    rows = [_row("ppo_state_identity_repair", "implementation_delta"), _row("fork", "profile_fork")]
+    rows = [
+        _row("ppo_state_identity_repair", "implementation_delta"),
+        _row("cbf_geometry", "profile_fork"),
+    ]
     registry = _write_registry(tmp_path, rows)
     profile_path = tmp_path / "profiles" / "upstream_fbce672c.yaml"
     payload = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
-    payload["selected_contracts"].pop("fork")
+    payload["selected_contracts"].pop("cbf_geometry")
     profile_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
     with pytest.raises(ValueError, match="selected_contracts"):
         _resolve_upstream(registry)
@@ -343,7 +472,7 @@ def test_upstream_resolution_has_distinct_geometry_and_staged_application_contra
     assert config.algorithm.cbf["nonzero_footprint_policy"] == "requires_named_ablation"
     assert config.algorithm.reward["integrate_over_policy_dt"] is True
     assert config.algorithm.reward["raw_weights"]["velocity"] == 4.0
-    assert config.algorithm.perception["history_indices"] == [-3, -4]
+    assert config.algorithm.perception["history_indices"] == (-3, -4)
     assert config.algorithm.acsi["terminal_replay_probability"] == 0.8
     assert config.algorithm.horizons["evaluation_timeout_s"] is None
     assert config.algorithm.horizons["evaluation_timeout_status"] == "unsupported_no_complete_upstream_metric_runner"
@@ -359,7 +488,7 @@ def test_upstream_resolution_has_distinct_geometry_and_staged_application_contra
     assert env.application_status == "future_task_5_and_6"
     assert replay.application_status == "future_task_5"
     assert policy.values["cbf_fov_deg"] == 180.0
-    assert ppo.values["action_range_low"] == [-0.5, -0.8, -1.0]
+    assert ppo.values["action_range_low"] == (-0.5, -0.8, -1.0)
     assert ppo.values["action_stages"] == (
         "distribution_mean",
         "policy_action",
@@ -389,7 +518,7 @@ def test_supported_identity_axes_are_exact():
 def test_resolved_hash_is_stable_and_output_is_canonical(tmp_path):
     config = _resolve_upstream()
     assert config.registry_sha256 == hashlib.sha256(REGISTRY.read_bytes()).hexdigest()
-    assert config.resolved_sha256 == "25ee27505701f1415bcebb5c071acda0ffe2672e5d5df27ad6ba580f16d6ccba"
+    assert config.resolved_sha256 == "6d90936678c80a531ef425b9b994fc4a0f1b610dc976946cc3919d364806953e"
 
     out = tmp_path / "resolved.json"
     write_resolved_config(out, config)

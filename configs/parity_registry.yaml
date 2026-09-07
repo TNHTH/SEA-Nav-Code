@@ -218,7 +218,8 @@ rows:
       sampled_latency_s: {distribution: uniform, low: 0.04, high: 0.08}
     upstream_effective_value:
       delay_mode: discrete_history_sample_and_hold
-      acquisition_period_s: 0.1
+      acquisition_period_s: 0.02
+      output_refresh_period_s: 0.1
       history_indices: [-3, -4]
       refresh_sample_age_s: [0.04, 0.06]
       maximum_held_age_s: 0.14
@@ -231,7 +232,8 @@ rows:
         history_sampling_policy: latest_nonfuture_for_sampled_latency
       upstream_fbce672c:
         delay_mode: discrete_history_sample_and_hold
-        acquisition_period_s: 0.1
+        acquisition_period_s: 0.02
+        output_refresh_period_s: 0.1
         history_indices: [-3, -4]
         refresh_sample_age_s: [0.04, 0.06]
         maximum_held_age_s: 0.14
@@ -330,7 +332,7 @@ rows:
     evidence:
       paper: ["arXiv:2603.09460v1:training-and-evaluation-protocol"]
       upstream: ["git:fbce672c:training/legged_gym/legged_gym/envs/go2/go2_pos_config.py"]
-    resolution_status: resolved
+    resolution_status: profile_fork
     rationale: paper_v1 separates the published 60 second training and 30 second evaluation horizons; upstream records that no complete evaluation runner supplies a timeout.
 
   - contract: replay_reset_policy

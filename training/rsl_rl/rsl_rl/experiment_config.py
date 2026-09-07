@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Dict, Iterable, List, Mapping, Sequence, Tuple
 
 import yaml
@@ -50,6 +52,169 @@ _ROW_KEYS = {
 }
 _PROFILE_KEYS = {"schema_version", "algorithm_profile", "selected_contracts"}
 _EVIDENCE_KEYS = {"paper", "upstream"}
+
+_COMMON_SELECTED_SCHEMAS = {
+    "lidar_history": {
+        "num_rays": "positive_int",
+        "observation_fov_deg": "fov_degrees",
+        "history_frames": "positive_int",
+    },
+    "damped_cbf": {
+        "cbf_mode": ("enum", ("paper_damped",)),
+        "epsilon_d": "positive_number",
+        "result_classification": ("enum", ("differentiable_safety_bias",)),
+    },
+    "cbf_geometry": {"cbf_fov_deg": "fov_degrees"},
+    "cbf_kappa_safe_radius_margin": {
+        "kappa": "positive_number",
+        "safe_radius_m": "positive_number",
+        "safety_margin_m": "nonnegative_number",
+    },
+    "cbf_footprint_preprocessing": {
+        "footprint_radius_m": "nonnegative_number",
+        "ray_preprocess_mode": ("enum", ("positive_raw_rays",)),
+        "min_effective_clearance_m": "optional_positive_number",
+        "nonzero_footprint_policy": ("enum", ("requires_named_ablation",)),
+    },
+    "shield_objective": {
+        "intervention_coefficient": "nonnegative_number",
+        "alpha_penalty_coefficient": "nonnegative_number",
+        "alpha_min": "nonnegative_number",
+    },
+    "reward_weights": {"raw_weights": "reward_weights"},
+    "reward_formula": {
+        "formula_mode": ("enum", ("paper_table_iii", "upstream_fbce672c")),
+        "angular_velocity": ("enum", ("l2_norm_xy", "squared_l2_norm_xy")),
+        "velocity_term": (
+            "enum",
+            ("cosine_heading_times_forward_plus_goal_bias", "clipped_forward_progress_plus_goal_bias"),
+        ),
+        "clearance_boundary_m": "positive_number",
+        "stuck_history_anchor": ("enum", ("first_history_point", "current_position")),
+    },
+    "reward_time_integration": {
+        "integrate_over_policy_dt": "bool",
+        "reward_scale_unit": ("enum", ("raw_weight_times_policy_dt",)),
+        "policy_dt_s": "positive_number",
+    },
+    "reward_operational_fallbacks": {"operational_fallbacks": "reward_fallbacks"},
+    "smoothness_weights": {
+        "actor_smoothness_coefficient": "nonnegative_number",
+        "critic_smoothness_coefficient": "nonnegative_number",
+    },
+    "ppo_state_identity_repair": {
+        "ppo_auxiliary_state_mode": (
+            "enum",
+            ("pure_action_mean_for_preserves_current_minibatch_state",),
+        )
+    },
+    "paper_table_action_bounds": {
+        "action_range_low": ("number_vector", 3),
+        "action_range_high": ("number_vector", 3),
+    },
+    "execution_bounds": {
+        "executed_command_low": ("number_vector", 3),
+        "executed_command_high": ("number_vector", 3),
+    },
+    "perception_timing_semantics": {
+        "perception_scheduler": (
+            "enum",
+            ("timestamped_acquisition_transport_hold", "policy_tick_history_refresh"),
+        ),
+        "arrival_quantization": ("enum", ("blocked_paper_unspecified", "policy_tick")),
+        "output_mode": ("enum", ("sample_and_hold",)),
+        "delay_goal_with_rays": ("enum_or_bool", ("blocked_paper_unspecified",)),
+        "startup_policy": (
+            "enum",
+            ("blocked_paper_unspecified", "current_sample_until_history_available"),
+        ),
+    },
+    "acsi_decision_stage": {
+        "decision_stages": (
+            "sequence_enum",
+            (
+                ("collision_replay_decision_carried_to_reset",),
+                ("collision_onset_termination_draw", "terminal_replay_draw"),
+            ),
+        ),
+        "terminal_replay_probability": "probability",
+        "decision_order": (
+            "enum",
+            ("probability_then_reservation_then_reset_commit", "collision_onset_then_reset_selection"),
+        ),
+    },
+    "acsi_level_storage_and_update_event": {
+        "level_update_policy": ("enum", ("strict_distance_events",)),
+        "initial_level": "nonnegative_number",
+        "stored_level_bounds": ("sequence_exact", (0.0, "max_terrain_level")),
+        "level_update_event": ("enum", ("normal_episode_reset_after_replay_selection",)),
+    },
+    "goal_completion": {
+        "goal_distance_threshold_m": "positive_number",
+        "stay_ticks": "positive_int",
+        "stay_counter_mode": ("enum", ("accumulated_in_goal_ticks",)),
+    },
+    "replay_reset_policy": {
+        "reconstruction_policy": ("enum", ("new_replay_episode_v1",)),
+        "activation_delta": ("enum", ("replay_reset_reconstruction_v1",)),
+        "curriculum_state_rewound": "bool",
+    },
+}
+
+_PROFILE_SELECTED_SCHEMAS = {
+    "ray_delay": {
+        "paper_v1": {
+            "delay_mode": ("enum", ("timestamped_continuous_latency",)),
+            "acquisition_period_s": "positive_number",
+            "latency_min_s": "nonnegative_number",
+            "latency_max_s": "positive_number",
+            "history_sampling_policy": ("enum", ("latest_nonfuture_for_sampled_latency",)),
+        },
+        "upstream_fbce672c": {
+            "delay_mode": ("enum", ("discrete_history_sample_and_hold",)),
+            "acquisition_period_s": "positive_number",
+            "output_refresh_period_s": "positive_number",
+            "history_indices": ("sequence_exact", (-3, -4)),
+            "refresh_sample_age_s": ("number_vector", 2),
+            "maximum_held_age_s": "positive_number",
+        },
+    },
+    "acsi_curriculum": {
+        "paper_v1": {
+            "curriculum_mode": ("enum", ("paper_eq_1",)),
+            "p_min": "probability",
+            "p_max": "probability",
+            "probability_level_clip": ("number_vector", 2),
+            "d_up_m": "positive_number",
+            "d_down_m": "positive_number",
+        },
+        "upstream_fbce672c": {
+            "curriculum_mode": ("enum", ("upstream_two_stage",)),
+            "p_min": "probability",
+            "p_max": "probability",
+            "probability_level_divisor": "positive_number",
+            "d_up_m": "positive_number",
+            "d_down_m": "positive_number",
+        },
+    },
+    "time_horizons": {
+        "paper_v1": {
+            "training_episode_s": "positive_number",
+            "evaluation_timeout_s": "positive_number",
+        },
+        "upstream_fbce672c": {
+            "training_episode_s": "positive_number",
+            "evaluation_timeout_s": "none",
+            "evaluation_timeout_status": (
+                "enum",
+                ("unsupported_no_complete_upstream_metric_runner",),
+            ),
+        },
+    },
+}
+
+_REWARD_NAMES = {"termination", "reach", "velocity", "clearance", "stuck", "collision", "angular"}
+_CONTACT_GROUPS = {"generic", "head_base", "leg"}
 
 
 @dataclass(frozen=True)
@@ -100,6 +265,10 @@ class ConfigProjection:
     values: Mapping[str, Any]
     required_activation_deltas: Tuple[str, ...] = ()
 
+    def materialize_values(self) -> Dict[str, Any]:
+        """Return a detached mutable copy suitable for constructor kwargs."""
+        return _thaw(self.values)
+
 
 @dataclass(frozen=True)
 class ResolvedRunConfig:
@@ -130,6 +299,170 @@ def _require_exact_keys(value: Mapping[str, Any], expected: Iterable[str], label
         raise ValueError("{} keys invalid; missing={}, unknown={}".format(label, missing, unknown))
 
 
+def _is_finite_number(value: Any) -> bool:
+    return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(float(value))
+
+
+def _validate_number(value: Any, label: str, lower: float, inclusive: bool) -> None:
+    if not _is_finite_number(value):
+        raise ValueError("{} must be a finite number".format(label))
+    if (inclusive and value < lower) or (not inclusive and value <= lower):
+        comparison = ">=" if inclusive else ">"
+        raise ValueError("{} must be {} {}".format(label, comparison, lower))
+
+
+def _validate_reward_weights(value: Any, label: str) -> None:
+    weights = _require_mapping(value, label)
+    _require_exact_keys(weights, _REWARD_NAMES, label)
+    for name, weight in weights.items():
+        if not _is_finite_number(weight):
+            raise ValueError("{}.{} must be a finite number".format(label, name))
+
+
+def _validate_reward_fallbacks(value: Any, label: str) -> None:
+    fallbacks = _require_mapping(value, label)
+    _require_exact_keys(
+        fallbacks,
+        {"contact_group_coefficients", "opening_tie_semantics", "initial_contact_penalty_suppressed"},
+        label,
+    )
+    groups = _require_mapping(fallbacks["contact_group_coefficients"], "{}.contact_group_coefficients".format(label))
+    _require_exact_keys(groups, _CONTACT_GROUPS, "{}.contact_group_coefficients".format(label))
+    for group, coefficient in groups.items():
+        _validate_number(coefficient, "{}.contact_group_coefficients.{}".format(label, group), 0.0, True)
+    if fallbacks["opening_tie_semantics"] != "smoothed_150_degree_cone_center_bias":
+        raise ValueError("{}.opening_tie_semantics has an unsupported value".format(label))
+    if not isinstance(fallbacks["initial_contact_penalty_suppressed"], bool):
+        raise ValueError("{}.initial_contact_penalty_suppressed must be bool".format(label))
+
+
+def _validate_field(value: Any, spec: Any, label: str) -> None:
+    if spec == "positive_int":
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise ValueError("{} must be a positive integer".format(label))
+        return
+    if spec == "positive_number":
+        _validate_number(value, label, 0.0, False)
+        return
+    if spec == "fov_degrees":
+        _validate_number(value, label, 0.0, False)
+        if value > 360.0:
+            raise ValueError("{} must be <= 360 degrees".format(label))
+        return
+    if spec == "nonnegative_number":
+        _validate_number(value, label, 0.0, True)
+        return
+    if spec == "optional_positive_number":
+        if value is not None:
+            _validate_number(value, label, 0.0, False)
+        return
+    if spec == "probability":
+        _validate_number(value, label, 0.0, True)
+        if value > 1.0:
+            raise ValueError("{} must be <= 1.0".format(label))
+        return
+    if spec == "bool":
+        if not isinstance(value, bool):
+            raise ValueError("{} must be bool".format(label))
+        return
+    if spec == "none":
+        if value is not None:
+            raise ValueError("{} must be null".format(label))
+        return
+    if spec == "reward_weights":
+        _validate_reward_weights(value, label)
+        return
+    if spec == "reward_fallbacks":
+        _validate_reward_fallbacks(value, label)
+        return
+
+    kind, expected = spec
+    if kind == "enum":
+        if value not in expected:
+            raise ValueError("{} must be one of {}".format(label, expected))
+    elif kind == "enum_or_bool":
+        if not isinstance(value, bool) and value not in expected:
+            raise ValueError("{} must be bool or one of {}".format(label, expected))
+    elif kind == "number_vector":
+        if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or len(value) != expected:
+            raise ValueError("{} must contain {} numbers".format(label, expected))
+        for index, item in enumerate(value):
+            if not _is_finite_number(item):
+                raise ValueError("{}[{}] must be a finite number".format(label, index))
+    elif kind == "sequence_exact":
+        if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or tuple(value) != expected:
+            raise ValueError("{} must equal {}".format(label, expected))
+    elif kind == "sequence_enum":
+        if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or tuple(value) not in expected:
+            raise ValueError("{} must be one of {}".format(label, expected))
+    else:
+        raise ValueError("{} has an unknown schema validator".format(label))
+
+
+def _validate_selected_contract(contract: str, profile: str, value: Any) -> None:
+    selected = _require_mapping(value, "{} selected value for {}".format(contract, profile))
+    if contract in _COMMON_SELECTED_SCHEMAS:
+        schema = _COMMON_SELECTED_SCHEMAS[contract]
+    elif contract in _PROFILE_SELECTED_SCHEMAS:
+        schema = _PROFILE_SELECTED_SCHEMAS[contract][profile]
+    else:
+        raise ValueError("unknown parity contract {!r}".format(contract))
+    _require_exact_keys(selected, schema, "{} selected fields for {}".format(contract, profile))
+    for field, spec in schema.items():
+        _validate_field(selected[field], spec, "{}.{} for {}".format(contract, field, profile))
+
+    if contract in ("paper_table_action_bounds", "execution_bounds"):
+        prefix = "action_range" if contract == "paper_table_action_bounds" else "executed_command"
+        if any(low > high for low, high in zip(selected[prefix + "_low"], selected[prefix + "_high"])):
+            raise ValueError("{} lower bounds must not exceed upper bounds".format(contract))
+    elif contract == "cbf_footprint_preprocessing" and selected["footprint_radius_m"] != 0.0:
+        raise ValueError("{}.footprint_radius_m requires a named ablation profile".format(contract))
+    elif contract == "ray_delay":
+        if profile == "paper_v1":
+            if selected["latency_min_s"] > selected["latency_max_s"]:
+                raise ValueError("ray_delay latency_min_s must not exceed latency_max_s")
+        else:
+            acquisition = selected["acquisition_period_s"]
+            refresh = selected["output_refresh_period_s"]
+            refresh_steps = refresh / acquisition
+            if not math.isclose(refresh_steps, round(refresh_steps), rel_tol=0.0, abs_tol=1.0e-12):
+                raise ValueError("ray_delay output refresh must be an integer number of acquisition periods")
+            expected_ages = tuple((abs(index) - 1) * acquisition for index in selected["history_indices"])
+            if any(
+                not math.isclose(actual, expected, rel_tol=0.0, abs_tol=1.0e-12)
+                for actual, expected in zip(selected["refresh_sample_age_s"], expected_ages)
+            ):
+                raise ValueError("ray_delay refresh_sample_age_s is inconsistent with history indices")
+            expected_maximum = max(expected_ages) + (round(refresh_steps) - 1) * acquisition
+            if not math.isclose(
+                selected["maximum_held_age_s"], expected_maximum, rel_tol=0.0, abs_tol=1.0e-12
+            ):
+                raise ValueError("ray_delay maximum_held_age_s is inconsistent with sample-and-hold cadence")
+    elif contract == "acsi_curriculum":
+        if selected["p_min"] > selected["p_max"]:
+            raise ValueError("acsi_curriculum p_min must not exceed p_max")
+        if selected["d_up_m"] >= selected["d_down_m"]:
+            raise ValueError("acsi_curriculum d_up_m must be less than d_down_m")
+        if profile == "paper_v1" and tuple(selected["probability_level_clip"]) != (0.0, 1.0):
+            raise ValueError("acsi_curriculum probability_level_clip must equal [0, 1]")
+
+
+def _freeze(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return MappingProxyType({key: _freeze(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze(item) for item in value)
+    return value
+
+
+def _thaw(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {key: _thaw(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_thaw(item) for item in value]
+    return value
+
+
 def _normalize_row(raw: Any, index: int) -> ParityRow:
     if isinstance(raw, ParityRow):
         raw = {
@@ -155,6 +488,12 @@ def _normalize_row(raw: Any, index: int) -> ParityRow:
 
     selections = _require_mapping(mapping["selected_values"], "selected_values for {}".format(contract))
     _require_exact_keys(selections, ALGORITHM_PROFILES, "selected_values")
+    for profile in ALGORITHM_PROFILES:
+        _validate_selected_contract(contract, profile, selections[profile])
+    if status == "resolved" and selections["paper_v1"] != selections["upstream_fbce672c"]:
+        raise ValueError("{} status resolved requires identical profile selections".format(contract))
+    if status == "profile_fork" and selections["paper_v1"] == selections["upstream_fbce672c"]:
+        raise ValueError("{} status profile_fork requires distinct profile selections".format(contract))
     evidence = _require_mapping(mapping["evidence"], "evidence for {}".format(contract))
     _require_exact_keys(evidence, _EVIDENCE_KEYS, "evidence")
     normalized_evidence: Dict[str, Tuple[str, ...]] = {}
@@ -170,10 +509,10 @@ def _normalize_row(raw: Any, index: int) -> ParityRow:
         normalized_evidence[source] = tuple(locations)
     return ParityRow(
         contract=contract.strip(),
-        paper_value=mapping["paper_value"],
-        upstream_effective_value=mapping["upstream_effective_value"],
-        selected_values={profile: selections[profile] for profile in ALGORITHM_PROFILES},
-        evidence=normalized_evidence,
+        paper_value=_freeze(mapping["paper_value"]),
+        upstream_effective_value=_freeze(mapping["upstream_effective_value"]),
+        selected_values=_freeze({profile: selections[profile] for profile in ALGORITHM_PROFILES}),
+        evidence=_freeze(normalized_evidence),
         resolution_status=status,
         rationale=rationale.strip(),
     )
@@ -243,11 +582,11 @@ def _load_profile(path: Path, profile: str, selected: Mapping[str, Any]) -> None
                 sorted(set(selected) - set(profile_selected)), sorted(set(profile_selected) - set(selected))
             )
         )
-    if dict(profile_selected) != dict(selected):
+    if _freeze(profile_selected) != _freeze(selected):
         raise ValueError("profile selected_contracts does not match registry selections")
 
 
-def _section(selected: Mapping[str, Any], contracts: Sequence[str]) -> Dict[str, Any]:
+def _section(selected: Mapping[str, Any], contracts: Sequence[str]) -> Mapping[str, Any]:
     result: Dict[str, Any] = {}
     for contract in contracts:
         value = selected[contract]
@@ -257,7 +596,7 @@ def _section(selected: Mapping[str, Any], contracts: Sequence[str]) -> Dict[str,
             if key in result and result[key] != item:
                 raise ValueError("selected application key {} conflicts while applying {}".format(key, contract))
             result[key] = item
-    return result
+    return _freeze(result)
 
 
 def _build_algorithm(selected: Mapping[str, Any]) -> ResolvedAlgorithmConfig:
@@ -298,7 +637,7 @@ def _build_projections(algorithm: ResolvedAlgorithmConfig) -> Tuple[ConfigProjec
             "cbf_kappa_safe_radius_margin",
             "cbf_footprint_preprocessing",
         ),
-        values=dict(algorithm.observation, **algorithm.cbf),
+        values=_freeze(dict(algorithm.observation, **algorithm.cbf)),
     )
     ppo = ConfigProjection(
         consumer="ppo_constructor",
@@ -310,14 +649,16 @@ def _build_projections(algorithm: ResolvedAlgorithmConfig) -> Tuple[ConfigProjec
             "ppo_state_identity_repair",
             "paper_table_action_bounds",
         ),
-        values=dict(
-            algorithm.loss,
-            action_stages=(
-                "distribution_mean",
-                "policy_action",
-                "clipped_policy_action",
-                "executed_command",
-            ),
+        values=_freeze(
+            dict(
+                algorithm.loss,
+                action_stages=(
+                    "distribution_mean",
+                    "policy_action",
+                    "clipped_policy_action",
+                    "executed_command",
+                ),
+            )
         ),
         required_activation_deltas=("ppo_state_identity_repair",),
     )
@@ -345,14 +686,14 @@ def _build_projections(algorithm: ResolvedAlgorithmConfig) -> Tuple[ConfigProjec
             "goal_completion",
             "time_horizons",
         ),
-        values=env_values,
+        values=_freeze(env_values),
     )
     replay = ConfigProjection(
         consumer="replay_reset",
         application_status="future_task_5",
         activation_task=5,
         consumed_contracts=("replay_reset_policy",),
-        values=dict(algorithm.replay),
+        values=_freeze(dict(algorithm.replay)),
         required_activation_deltas=("replay_reset_reconstruction_v1",),
     )
     return (policy, ppo, env, replay)
@@ -368,15 +709,15 @@ def _identity_dict(identity: RunIdentity) -> Dict[str, Any]:
 
 def _algorithm_dict(algorithm: ResolvedAlgorithmConfig) -> Dict[str, Any]:
     return {
-        "observation": dict(algorithm.observation),
-        "cbf": dict(algorithm.cbf),
-        "loss": dict(algorithm.loss),
-        "reward": dict(algorithm.reward),
-        "perception": dict(algorithm.perception),
-        "acsi": dict(algorithm.acsi),
-        "horizons": dict(algorithm.horizons),
-        "execution": dict(algorithm.execution),
-        "replay": dict(algorithm.replay),
+        "observation": _thaw(algorithm.observation),
+        "cbf": _thaw(algorithm.cbf),
+        "loss": _thaw(algorithm.loss),
+        "reward": _thaw(algorithm.reward),
+        "perception": _thaw(algorithm.perception),
+        "acsi": _thaw(algorithm.acsi),
+        "horizons": _thaw(algorithm.horizons),
+        "execution": _thaw(algorithm.execution),
+        "replay": _thaw(algorithm.replay),
     }
 
 
@@ -386,7 +727,7 @@ def _projection_dict(projection: ConfigProjection) -> Dict[str, Any]:
         "application_status": projection.application_status,
         "activation_task": projection.activation_task,
         "consumed_contracts": list(projection.consumed_contracts),
-        "values": dict(projection.values),
+        "values": _thaw(projection.values),
         "required_activation_deltas": list(projection.required_activation_deltas),
     }
 
@@ -402,14 +743,20 @@ def _payload_dict(
         "schema_version": 1,
         "identity": _identity_dict(identity),
         "registry_sha256": registry_sha256,
-        "selected_contracts": dict(selected_contracts),
+        "selected_contracts": _thaw(selected_contracts),
         "algorithm": _algorithm_dict(algorithm),
         "application_projections": [_projection_dict(item) for item in projections],
     }
 
 
 def _canonical_json_bytes(value: Mapping[str, Any]) -> bytes:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
 
 
 def resolve_run_config(
@@ -441,7 +788,7 @@ def resolve_run_config(
     path = Path(registry_path)
     root = _load_registry_document(path)
     rows = validate_registry(root["rows"])
-    selected = {row.contract: row.selected_values[algorithm_profile] for row in rows}
+    selected = _freeze({row.contract: row.selected_values[algorithm_profile] for row in rows})
     relative_profile_path = root["profile_files"][algorithm_profile]
     _load_profile(path.parent / relative_profile_path, algorithm_profile, selected)
 
@@ -476,10 +823,12 @@ def resolve_run_config(
 
 
 def build_application_projections(config: ResolvedRunConfig) -> Tuple[ConfigProjection, ...]:
+    _validate_resolved_integrity(config)
     return config.application_projections
 
 
 def _projection(config: ResolvedRunConfig, consumer: str) -> ConfigProjection:
+    _validate_resolved_integrity(config)
     matches = [item for item in config.application_projections if item.consumer == consumer]
     if len(matches) != 1:
         raise ValueError("resolved config must contain exactly one {} projection".format(consumer))
@@ -510,8 +859,19 @@ def resolved_config_to_dict(config: ResolvedRunConfig) -> Dict[str, Any]:
         config.algorithm,
         config.application_projections,
     )
+    actual_sha256 = hashlib.sha256(_canonical_json_bytes(payload)).hexdigest()
+    if actual_sha256 != config.resolved_sha256:
+        raise ValueError(
+            "resolved configuration integrity check failed: stored sha256 {} != payload sha256 {}".format(
+                config.resolved_sha256, actual_sha256
+            )
+        )
     payload["resolved_sha256"] = config.resolved_sha256
     return payload
+
+
+def _validate_resolved_integrity(config: ResolvedRunConfig) -> None:
+    resolved_config_to_dict(config)
 
 
 def write_resolved_config(path: Any, config: ResolvedRunConfig) -> None:

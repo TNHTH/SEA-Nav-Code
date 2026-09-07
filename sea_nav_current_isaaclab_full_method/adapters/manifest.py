@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
-from rsl_rl.experiment_config import ResolvedRunConfig, RunIdentity, resolve_run_config
+if TYPE_CHECKING:
+    from rsl_rl.experiment_config import ResolvedRunConfig, RunIdentity
 
 
 @dataclass(frozen=True)
@@ -65,20 +66,14 @@ def default_manifest(
 ) -> AdapterManifest:
     """Build an identity-bound manifest.
 
-    The positional adapter-only form is retained for Task 1/static callers.
-    It produces an explicitly unverified upstream-profile/IsaacLab identity;
-    new runtime callers must pass every keyword argument.
+    Identity-free callers must migrate at the Task 6 runtime wiring boundary;
+    this layer never invents an implementation delta for them.
     """
     if repo_root is None and resolved_config is None and validation_rung is None and adapter_root is not None:
-        adapter_root = Path(adapter_root)
-        repo_root = adapter_root.resolve().parent
-        resolved_config = resolve_run_config(
-            registry_path=repo_root / "configs" / "parity_registry.yaml",
-            algorithm_profile="upstream_fbce672c",
-            runtime_stack="isaaclab_adapter",
-            implementation_delta=("ppo_state_identity_repair",),
+        raise TypeError(
+            "legacy identity-free default_manifest call rejected; pass explicit repo_root, "
+            "adapter_root, resolved_config, and validation_rung when migrating the runtime in Task 6"
         )
-        validation_rung = "unverified"
     elif adapter_root is None or repo_root is None or resolved_config is None or validation_rung is None:
         raise TypeError(
             "default_manifest requires repo_root, adapter_root, resolved_config, and validation_rung"
@@ -93,6 +88,9 @@ def default_manifest(
         raise ValueError("adapter_root must name a child directory inside repo_root")
     if not isinstance(validation_rung, str) or not validation_rung.strip():
         raise ValueError("validation_rung must be a non-empty string")
+    from rsl_rl.experiment_config import resolved_config_to_dict
+
+    resolved_config_to_dict(resolved_config)
     return AdapterManifest(
         route_id="sea_nav_profiled_adapter",
         source_repo=".",

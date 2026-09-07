@@ -43,3 +43,27 @@
 - Accepted `paper_v1` resolution fails with actionable evidence for literal Table V bounds and paper-unspecified perception timing.
 - Repaired upstream selection resolves only with explicit `ppo_state_identity_repair`; `replay_reset_reconstruction_v1` remains absent until explicitly requested at the Task 5 activation boundary.
 - Policy/PPO/environment/replay projections are `future_task_*`, never `applied`.
+
+## Review Fix Round 1/5
+
+- Review source: primary checkout `task-2-review.md`; five P2 findings and the controller-ratified horizon-status P3 were accepted after checking the current manifest import/call order and resolver data flow.
+- Extended local ownership to `tests/test_gate_a_portable.py`; registration files remain unstaged.
+
+### RED
+
+Command:
+
+`PYTHONPATH=$PWD/training/rsl_rl PYTHONDONTWRITEBYTECODE=1 ../sea-nav-cpu-venv/bin/python -m pytest -q tests/test_experiment_config.py::test_resolved_data_is_deeply_immutable tests/test_experiment_config.py::test_materialized_consumer_values_and_serialization_are_detached tests/test_experiment_config.py::test_serialization_and_manifest_reject_broken_resolved_hash tests/test_experiment_config.py::test_matching_registry_and_profile_invalid_selections_are_rejected tests/test_experiment_config.py::test_upstream_ray_acquisition_and_output_refresh_cadences_are_distinct tests/test_experiment_config.py::test_differing_evaluation_horizons_are_a_profile_fork tests/test_gate_a_portable.py::test_default_manifest_rejects_legacy_identity_free_call tests/test_gate_a_portable.py::test_manifest_module_imports_without_rsl_rl_on_path`
+
+- Exit 1; `12 failed in 0.79s`.
+- Failures independently demonstrated shallow mutable mappings, missing materialization/integrity checks, acceptance of matching invalid registry/profile fields, upstream acquisition incorrectly set to 100 ms, horizon status incorrectly `resolved`, synthesized legacy identity, and eager adapter `rsl_rl` import.
+
+### Incremental GREEN
+
+- Explicit manifest construction, precise legacy rejection, and clean adapter import: `3 passed in 0.08s`.
+- Corrected 20 ms upstream acquisition / 100 ms held-output refresh plus horizon `profile_fork`: `2 passed in 0.11s`.
+- Deep freeze, detached materialization, serialization/manifest hash integrity, and selected-schema rejection: `8 passed in 0.59s`; shared module also passed Python 3.8 grammar parsing.
+- Combined corrected configuration, portable manifest, and inherited static gate: `67 passed in 2.96s`.
+- Additional FOV upper-domain RED: matching registry/profile `cbf_fov_deg=361` resolved unexpectedly (`1 failed in 0.16s`); after the finite `(0,360]` validator, `1 passed in 0.14s`.
+- Complete corrected CPU/inherited selection before staging: `71 passed in 4.02s`.
+- Exact-staged Gate A: exit 0, `passed_with_blockers`; five CPU/static cases passed, 56 tracked Python files compiled, and Isaac Gym remained blocked. Report: `/tmp/sea-nav-gate-a-task2-fix1.EjrHCH/gate-a.json`.
