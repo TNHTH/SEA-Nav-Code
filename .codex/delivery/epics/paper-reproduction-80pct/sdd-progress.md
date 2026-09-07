@@ -66,3 +66,7 @@ Task 2: fix round 1/5 implementation received at `3359215`; report contains exac
 Task 2: fix round 1/5 (five P2 and one P3 addressed, 0 open; commits 7367aa8..3359215), spec PASS and quality PASS in task-2-rereview-1.md.
 Task 2: complete (detached commits e224933..3359215, review clean; integrated as ed8e7e7/6f5e544). Fresh primary 71 passed, five Gate A CPU/static cases passed with Gym blocked; no deleted baseline path. Consumer migration remains Tasks 3–7, not claimed as applied here.
 Task 3: registered; detached BASE will be the coordination-only successor of 6f5e544; owned paths and exact corrected fixture/update requirements are in task_plan.md and task-3-brief.md.
+
+Task 3: active; BASE=71c2e77d41a46e67927b6de95643adf0fada8c77; detached ../SEA-Nav-Code-batch3 baseline 71 passed in 3.99s, clean before registration. Fresh implementer `/root/implement_batch3` owns only corrected brief paths. No Task 4 source writer is active.
+
+Ruling: name a small packaged policy_factory module as Task 4's projection-to-constructor boundary — Task 2 names that consumer but no factory exists, and adapter-only construction would reverse shared dependency direction — costs one focused module/test surface; runtime application remains Task 6. No plugin framework or concurrent source changes authorized.

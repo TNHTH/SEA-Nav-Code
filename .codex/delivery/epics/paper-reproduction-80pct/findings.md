@@ -50,6 +50,8 @@
 | Earlier external ledger still described pre-commit state | Repository-local truth table above supersedes it for execution; old ledger remains historical audit context. |
 | Remote protection and archive-tag publication rights are not yet proven | Treat remote cleanup as a fail-closed transaction after candidate verification. |
 
+2026-09-07 publication preflight confirms all three remote heads unchanged and no remote stable/archive tags. Local archive objects are exact; SSH authenticates TNHTH and only a no-op receive-pack dry-run was tested. No authenticated hosting API/browser administration path was found (nor a GitHub connector in current tool metadata); public empty rulesets are not proof of absent classic protection. Exact archive publication/transport authorization and stable protection remain separate final-transaction gates. See publication-preflight.md. These facts do not block serial local CPU repairs.
+
 ## Resources
 - Approved design: `docs/superpowers/specs/2026-09-04-sea-nav-reproduction-recovery-design.md`
 - Authoritative source: `11chens/SEA-Nav-Code@fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96`
