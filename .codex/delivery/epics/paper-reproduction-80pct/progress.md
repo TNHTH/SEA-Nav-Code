@@ -10,6 +10,8 @@
 - Read-only origin probe confirmed original three remote heads unchanged; SSH authenticates as TNHTH. No remote writes.
 - Scientific and checkpoint audits exposed concrete gaps in the original plan; updated spec and briefs with source-bound corrections before dependent implementation.
 - Task 1 source commit `0dd407e` produced in detached checkout; implementer reports 27 passing CPU tests, legacy 16-case gate, and Gym blocked. Independent review in progress.
+- Task 1 fix round 1 `9fdb33e` addresses the three original findings (stale manifest pass, incomplete inventory, nonhermetic W&B). Scoped review found a new P2: complete-tree regular-file validation follows symlinks. Original implementer assigned round 2, focused on inventory link containment and its regression tests; integration remains pending.
+- Replay schema audit completed at primary `aa34400`; selected the spec-permitted compact reconstruction policy, registered the base epilogue extension, and updated Task 2/5 briefs. No simulator or remote operation was performed.
 
 ## Session: 2026-09-04
 

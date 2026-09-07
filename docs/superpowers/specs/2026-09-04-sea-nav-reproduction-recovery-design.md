@@ -206,6 +206,10 @@ An undamped exact half-space projection or a bounded QP may be added only as nam
 - Per-step push avoids device-to-host synchronization such as `.item()`-based range checks. Expensive validation and debug materialization run at construction, reset boundaries, or behind an explicit debug flag.
 - Collision replay is a training mechanism. The formal evaluator rejects any run with replay enabled rather than trusting a descriptive manifest field.
 
+### 8.1 2026-09-07 replay implementation ruling
+
+For Section 8, the initial supported reconstruction mode is explicitly `new_replay_episode_v1`, recorded with `replay_reset_reconstruction_v1` in the run's implementation deltas. It restores compact physical/task geometry at one pre-reset boundary, then begins a new episode and deterministically reconstructs the complete history/controller/filter/derived-state contract. Exact historical continuation is unsupported, not an implicit fallback. The field-by-field contract and failure tests are in `.codex/delivery/epics/paper-reproduction-80pct/replay-schema-audit.md`. Acknowledgement follows masked observation publication and the base post-reset epilogue; physical setters alone are insufficient. Carrier auto-reset, contact-cache treatment and global scene hooks require real runtime evidence and remain blocked here. Compact storage avoids copying nested histories into every ring slot (about 54–58 MiB versus at least 1.77 GiB at 2048 environments and 151 slots).
+
 ## 9. Runtime and deployment boundaries
 
 ### 9.1 Frozen original stack

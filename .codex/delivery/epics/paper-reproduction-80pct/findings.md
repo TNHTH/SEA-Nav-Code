@@ -9,13 +9,13 @@
 
 | Field | Current value | Evidence | Status / limits |
 |---|---|---|---|
-| Artifact / version identity | `test@1259bae1b2e2635e410a315ab6bf92451df8762b`; `main=stable=1c5675bbedf1dcbe5a4c1a91830cae528c780793` | 2026-09-07 Git preflight | current local state |
-| Active evidence instance | complete local clone, detached read-only `b53d3fe`, and Task 1 detached checkout from `1259bae` | 2026-09-07 worktree inventory | source unchanged; Task 1 next |
+| Artifact / version identity | `test@aa34400fe515aefb7493ac6e52d9820068fb8907`; `main=stable=1c5675bbedf1dcbe5a4c1a91830cae528c780793` | 2026-09-07 resumed Git preflight | current local state before Task 1 integration |
+| Active evidence instance | detached Task 1 at `9fdb33e7932919f089c0dfeb9942c9e4c2c219d9`, after review fixes; read-only import source `b53d3fe` | worktree inventory and superseding task-1-report addendum | implementer reports 29 CPU tests; scoped independent re-review active |
 | Declared configuration | 2026-09-07 evidence-corrected design and task briefs | scientific/checkpoint audit reports; original 252f3f85 design is historical | action-bound row blocks accepted paper_v1; upstream diagnostic repair proceeds |
 | Confirmed facts | remote snapshots are unrelated roots; only `main` is a complete tree; post-sample CBF and PPO smoothness state mutation are real regressions | Git object analysis and CPU/source comparison | confirmed |
 | Candidate hypothesis | repairing packaging/config/PPO/CBF/replay/runtime/checkpoint contracts will make Rungs 0–2 reliable; simulator viability remains unknown | approved spec and batch mappings | implementation pending |
 | Highest validation rung | Rung 0 on historical source; final candidate has not yet been built | prior syntax/Git/Gate A evidence | do not claim final pass yet |
-| Unpublished/unverified work | plan committed as `1259bae`; Batches 1–7 not yet implemented; current coordination updates pending | working tree status | local only |
+| Unpublished/unverified work | Task 1 commits `0dd407e`, `9fdb33e` not integrated yet; Batches 2–7 pending; review/replay records pending commit | working tree and detached commit inventory | local only; no remote write |
 
 ## Research Findings
 - `main` retains the full training/deployment/adapter tree; `origin/test` and `b53d3fe` each omit 53 baseline paths and must never replace it wholesale.
@@ -30,6 +30,7 @@
 - Gym integrates reward coefficients over policy dt; adapter omitted this factor. Equal raw weights differ by 50x at dt=.02. Task 6 must apply it once and preserve formula/profile identity.
 - Upstream ACSI uses two distinct random gates, and the adapter currently never advances its goal curriculum. Task 5 owns explicit decision and update semantics.
 - Checkpoint optimizer schema must handle real integer Adam state keys/None, exact completed-update counts, and publication of immutable payload generations through an atomic manifest.
+- Replay reset is a transaction through the base post-reset observation/epilogue, not merely the physical setters. The compact `new_replay_episode_v1` policy restores physical/task geometry then rebuilds all histories and controller/filter state; it is an explicit repair delta, not exact historical continuation. At 2048×151 slots it needs about 54–58 MiB rather than at least 1.77 GiB for nested histories. Full evidence and field ownership are in `replay-schema-audit.md`.
 
 ## Technical Decisions
 

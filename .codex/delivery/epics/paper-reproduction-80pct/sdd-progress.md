@@ -26,6 +26,8 @@ Ruling: continue from the documented broken baseline while repairing it — the 
 
 Task 1: active; BASE=1259bae1b2e2635e410a315ab6bf92451df8762b; detached checkout `../SEA-Nav-Code-batch1`; scope is Task 1 exact file list plus local task record.
 
+Task 1: review of `0dd407e` found three issues; fix round 1/5 active. Historical passed records must become explicitly unverified/blocked; complete tree must include all 65 baseline legged_gym files; W&B subprocess must reject W&B independently of host installation and contain no /tmp override.
+
 Ruling: validate CPU contracts in the dedicated Python 3.10 / Torch 2.6.0+cpu environment — system Torch 1.8 lacks safe loading and the old NumPy override was temporary — this does not establish compatibility with the unavailable frozen Gym runtime.
 
 2026-09-07: environment probe passed for Torch 2.6.0+cpu, NumPy 1.26.4, pytest 8.4.2, PyYAML 6.0.2. Task 2 dependency pins must describe this verified CPU environment, superseding the plan's machine-inherited pytest 6.2.5 / PyYAML 5.4.1 pins.
@@ -35,3 +37,9 @@ Ruling: block accepted paper_v1 runs on literal Table V action-bound ambiguity �
 Ruling: extend Tasks 2/4/5/6 application contracts to cover reward equations/dt, two ACSI draws, shared CBF fixtures and perception timestamps — otherwise the planned registry would only describe unapplied values — additional focused CPU tests are required.
 
 Ruling: allow nonnegative integer IDs only in validated optimizer state and publish immutable checkpoint generations manifest-last — real Adam state and interrupted two-file saves contradict the original sketch — adds schema-specific validation and fault tests.
+
+2026-09-07 resumed: primary `test@aa34400`; Task 1 fix head `9fdb33e` and its covering 29-test report verified present; `/root/review_batch1` assigned scoped re-review round 1. No remote write.
+
+Ruling: select explicit compact `new_replay_episode_v1` reconstruction and extend Task 5 through base epilogue — a root/DOF-only restore plus blanket reset mixes time, while nested full histories cost at least 1.77 GiB — this changes episode semantics and must carry `replay_reset_reconstruction_v1`; exact historical continuation remains unsupported. Full field/ordering evidence is in replay-schema-audit.md.
+
+Task 1: fix round 1/5 (3 addressed, 1 new P2 open — complete-tree symlink substitution; commits 0dd407e..9fdb33e). Round 2/5 assigned to `/root/implement_batch1`; focused coverage `tests/test_gate_a_portable.py`, leaf and ancestor links included.
