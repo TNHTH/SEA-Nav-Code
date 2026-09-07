@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -11,32 +10,37 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 RSL_ROOT = ROOT / "training" / "rsl_rl"
-NUMPY_OVERRIDE = Path("/tmp/sea-nav-cpu-20260907.l2Pp6b/site")
 
 
 def _subprocess_env() -> dict[str, str]:
-    python_paths = [str(NUMPY_OVERRIDE), str(RSL_ROOT)]
-    existing = os.environ.get("PYTHONPATH")
-    if existing:
-        python_paths.append(existing)
-    return dict(
-        os.environ,
-        PYTHONDONTWRITEBYTECODE="1",
-        PYTHONPATH=os.pathsep.join(python_paths),
-    )
+    return {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1",
+        "PYTHONPATH": "training/rsl_rl",
+    }
 
 
 def test_runners_import_without_wandb_installed() -> None:
     result = subprocess.run(
-        [sys.executable, "-c", "import rsl_rl.runners; print('runner-imported')"],
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; "
+                "sys.modules['wandb'] = None; "
+                "import pathlib, rsl_rl, rsl_rl.runners; "
+                "print(pathlib.Path(rsl_rl.__file__).resolve())"
+            ),
+        ],
         text=True,
         capture_output=True,
+        cwd=ROOT,
         env=_subprocess_env(),
         check=False,
     )
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == "runner-imported"
+    assert Path(result.stdout.strip()) == (RSL_ROOT / "rsl_rl" / "__init__.py").resolve()
 
 
 def test_missing_enabled_wandb_has_a_precise_error(monkeypatch: pytest.MonkeyPatch) -> None:

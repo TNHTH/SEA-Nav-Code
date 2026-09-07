@@ -16,3 +16,13 @@
 - FINAL GREEN: combined focused pytest -> `27 passed in 2.54s`; legacy direct script -> 16 passed names; Gate A CLI -> `passed_with_blockers` with Isaac Gym blocked; shell syntax, JSON/YAML parsing, Python 3.8 grammar, home-path scan, checkout-output scan, and `git diff --check` all passed.
 - Verification interpreter: `/home/twyc/Documents/Codex/2026-09-04/https-github-com-tnhth-sea-nav-2/work/sea-nav-cpu-venv/bin/python` (`torch 2.6.0+cpu`, `pytest 8.4.2`, `numpy 1.26.4`, `PyYAML 6.0.2`).
 - Status: verified; exact-path commit pending.
+
+## Review-fix cycle
+
+- Review source: primary checkout `.codex/delivery/epics/paper-reproduction-80pct/task-1-review.md`.
+- RED: deleting `training/legged_gym/resources/go2_description/xacro/robot.xacro` from a copied otherwise-complete tree still produced `legged_gym_complete_tree=passed`.
+- RED: the committed manifest regression read `gate_a.status=passed` instead of `unverified`; its runtime and checkpoint sections also carried stale success evidence.
+- Mutation RED: with eager `import wandb` deliberately restored, the hermetic subprocess failed with `ModuleNotFoundError: import of wandb halted; None in sys.modules`; the mutation was then removed.
+- GREEN: corrected Task 1 review suite -> `13 passed in 2.41s`.
+- GREEN: full versioned inventory exactly matches all 65 `training/legged_gym` paths from base `1259bae`; focused combined suite -> `29 passed in 2.58s`; Gate A -> five passed cases plus real Isaac Gym blocked.
+- Status: all three review findings fixed; fresh pre-commit verification pending.

@@ -4,6 +4,7 @@ import dataclasses
 import importlib
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -51,6 +52,21 @@ def test_sparse_tree_is_rejected_as_incomplete(tmp_path: Path) -> None:
     assert "go2_description" in cases["legged_gym_complete_tree"].detail
 
 
+def test_complete_tree_rejects_missing_baseline_xacro(tmp_path: Path) -> None:
+    source = ROOT / "training" / "legged_gym"
+    target = tmp_path / "training" / "legged_gym"
+    shutil.copytree(source, target)
+    missing = target / "resources" / "go2_description" / "xacro" / "robot.xacro"
+    missing.unlink()
+
+    cases = {case.name: case for case in run_cpu_gate(tmp_path)}
+
+    assert cases["legged_gym_complete_tree"].status == "failed"
+    assert "training/legged_gym/resources/go2_description/xacro/robot.xacro" in cases[
+        "legged_gym_complete_tree"
+    ].detail
+
+
 def test_missing_isaac_gym_is_blocked(monkeypatch: pytest.MonkeyPatch) -> None:
     def missing(name: str):
         raise ModuleNotFoundError(name)
@@ -82,6 +98,20 @@ def test_default_manifest_uses_repository_relative_paths() -> None:
     for value in [payload["source_repo"], payload["adapter_root"], *payload["upstream_reference_paths"]]:
         assert not Path(value).is_absolute(), value
         assert "/home/" not in value
+
+
+def test_committed_manifest_does_not_claim_missing_current_evidence() -> None:
+    payload = json.loads(
+        (ROOT / "sea_nav_current_isaaclab_full_method" / "adapter_manifest.json").read_text(encoding="utf-8")
+    )
+
+    assert payload["gate_a"]["status"] == "unverified"
+    for section_name in ("runtime_smoke", "checkpoint_init_and_load_smoke"):
+        section = payload[section_name]
+        assert section["status"] == "blocked"
+        assert "reason" in section
+        assert "completed_at" not in section
+        assert not any(key.endswith("exit_code") for key in section)
 
 
 def test_runtime_wrapper_rejects_missing_launcher_before_writing(tmp_path: Path) -> None:

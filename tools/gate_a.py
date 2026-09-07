@@ -18,34 +18,7 @@ from typing import Iterable, List, Optional, Sequence
 
 _STATUSES = frozenset(("passed", "blocked", "failed"))
 
-_REQUIRED_LEGGED_GYM_PATHS = (
-    "training/legged_gym/setup.py",
-    "training/legged_gym/legged_gym/__init__.py",
-    "training/legged_gym/legged_gym/envs/__init__.py",
-    "training/legged_gym/legged_gym/envs/base/base_config.py",
-    "training/legged_gym/legged_gym/envs/base/base_task.py",
-    "training/legged_gym/legged_gym/envs/base/legged_robot.py",
-    "training/legged_gym/legged_gym/envs/base/legged_robot_config.py",
-    "training/legged_gym/legged_gym/envs/base/legged_robot_pos.py",
-    "training/legged_gym/legged_gym/envs/base/legged_robot_pos_config.py",
-    "training/legged_gym/legged_gym/envs/go2/go2_pos_config.py",
-    "training/legged_gym/legged_gym/scripts/train.py",
-    "training/legged_gym/legged_gym/scripts/play.py",
-    "training/legged_gym/legged_gym/utils/task_registry.py",
-    "training/legged_gym/legged_gym/ctrl_model/body_latest.jit",
-    "training/legged_gym/legged_gym/ctrl_model/encoder_latent.jit",
-    "training/legged_gym/legged_gym/ctrl_model/encoder_vel.jit",
-    "training/legged_gym/resources/go2_description/package.xml",
-    "training/legged_gym/resources/go2_description/urdf/go2_description.urdf",
-    "training/legged_gym/resources/go2_description/urdf/go2_description_v8.urdf",
-    "training/legged_gym/resources/go2_description/meshes/calf.dae",
-    "training/legged_gym/resources/go2_description/meshes/calf_mirror.dae",
-    "training/legged_gym/resources/go2_description/meshes/foot.dae",
-    "training/legged_gym/resources/go2_description/meshes/hip.dae",
-    "training/legged_gym/resources/go2_description/meshes/thigh.dae",
-    "training/legged_gym/resources/go2_description/meshes/thigh_mirror.dae",
-    "training/legged_gym/resources/go2_description/meshes/trunk.dae",
-)
+_LEGGED_GYM_BASELINE_INVENTORY = Path(__file__).with_name("gate_a_legged_gym_baseline_v1.txt")
 
 _EXPECTED_ISAAC_BOUNDARIES = frozenset(
     (
@@ -106,15 +79,35 @@ def _compile_python(repo_root: Path) -> GateCase:
     return GateCase("python_syntax", "passed", "compiled {} tracked Python files without output".format(len(paths)))
 
 
+def _load_legged_gym_baseline_inventory() -> List[str]:
+    lines = _LEGGED_GYM_BASELINE_INVENTORY.read_text(encoding="utf-8").splitlines()
+    paths = [line.strip() for line in lines if line.strip() and not line.lstrip().startswith("#")]
+    if not paths:
+        raise RuntimeError("legged_gym baseline inventory is empty")
+    if paths != sorted(paths):
+        raise RuntimeError("legged_gym baseline inventory must be sorted")
+    if len(paths) != len(set(paths)):
+        raise RuntimeError("legged_gym baseline inventory contains duplicate paths")
+    for relative in paths:
+        path = Path(relative)
+        if path.is_absolute() or ".." in path.parts or not relative.startswith("training/legged_gym/"):
+            raise RuntimeError("invalid legged_gym baseline path: {}".format(relative))
+    return paths
+
+
 def _check_complete_legged_gym_tree(repo_root: Path) -> GateCase:
-    missing = []
-    empty = []
-    for relative in _REQUIRED_LEGGED_GYM_PATHS:
-        path = repo_root / relative
-        if not path.is_file():
-            missing.append(relative)
-        elif path.stat().st_size == 0:
-            empty.append(relative)
+    try:
+        required_paths = _load_legged_gym_baseline_inventory()
+        missing = []
+        empty = []
+        for relative in required_paths:
+            path = repo_root / relative
+            if not path.is_file():
+                missing.append(relative)
+            elif path.stat().st_size == 0:
+                empty.append(relative)
+    except Exception as exc:
+        return GateCase("legged_gym_complete_tree", "failed", "{}: {}".format(type(exc).__name__, exc))
     if missing or empty:
         details = []
         if missing:
@@ -125,8 +118,8 @@ def _check_complete_legged_gym_tree(repo_root: Path) -> GateCase:
     return GateCase(
         "legged_gym_complete_tree",
         "passed",
-        "{} required package, entry-point, controller, and Go2 asset files are present and non-empty".format(
-            len(_REQUIRED_LEGGED_GYM_PATHS)
+        "{} versioned baseline package, entry-point, controller, license, and Go2 asset files are present and non-empty".format(
+            len(required_paths)
         ),
     )
 

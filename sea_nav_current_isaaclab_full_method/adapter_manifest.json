@@ -39,54 +39,30 @@
     "source_play_eval_terminal_semantics_enabled": true
   },
   "gate_a": {
-    "status": "passed",
-    "python": "python3",
-    "torch": "2.11.0+cu130",
-    "command": "python3 sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py",
-    "passed_tests": [
-      "test_observation_contract",
-      "test_cbf_synthetic_cases",
-      "test_cbf_gamma_min_is_inactive",
-      "test_footprint_clearance_contract",
-      "test_footprint_aware_cbf_layer_contract",
-      "test_command_delay_filter",
-      "test_command_delay_zero_queue_contract",
-      "test_action_chain_mode_semantics",
-      "test_collision_replay_buffer",
-      "test_collision_replay_buffer_four_env_timelines",
-      "test_manifest_and_trace_schema",
-      "test_cbf_defaults_are_240_degrees",
-      "test_actor_noise_std_and_post_sample_projection",
-      "test_trainer_surface_contract"
-    ]
+    "status": "unverified",
+    "reason": "This committed example is not execution evidence; run portable Gate A and retain its caller-selected report.",
+    "command": "python3 tools/gate_a.py --repo-root . --report <caller-selected-report>",
+    "required_report": "<caller-selected-report>"
   },
   "runtime_smoke": {
-    "status": "passed_runtime_contract_not_metric",
-    "completed_at": "2026-05-17T16:59:30+0800",
-    "run_dir": "<caller-selected-run-dir>",
+    "status": "blocked",
+    "reason": "No current-candidate IsaacLab runtime or retained result/trace/manifest artifacts are available.",
     "command": "timeout 900s sea_nav_current_isaaclab_full_method/run_full_method_runtime_smoke.sh --launcher <isaaclab-launcher> --run-dir <caller-selected-run-dir>",
-    "exit_code": 0,
-    "result": "<caller-selected-run-dir>/result.json",
-    "trace": "<caller-selected-run-dir>/full_method_trace.jsonl",
-    "trace_rows": 16,
-    "scope": "actor+LSE-CBF command chain, source_alpha_only filter with no queue delay, collision replay recording, trace schema, current IsaacLab hard-room carrier smoke; not SR/CR/TR metric evidence"
+    "required_artifacts": [
+      "<caller-selected-run-dir>/result.json",
+      "<caller-selected-run-dir>/full_method_trace.jsonl",
+      "<caller-selected-run-dir>/adapter_manifest_runtime.json"
+    ]
   },
   "checkpoint_init_and_load_smoke": {
-    "status": "passed_checkpoint_load_contract_not_metric",
-    "completed_at": "2026-05-17T17:08:17+0800",
-    "checkpoint_init_run_dir": "<caller-selected-checkpoint-init-run-dir>",
-    "checkpoint": "<caller-selected-checkpoint-init-run-dir>/full_method_init_seed42.pt",
-    "checkpoint_metadata": "<caller-selected-checkpoint-init-run-dir>/checkpoint_metadata.json",
-    "checkpoint_sha256": "02d30cdc9207201f52d2c91e273bf88dfe6715a5bb370e96d0769abd9889007a",
-    "load_smoke_run_dir": "<caller-selected-load-smoke-run-dir>",
-    "load_smoke_exit_code": 0,
-    "load_smoke_result": "<caller-selected-load-smoke-run-dir>/result.json",
-    "load_smoke_trace": "<caller-selected-load-smoke-run-dir>/full_method_trace.jsonl",
-    "load_smoke_trace_rows": 16,
-    "weights_only_regression_run_dir": "<caller-selected-weights-only-regression-run-dir>",
-    "weights_only_regression_exit_code": 0,
-    "weights_only_regression_trace_rows": 1,
-    "scope": "initialized/random full-method actor checkpoint load contract only; not SR/CR/TR metric evidence"
+    "status": "blocked",
+    "reason": "No current-candidate checkpoint, adjacent metadata, load-smoke result, or real runtime trace is available.",
+    "required_artifacts": [
+      "<caller-selected-checkpoint-init-run-dir>/full_method_init_seed42.pt",
+      "<caller-selected-checkpoint-init-run-dir>/checkpoint_metadata.json",
+      "<caller-selected-load-smoke-run-dir>/result.json",
+      "<caller-selected-load-smoke-run-dir>/full_method_trace.jsonl"
+    ]
   },
   "notes": {
     "result_class": "original_reproduction",
@@ -94,7 +70,7 @@
     "cbf_alpha": "strict path uses upstream F.softplus(alpha_raw) without additive gamma_min floor",
     "command_filter": "source alpha filter only; no action queue delay",
     "terminal_defaults": "source stay_time=150 and contact termination enabled by default",
-    "training_status": "checkpoint_initialized_not_trained",
+    "training_status": "blocked_no_current_candidate_checkpoint_or_training_artifacts",
     "gate_b_status": "not_started",
     "gate_c_status": "not_started"
   }
