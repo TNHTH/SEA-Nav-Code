@@ -53,3 +53,52 @@ def test_paper_diagnostic_latency_is_seeded_and_age_is_not_latency(dt):
     assert torch.any(actual>.08)
     assert torch.all((latency==0)|((latency>=.04)&(latency<=.08)))
     assert not torch.equal(actual,latency)
+
+@pytest.mark.parametrize('dtype',[torch.float32,torch.float64])
+@pytest.mark.parametrize('dt',[.02,.01])
+@pytest.mark.parametrize('mode',['discrete_history_sample_and_hold','paper_diagnostic'])
+def test_long_tensor_clock_cadence_and_nonzero_masked_epoch(dtype,dt,mode):
+    acquisition=dt if mode=='discrete_history_sample_and_hold' else .1
+    cfg=PerceptionDelayConfig(mode=mode,policy_dt_s=dt,acquisition_period_s=acquisition,
+                              refresh_period_s=.1 if mode.startswith('discrete') else dt)
+    p=TimestampedPerception(cfg,2,1)
+    ids=torch.arange(2); p.reset(ids,0.,torch.zeros(2,1),torch.zeros(2,2))
+    g=torch.Generator().manual_seed(9)
+    counts=torch.zeros(2,dtype=torch.long)
+    reset_tick=337
+    for tick in range(1,1001):
+        now=torch.full((2,),tick,dtype=dtype)*dt
+        if tick==reset_tick:
+            before=p.times[1].clone()
+            p.reset(ids[:1],now[:1],torch.full((1,1),float(tick)),torch.full((1,2),float(tick)))
+            assert torch.equal(p.times[1],before)
+            counts[0]=0
+        old=p.write.clone()
+        p.push(ids,now,torch.full((2,1),float(tick)),torch.full((2,2),float(tick)),generator=g)
+        counts+=(p.write!=old).long()
+        out=p.observe(ids,now,generator=g)
+        for row in range(2):
+            age_tick=tick-(reset_tick if row==0 and tick>=reset_tick else 0)
+            assert counts[row].item()==age_tick//round(acquisition/dt)
+            if mode.startswith('discrete') and age_tick>=round(.1/dt):
+                since_refresh=age_tick%round(.1/dt)
+                allowed=((2+since_refresh)*dt,(3+since_refresh)*dt)
+                assert min(abs(out.actual_age[row].item()-a) for a in allowed)<1e-5
+                sample_tick=int(out.rays[row,0].item())
+                assert tick-sample_tick in (2+since_refresh,3+since_refresh)
+                assert out.goals[row,0].item()==sample_tick
+
+def test_clock_no_host_scalar_extraction_and_nonfinite_rejection():
+    from torch.utils._python_dispatch import TorchDispatchMode
+    class Ops(TorchDispatchMode):
+        def __init__(self): self.names=[]
+        def __torch_dispatch__(self,func,types,args=(),kwargs=None):
+            self.names.append(str(func)); return func(*args,**(kwargs or {}))
+    p=TimestampedPerception(PerceptionDelayConfig(),2,1); ids=torch.arange(2)
+    p.reset(ids,0.,torch.ones(2,1),torch.zeros(2,2))
+    with Ops() as ops:
+        p.push(ids,torch.tensor([.02,.02]),torch.ones(2,1),torch.zeros(2,2))
+        p.observe(ids,torch.tensor([.02,.02]))
+    assert not any('_local_scalar_dense' in name for name in ops.names)
+    with pytest.raises((ValueError,RuntimeError),match='finite'):
+        p.push(ids,float('nan'),torch.ones(2,1),torch.zeros(2,2))

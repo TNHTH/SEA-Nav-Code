@@ -55,8 +55,10 @@ class TimestampedPerception:
         self.write = torch.zeros(num_envs, dtype=torch.long, device=device)
         self.count = self.write.clone()
         self.epoch = torch.zeros(num_envs, dtype=torch.float64, device=device)
-        self.next_acquisition = self.epoch.clone()
-        self.next_refresh = self.epoch.clone()
+        self.acquisition_ticks = round(config.acquisition_period_s / config.policy_dt_s)
+        self.refresh_ticks = round(config.refresh_period_s / config.policy_dt_s)
+        self.next_acquisition = self.write.clone()
+        self.next_refresh = self.write.clone()
         self.held_rays = torch.zeros(num_envs, num_rays, device=device)
         self.held_goals = torch.zeros(num_envs, 2, device=device)
         self.held_time = self.epoch.clone()
@@ -64,7 +66,15 @@ class TimestampedPerception:
         self.synthetic = torch.ones(num_envs, dtype=torch.bool, device=device)
 
     def _time(self, ids, value):
-        return torch.as_tensor(value, dtype=torch.float64, device=self.times.device).expand(ids.numel())
+        value = torch.as_tensor(value, dtype=torch.float64, device=self.times.device).expand(ids.numel())
+        torch._assert_async(torch.isfinite(value).all(), "perception time must be finite")
+        return value
+
+    def _tick(self, ids, now):
+        # Inputs are policy-tick clocks, possibly rounded to float32 upstream.
+        # Round to the nearest epoch-relative policy tick for scheduling only;
+        # retain supplied timestamps for actual sample age, never rebase deadlines.
+        return torch.round((now - self.epoch[ids]) / self.config.policy_dt_s).to(torch.long)
 
     def reset(self, ids, now, rays, goals):
         now = self._time(ids, now)
@@ -72,8 +82,8 @@ class TimestampedPerception:
         self.write[ids] = 0
         self.count[ids] = 0
         self.epoch[ids] = now
-        self.next_acquisition[ids] = now + self.config.acquisition_period_s
-        self.next_refresh[ids] = now + self.config.refresh_period_s
+        self.next_acquisition[ids] = self.acquisition_ticks
+        self.next_refresh[ids] = self.refresh_ticks
         self.held_rays[ids] = rays
         self.held_goals[ids] = goals
         self.held_time[ids] = now
@@ -92,7 +102,8 @@ class TimestampedPerception:
 
     def push(self, ids, now, rays, goals, generator=None):
         now = self._time(ids, now)
-        due = now + 1e-8 >= self.next_acquisition[ids]
+        ticks = self._tick(ids, now)
+        due = ticks >= self.next_acquisition[ids]
         active = ids[due]
         times = now[due]
         cfg = self.config
@@ -102,7 +113,7 @@ class TimestampedPerception:
         else:
             latency = torch.zeros_like(times)
         self._store(active, times, rays[due], goals[due], latency)
-        self.next_acquisition[active] = times + cfg.acquisition_period_s
+        self.next_acquisition[active] = (ticks[due] // self.acquisition_ticks + 1) * self.acquisition_ticks
         # Startup has no historical packet: publish actual current samples.
         if cfg.mode == "discrete_history_sample_and_hold":
             startup = self.count[active] < 4
@@ -115,7 +126,8 @@ class TimestampedPerception:
     def observe(self, ids, now, generator=None):
         now = self._time(ids, now)
         cfg = self.config
-        due = now + 1e-8 >= self.next_refresh[ids]
+        ticks = self._tick(ids, now)
+        due = ticks >= self.next_refresh[ids]
         active = ids[due]
         if cfg.mode == "discrete_history_sample_and_hold":
             ready = self.count[active] >= 4
@@ -131,7 +143,7 @@ class TimestampedPerception:
             latest, slots = candidates.max(dim=1)
             changed = latest > self.held_time[active]
             self._hold(active[changed], slots[changed])
-        self.next_refresh[ids[due]] = now[due] + cfg.refresh_period_s
+        self.next_refresh[ids[due]] = (ticks[due] // self.refresh_ticks + 1) * self.refresh_ticks
         return PerceptionObservation(self.held_rays[ids], self.held_goals[ids], self.held_time[ids],
                                      self.held_latency[ids], now - self.held_time[ids], self.synthetic[ids])
 
