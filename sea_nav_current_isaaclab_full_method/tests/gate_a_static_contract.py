@@ -67,7 +67,8 @@ def test_observation_contract() -> None:
 
 def test_cbf_synthetic_cases() -> None:
     shield = ExactLSECBFShield(
-        CBFShieldConfig(fov_deg=240.0, footprint_radius_m=0.55, min_effective_clearance_m=0.01)
+        CBFShieldConfig(fov_deg=240.0, footprint_radius_m=0.55, min_effective_clearance_m=0.01,
+                        algorithm_profile="ablation/finite_footprint")
     )
     rays = torch.ones(1, 41) * 3.0
     u = torch.tensor([[1.0, 0.0, 0.2]])
@@ -138,7 +139,8 @@ def test_footprint_clearance_contract() -> None:
     assert float(adjusted[0, contact_idx]) < 0.12
 
     shield_footprint = ExactLSECBFShield(
-        CBFShieldConfig(fov_deg=240.0, footprint_radius_m=0.55, min_effective_clearance_m=0.01)
+        CBFShieldConfig(fov_deg=240.0, footprint_radius_m=0.55, min_effective_clearance_m=0.01,
+                        algorithm_profile="ablation/finite_footprint")
     )
     _, footprint_debug = shield_footprint.apply(command_toward_contact, rays, gamma=torch.tensor([[2.0]]))
     assert float(footprint_debug["h_min"][0, 0]) < 0.0
@@ -177,6 +179,7 @@ def test_footprint_aware_cbf_layer_contract() -> None:
         fov_deg=240.0,
         footprint_radius_m=0.55,
         min_effective_clearance_m=0.01,
+        algorithm_profile="ablation/finite_footprint",
     )
     footprint_safe = footprint_layer(command_toward_contact, rays, alpha)
     assert torch.isfinite(footprint_safe).all()
@@ -215,7 +218,8 @@ def test_command_delay_zero_queue_contract() -> None:
 
 def test_action_chain_mode_semantics() -> None:
     shield = ExactLSECBFShield(
-        CBFShieldConfig(fov_deg=240.0, footprint_radius_m=0.55, min_effective_clearance_m=0.01)
+        CBFShieldConfig(fov_deg=240.0, footprint_radius_m=0.55, min_effective_clearance_m=0.01,
+                        algorithm_profile="ablation/finite_footprint")
     )
     filt = CommandDelayFilter(CommandDelayConfig(dt_s=0.02, delay_s=0.1, alpha=0.5), num_envs=1)
     rays = torch.ones(1, 41) * 3.0
@@ -442,6 +446,7 @@ def test_runtime_cbf_layer_rebuild_blocks_old_checkpoint_buffer_regression() -> 
         fov_deg=240.0,
         footprint_radius_m=0.55,
         min_effective_clearance_m=0.01,
+        algorithm_profile="ablation/finite_footprint",
     )
     rebuilt_angles = torch.atan2(model.cbf_layer.ray_unit_vectors[:, 1], model.cbf_layer.ray_unit_vectors[:, 0])
     assert_close(float(rebuilt_angles[0]), -2.0 * math.pi / 3.0)

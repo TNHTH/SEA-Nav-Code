@@ -1,66 +1,74 @@
+"""Eq. 4 damped CBF safety bias; an active residual remains negative."""
+import math
+from typing import Dict, Tuple
+
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
+from torch import Tensor, nn
+
 
 class ExactLSECBFLayer(nn.Module):
-    def __init__(self,
-                 num_rays=41,
-                 fov_deg=240.0,
-                 safe_radius=0.15,
-                 safety_margin=0.05,
-                 kappa=10.0,
-                 damping_factor=1.0):
+    def __init__(self, num_rays=41, fov_deg=240.0, safe_radius=0.15,
+                 safety_margin=0.05, kappa=10.0, damping_factor=1.0):
         super().__init__()
-        
-        self.d_safe = safe_radius + safety_margin
-        self.kappa = kappa
-        self.damping_factor = damping_factor
-        
-        # Pre-calculate unit direction vectors n_i
-        start_angle = -np.deg2rad(fov_deg) / 2
-        end_angle = np.deg2rad(fov_deg) / 2
-        angles = torch.linspace(start_angle, end_angle, num_rays)
-        self.register_buffer('ray_unit_vectors',
-            torch.stack([torch.cos(angles), torch.sin(angles)], dim=1))
+        if isinstance(num_rays, bool) or not isinstance(num_rays, int) or num_rays <= 0:
+            raise ValueError("num_rays must be a positive integer")
+        for name, value in (("fov_deg", fov_deg), ("safe_radius", safe_radius),
+                            ("kappa", kappa), ("damping_factor", damping_factor)):
+            if not math.isfinite(value) or value <= 0:
+                raise ValueError(name + " must be finite and positive")
+        if fov_deg > 360:
+            raise ValueError("fov_deg must be at most 360")
+        if not math.isfinite(safety_margin) or safety_margin < 0:
+            raise ValueError("safety_margin must be finite and nonnegative")
+        self.num_rays = num_rays
+        self.fov_deg = float(fov_deg)
+        self.safe_radius = float(safe_radius)
+        self.safety_margin = float(safety_margin)
+        self.d_safe = float(safe_radius + safety_margin)
+        self.kappa = float(kappa)
+        self.damping_factor = float(damping_factor)
+        angles = torch.linspace(-math.radians(fov_deg) / 2, math.radians(fov_deg) / 2, num_rays)
+        self.register_buffer("ray_unit_vectors", torch.stack((torch.cos(angles), torch.sin(angles)), dim=1))
 
-    def forward(self, u_bar, lidar_dists, alpha):
-        """
-        u_bar: [B, 3] Nominal policy (vx, vy, yaw)
-        lidar_dists: [B, num_rays] Lidar distances (processed externally to 0.1~5.0)
-        alpha: [B, 1] Class-K function parameter (adaptively learned)
-        """
-        u_2d = u_bar[:, :2]  # Corresponding to \bar{u}(x) in the paper
-        yaw_rate = u_bar[:, 2:]
+    def _validate_inputs(self, u_bar: Tensor, lidar_dists: Tensor, alpha: Tensor) -> None:
+        if u_bar.dim() != 2 or u_bar.size(1) != 3 or u_bar.size(0) == 0:
+            raise ValueError("u_bar must be nonempty [B,3]")
+        if lidar_dists.dim() != 2 or lidar_dists.size(1) != self.num_rays or lidar_dists.size(0) != u_bar.size(0):
+            raise ValueError("lidar_dists must be [B,num_rays] with matching batch")
+        if alpha.dim() != 2 or alpha.size(1) != 1 or alpha.size(0) != u_bar.size(0):
+            raise ValueError("alpha must be [B,1] with matching batch")
+        if not torch.isfinite(u_bar).all() or not torch.isfinite(lidar_dists).all() or not torch.isfinite(alpha).all():
+            raise ValueError("CBF inputs must be finite")
+        if (lidar_dists <= 0).any():
+            raise ValueError("lidar_dists must be positive before preprocessing")
+        if (alpha <= 0).any():
+            raise ValueError("alpha must be already positive; transform raw logits once")
 
-        # 1. Calculate independent h_i(x)
-        h_i = lidar_dists - self.d_safe  # [B, num_rays]
+    def _compute(self, u_bar: Tensor, lidar_dists: Tensor, alpha: Tensor) -> Tuple[Tensor, Dict[str, Tensor]]:
+        h_i = lidar_dists - self.d_safe
+        h_comp = -torch.logsumexp(-self.kappa * h_i, dim=1, keepdim=True) / self.kappa
+        weights = torch.softmax(-self.kappa * h_i, dim=1)
+        lg_h = -torch.sum(weights.unsqueeze(-1) * self.ray_unit_vectors.unsqueeze(0), dim=1)
+        norm_sq = torch.sum(lg_h.square(), dim=1, keepdim=True)
+        r = torch.sum(lg_h * u_bar[:, :2], dim=1, keepdim=True) + alpha * h_comp
+        eta_raw = -r / (norm_sq + self.damping_factor)
+        eta = torch.relu(eta_raw)
+        correction = eta * lg_h
+        xy = u_bar[:, :2] + correction
+        output = torch.cat((xy, u_bar[:, 2:]), dim=1)
+        residual_after = torch.sum(lg_h * xy, dim=1, keepdim=True) + alpha * h_comp
+        return output, {
+            "h_comp": h_comp, "Lg_h": lg_h, "Lg_norm_sq": norm_sq,
+            "r": r, "eta_raw": eta_raw, "eta": eta,
+            "correction_norm": torch.norm(correction, dim=1, keepdim=True),
+            "residual_before": r, "residual_after": residual_after,
+        }
 
-        # 2. Calculate composite CBF: h(x) (Corresponding to Eq. 14 in the paper)
-        min_h, _ = torch.min(h_i, dim=1, keepdim=True) 
-        h_comp = min_h - (1.0 / self.kappa) * torch.log(
-            torch.sum(torch.exp(-self.kappa * (h_i - min_h)), dim=1, keepdim=True)
-        ) # [B, 1]
+    @torch.jit.export
+    def forward_with_diagnostics(self, u_bar: Tensor, lidar_dists: Tensor, alpha: Tensor) -> Tuple[Tensor, Dict[str, Tensor]]:
+        """Accept positive alpha, return differentiable tensors without state mutation."""
+        self._validate_inputs(u_bar, lidar_dists, alpha)
+        return self._compute(u_bar, lidar_dists, alpha)
 
-        # 3. Calculate \lambda_i(x)
-        lambda_i = torch.exp(-self.kappa * (h_i - h_comp)).unsqueeze(-1) # [B, num_rays, 1]
-
-        # 4. Calculate L_g h(x)
-        # L_g h_i = -n_i, so L_g h = - \sum \lambda_i n_i
-        n_vecs = self.ray_unit_vectors.unsqueeze(0) # [1, num_rays, 2]
-        Lg_h = -torch.sum(lambda_i * n_vecs, dim=1) # [B, 2]
-
-        # 5. Calculate \eta(x)
-        # \eta = - (L_f h + L_g h * u_bar + \alpha * h) / ||L_g h||^2 # Note: L_f h = 0
-        Lgh_u = torch.sum(Lg_h * u_2d, dim=1, keepdim=True) # [B, 1]
-        Lgh_norm_sq = torch.sum(Lg_h**2, dim=1, keepdim=True) # [B, 1]
-        
-        damping_factor = self.damping_factor  # Larger means smoother, but slightly sacrifices safety
-        eta = - (Lgh_u + alpha * h_comp) / (Lgh_norm_sq + damping_factor)
-
-        # 6. Calculate safe action u_s(x)
-        u_s_2d = u_2d + F.relu(eta) * Lg_h # [B, 2]
-
-        u_s = torch.cat((u_s_2d, yaw_rate), dim=-1) # [B, 3]
-
-        return u_s
+    def forward(self, u_bar: Tensor, lidar_dists: Tensor, alpha: Tensor) -> Tensor:
+        return self.forward_with_diagnostics(u_bar, lidar_dists, alpha)[0]

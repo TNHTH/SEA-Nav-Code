@@ -28,6 +28,7 @@
 #
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
 
+import math
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -35,6 +36,10 @@ import torch.optim as optim
 from rsl_rl.modules.actor_critic import ActorCritic
 from rsl_rl.storage import RolloutStorage
 import torch.nn.functional as F
+
+# Keep historical helper/metric units while accepting EFFECTIVE loss weights.
+# update() applies this factor once; compute_smoothness_loss divides it out.
+SMOOTHNESS_HELPER_SCALE = 0.05
 
 class PPO:
     actor_critic: ActorCritic
@@ -54,6 +59,13 @@ class PPO:
                  schedule="fixed",
                  desired_kl=0.01,
                  device='cpu',
+                 alpha_min=1.0,
+                 intervention_coefficient=0.1,
+                 alpha_penalty_coefficient=1.0,
+                 actor_smoothness_coefficient=0.05,
+                 critic_smoothness_coefficient=0.005,
+                 action_range_low=(-0.5, -0.8, -1.0),
+                 action_range_high=(1.7, 0.8, 1.0),
                  ):
 
         if actor_critic.is_recurrent:
@@ -61,6 +73,23 @@ class PPO:
         if not callable(getattr(actor_critic, "action_mean_for", None)):
             raise TypeError("PPO requires a pure actor action_mean_for(observations) method")
 
+        for name, value in (
+            ("alpha_min", alpha_min), ("intervention_coefficient", intervention_coefficient),
+            ("alpha_penalty_coefficient", alpha_penalty_coefficient),
+            ("actor_smoothness_coefficient", actor_smoothness_coefficient),
+            ("critic_smoothness_coefficient", critic_smoothness_coefficient),
+        ):
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+                raise ValueError(name + " must be finite and nonnegative")
+            setattr(self, name, float(value))
+        if len(action_range_low) != 3 or len(action_range_high) != 3:
+            raise ValueError("action_range bounds must each have three entries")
+        if any(not math.isfinite(value) for value in (*action_range_low, *action_range_high)):
+            raise ValueError("action_range bounds must be finite")
+        if any(low > high for low, high in zip(action_range_low, action_range_high)):
+            raise ValueError("action_range low must not exceed high")
+        self.action_range_low = tuple(float(value) for value in action_range_low)
+        self.action_range_high = tuple(float(value) for value in action_range_high)
         self.device = device
 
         self.desired_kl = desired_kl
@@ -99,10 +128,12 @@ class PPO:
         self.actor_critic.train()
         
 
-    def compute_alpha_loss(self, alpha, alpha_min=0.5):
+    def compute_alpha_loss(self, alpha, alpha_min=None):
         # If alpha > alpha_min, the result is 0
         # If alpha < alpha_min, calculate the square of the difference
-        penalty = F.relu(alpha_min - alpha) 
+        if alpha_min is None:
+            alpha_min = self.alpha_min
+        penalty = F.relu(alpha_min - alpha)
         loss_alpha = torch.mean(penalty ** 2)
         return loss_alpha
 
@@ -127,8 +158,8 @@ class PPO:
         critic_smoothness = F.mse_loss(interp_values, orig_values)
         
         total_loss = (
-            1 * actor_smoothness +
-            0.1 * critic_smoothness
+            (self.actor_smoothness_coefficient / SMOOTHNESS_HELPER_SCALE) * actor_smoothness +
+            (self.critic_smoothness_coefficient / SMOOTHNESS_HELPER_SCALE) * critic_smoothness
         )
         
         return total_loss
@@ -231,26 +262,26 @@ class PPO:
                         + 1.0 * value_loss \
                         - self.entropy_coef * (entropy_batch * valid_mask).sum() / (valid_mask.sum() + 1e-8)
                 
-                clip_mins = torch.tensor([-0.5, -0.8, -1.0], device=mu_batch.device)
-                clip_maxs = torch.tensor([1.7,  0.8,  1.0], device=mu_batch.device)
+                clip_mins = mu_batch.new_tensor(self.action_range_low)
+                clip_maxs = mu_batch.new_tensor(self.action_range_high)
                 range_loss = (torch.sum((mu_batch - torch.clip(mu_batch, min=clip_mins, max=clip_maxs))**2, dim=-1) * valid_mask).sum() / (valid_mask.sum() + 1e-8)
                 
                 smooth_loss = self.compute_smoothness_loss(
                     obs_batch, next_obs_batch, orig_mu=mu_batch, orig_values=value_batch)
-                regularization_loss = range_loss + 0.05 * smooth_loss
+                regularization_loss = range_loss + SMOOTHNESS_HELPER_SCALE * smooth_loss
                 loss += 1.0 * regularization_loss
 
                 if hasattr(self.actor_critic, 'alpha'):
-                    alpha_loss = self.compute_alpha_loss(self.actor_critic.alpha, alpha_min=1.0)
+                    alpha_loss = self.compute_alpha_loss(self.actor_critic.alpha, alpha_min=self.alpha_min)
                 else:
                     alpha_loss = torch.tensor(0.0)
-                loss += 1.0 * alpha_loss
+                loss += self.alpha_penalty_coefficient * alpha_loss
 
                 # Calculate Intervention Loss: Penalize the action difference before and after the Shield
                 if hasattr(self.actor_critic, 'u_bar') and hasattr(self.actor_critic, 'u_s'):
                     # Force the Nav Head to propose safer actions, and force the Alpha Head to provide a more precise alpha
                     interv_loss = torch.mean(torch.sum((self.actor_critic.u_s - self.actor_critic.u_bar)**2, dim=-1))
-                    loss += 0.1 * interv_loss
+                    loss += self.intervention_coefficient * interv_loss
                 else:
                     interv_loss = torch.tensor(0.0)
 

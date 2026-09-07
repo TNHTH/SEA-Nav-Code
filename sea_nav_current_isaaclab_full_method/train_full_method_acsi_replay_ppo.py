@@ -1368,15 +1368,16 @@ def main():
     from isaaclab_tasks.utils import parse_env_cfg
 
     adapter_root = Path(__file__).resolve().parent
+    sea_root = adapter_root.parent
     if str(adapter_root) not in sys.path:
         sys.path.insert(0, str(adapter_root))
-    from adapters.cbf_shield import FootprintAwareLSECBFLayer
-
-    sea_root = Path("/home/gwh/SEA-Nav-Code")
+    # Select the shared core before importing adapters that inherit its layer.
     for module_name in list(sys.modules):
         if module_name == "rsl_rl" or module_name.startswith("rsl_rl."):
             del sys.modules[module_name]
     sys.path.insert(0, str(sea_root / "training/rsl_rl"))
+    from adapters.cbf_shield import FootprintAwareLSECBFLayer
+
     from rsl_rl.runners.on_policy_runner import OnPolicyRunner
 
     custom_terrain = load_module(

@@ -18,9 +18,21 @@ class DifferentiableSafeActorCritic(nn.Module):
                     num_rays=41,
                     cbf_fov_deg=240.0,
                     his_len=10,
+                    observation_fov_deg=240.0,
+                    cbf_safe_radius=0.15,
+                    cbf_safety_margin=0.05,
+                    cbf_kappa=10.0,
+                    cbf_damping_factor=1.0,
                  **kwargs):
         super().__init__()
 
+        if num_actions != 3:
+            raise ValueError("CBF actor requires three body command actions")
+        if observation_fov_deg != 240.0:
+            raise ValueError("observation_fov_deg must match the supported 240-degree observation contract")
+        if isinstance(his_len, bool) or not isinstance(his_len, int) or his_len <= 0:
+            raise ValueError("his_len must be a positive integer")
+        self.observation_fov_deg = float(observation_fov_deg)
         activation = get_activation(activation)
         
         self.his_len = his_len
@@ -89,7 +101,10 @@ class DifferentiableSafeActorCritic(nn.Module):
         )
 
         # 4. Closed-form CBF Layer
-        self.cbf_layer = ExactLSECBFLayer(num_rays=num_rays, fov_deg=cbf_fov_deg)
+        self.cbf_layer = ExactLSECBFLayer(
+            num_rays=num_rays, fov_deg=cbf_fov_deg, safe_radius=cbf_safe_radius,
+            safety_margin=cbf_safety_margin, kappa=cbf_kappa,
+            damping_factor=cbf_damping_factor)
 
         self.std = nn.Parameter(init_noise_std * torch.ones(num_actions))
 

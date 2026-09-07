@@ -128,8 +128,14 @@ def main():
     from isaaclab_tasks.utils import parse_env_cfg
 
     adapter_root = Path(__file__).resolve().parent
+    sea_root = adapter_root.parent
     if str(adapter_root) not in sys.path:
         sys.path.insert(0, str(adapter_root))
+    # Select the shared core before importing adapters that inherit its layer.
+    for module_name in list(sys.modules):
+        if module_name == "rsl_rl" or module_name.startswith("rsl_rl."):
+            del sys.modules[module_name]
+    sys.path.insert(0, str(sea_root / "training/rsl_rl"))
     from adapters.cbf_shield import CBFShieldConfig, ExactLSECBFShield, FootprintAwareLSECBFLayer, clip_body_command
     from adapters.collision_replay import CollisionReplayBuffer, CollisionReplayConfig
     from adapters.command_delay import CommandDelayConfig, CommandDelayFilter
@@ -137,11 +143,6 @@ def main():
     from adapters.manifest import default_manifest, write_manifest
     from adapters.trace_logger import JsonlTraceLogger
 
-    sea_root = Path("/home/gwh/SEA-Nav-Code")
-    for module_name in list(sys.modules):
-        if module_name == "rsl_rl" or module_name.startswith("rsl_rl."):
-            del sys.modules[module_name]
-    sys.path.insert(0, str(sea_root / "training/rsl_rl"))
     from rsl_rl.modules.cbf_actor_critic import DifferentiableSafeActorCritic
 
     custom_terrain = load_module(
