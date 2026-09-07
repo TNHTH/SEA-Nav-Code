@@ -31,6 +31,8 @@
 - Upstream ACSI uses two distinct random gates, and the adapter currently never advances its goal curriculum. Task 5 owns explicit decision and update semantics.
 - Checkpoint optimizer schema must handle real integer Adam state keys/None, exact completed-update counts, and publication of immutable payload generations through an atomic manifest.
 - Replay reset is a transaction through the base post-reset observation/epilogue, not merely the physical setters. The compact `new_replay_episode_v1` policy restores physical/task geometry then rebuilds all histories and controller/filter state; it is an explicit repair delta, not exact historical continuation. At 2048×151 slots it needs about 54–58 MiB rather than at least 1.77 GiB for nested histories. Full evidence and field ownership are in `replay-schema-audit.md`.
+- The Task 3 CPU harness must use complete flattened history and multiple rollout samples; a singleton update produces NaN from sample-standard-deviation normalization. The four-sample real update harness is verified viable, not evidence that unrepaired PPO is correct. Generic alias/stale-mask risks are not demonstrated current environment defects. See `ppo-update-contract-audit.md`.
+- Final gate runtime identity needs Task 6 follow-through: package import/discovery is dependency evidence, not actual simulation. Both Gym and IsaacLab must have separate non-fabricated runtime results.
 
 ## Technical Decisions
 

@@ -48,3 +48,9 @@ Task 1: fix round 2/5 (1 addressed, 0 open; commits 9fdb33e..4dec41b), spec PASS
 Task 1: complete (detached commits 1259bae..4dec41b, review clean; integrated as a58ad21/eac2657/484f682). Primary test verification: 31 passed; portable Gate A five passed with Gym blocked. Final candidate not frozen.
 
 Task 2: registered; BASE is the next coordination-only commit following source 484f682; exact requirements in task-2-brief.md; detached checkout ../SEA-Nav-Code-batch2 is next.
+
+Task 2: active; BASE=e22493377065c445cfd2b1ac43c01aa4d99c5120; clean detached checkout ../SEA-Nav-Code-batch2 baseline verified (12 portable-gate tests passed); implementer `/root/implement_batch2`. Only one source writer. `/root/ppo_update_audit` performs independent read-only fixture/update-boundary preparation and owns only its main-checkout audit report.
+
+2026-09-07: ppo-update-contract-audit.md supplies a real CPU update harness and classifies alias/bad-mask/singleton risks without inventing a current simulator bug. Task 3 brief now requires the real four-sample multi-epoch update assertions; no extra storage redesign assigned.
+
+Ruling: Task 6 must distinguish dependency discovery from simulator runtime success and report both stacks — Task 1's `isaac_gym_runtime` currently says passed after import alone, which cannot certify Rung 3 — expands only gate/probe tests, not simulator support. Missing Gym remains blocked on all current evidence.

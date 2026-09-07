@@ -4,6 +4,8 @@ Read the updated design and the named audit report for this task. These correcti
 
 Complete meaningful fixtures and real collection→storage→update likelihood tests, including ordinary actor pure-query state ownership. A compatibility fallback must fail clearly for unsupported actor types rather than silently preserve only part of CBF state. Mandatory delta declaration comes from Task 2; geometry/loss profile knobs land in Task 4. No new post-sample action transform.
 
+Read `ppo-update-contract-audit.md` in full for executable fixture dimensions, actual storage/generator signatures, graph lifetime, and update-time assertions. Use real positive-learning-rate multi-minibatch/multi-epoch updates, not just finite sampling outputs. Observe stored actions at the actual likelihood call, current-batch auxiliary object identity through smoothness and optimizer step, and detached rollout targets. A one-sample storage fixture must not be reused as an update fixture (sample standard deviation is undefined); the demonstrated update fixture uses two environments and two steps. Generic alias/bad-mask reuse risks have not been shown reachable in current supported consumers and do not broaden this batch. Do not implement recurrence; unsupported actor interfaces fail clearly.
+
 ## Global Constraints
 
 - Working branches must remain exactly `main`, `stable`, and `test`; all repair commits land only on `test`.

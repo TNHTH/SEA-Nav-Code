@@ -15,6 +15,8 @@
 - Task 1 round 2 `4dec41b` passed scoped spec/quality review. Integrated original commits as `a58ad21`, `eac2657`, `484f682` in order, preserving unrelated coordination files.
 - Fresh primary verification on `484f682`: `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD/training/rsl_rl" ../sea-nav-cpu-venv/bin/python -m pytest -q tests/test_runner_optional_wandb.py tests/test_gate_a_portable.py sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py` -> exit 0, **31 passed in 2.66s**. The Gate A CLI -> exit 0, five passed CPU/static cases, Isaac Gym blocked, all 65 baseline paths present. Shell syntax and `git diff --check` passed; no path deleted relative to complete `main`. Raw report is temporary `/tmp/sea-nav-task1-integrated.lBIrs6/gate-a.json`, not final-candidate evidence.
 - Task 2 owned scope registered; next worktree starts from the post-integration coordination commit. Source writers remain serialized. Detached Task 1 originals and their own two unstaged registration edits are retained; no cleanup has removed them.
+- Task 2 detached BASE `e224933` passed its 12-test portable baseline and is assigned to `/root/implement_batch2`. Its new configuration tests reached expected RED (`rsl_rl.experiment_config` absent); implementation is active, not yet reviewed or integrated.
+- Independent `ppo-update-contract-audit.md` established viable real CPU fixture shapes and update-time identity assertions for Task 3. Alias/mask observations were classified as generic/test risks, not invented current simulator defects. The Task 3 brief incorporates the harness; Task 6 owns separate dependency-versus-runtime gate reporting for both simulator stacks.
 
 ## Session: 2026-09-04
 
