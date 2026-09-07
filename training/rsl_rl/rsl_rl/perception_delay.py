@@ -3,6 +3,10 @@ from dataclasses import dataclass
 import math
 import torch
 
+def require_perception_capability():
+    if not callable(getattr(torch, "_assert_async", None)):
+        raise RuntimeError("blocked: timestamped perception requires Torch asynchronous finite assertions")
+
 @dataclass(frozen=True)
 class PerceptionDelayConfig:
     mode: str = "discrete_history_sample_and_hold"
@@ -45,6 +49,7 @@ class TimestampedPerception:
     and publishes the latest arrived packet on a policy tick, holding otherwise.
     """
     def __init__(self, config, num_envs, num_rays, device="cpu"):
+        require_perception_capability()
         self.config = config
         self.capacity = max(5, int(math.ceil((config.latency_max_s + config.acquisition_period_s) / config.policy_dt_s)) + 3)
         shape = (num_envs, self.capacity)

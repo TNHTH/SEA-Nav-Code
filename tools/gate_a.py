@@ -237,20 +237,31 @@ def _run_rsl_cpu_smoke() -> GateCase:
     except Exception as exc:
         return GateCase("rsl_rl_cpu_smoke", "failed", "{}: {}".format(type(exc).__name__, exc))
     return GateCase("rsl_rl_cpu_smoke", "passed", "actor, value, PPO, and rollout-storage CPU smoke completed")
+def _dependency_import(package):
+    # A fresh process preserves Gym-before-Torch ordering and never launches an app.
+    code = ("import importlib,sys;\n"
+            "try: importlib.import_module(sys.argv[1])\n"
+            "except ModuleNotFoundError as e: print(str(e)); sys.exit(4)\n"
+            "except Exception as e: print(type(e).__name__+': '+str(e)); sys.exit(5)\n")
+    child = subprocess.run([sys.executable,"-I","-B","-c",code,package],
+                           capture_output=True,text=True,timeout=30)
+    if child.returncode == 4: raise ModuleNotFoundError(child.stdout.strip())
+    if child.returncode: raise ImportError(child.stdout.strip() or child.stderr.strip())
 
-
-def probe_isaac_gym() -> GateCase:
+def probe_dependency(package, prefix, import_probe=None):
     try:
-        importlib.import_module("isaacgym")
-    except ModuleNotFoundError:
-        return GateCase(
-            "isaac_gym_runtime",
-            "blocked",
-            "Isaac Gym Preview 4 is not installed; simulator execution remains blocked",
-        )
+        (import_probe or _dependency_import)(package)
+    except ModuleNotFoundError as exc:
+        return GateCase(prefix+"_dependency","blocked",str(exc)+"; install the locked dependency")
     except Exception as exc:
-        return GateCase("isaac_gym_runtime", "failed", "{}: {}".format(type(exc).__name__, exc))
-    return GateCase("isaac_gym_runtime", "passed", "real Isaac Gym package imported")
+        return GateCase(prefix+"_dependency","failed",type(exc).__name__+": "+str(exc))
+    return GateCase(prefix+"_dependency","passed","dependency import only; no simulator execution")
+
+def probe_isaac_gym(import_probe=None):
+    return probe_dependency("isaacgym","isaac_gym",import_probe)
+
+def runtime_not_executed(prefix):
+    return GateCase(prefix+"_runtime","blocked","not executed: requires real launch/create/reset/step/close and artifact verification")
 
 
 def run_cpu_gate(repo_root: Path) -> List[GateCase]:
@@ -267,6 +278,9 @@ def run_cpu_gate(repo_root: Path) -> List[GateCase]:
             _import_cpu_packages(root),
             _run_rsl_cpu_smoke(),
             probe_isaac_gym(),
+            runtime_not_executed("isaac_gym"),
+            probe_dependency("isaaclab","isaaclab"),
+            runtime_not_executed("isaaclab"),
         ]
     finally:
         sys.path[:] = previous_sys_path

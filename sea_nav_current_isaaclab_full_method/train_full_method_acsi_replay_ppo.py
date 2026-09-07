@@ -7,80 +7,84 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
-from isaaclab.app import AppLauncher
+# Select the bundled package before adapter or proprietary imports.
+SEA_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SEA_ROOT / "training/rsl_rl"))
+sys.path.insert(0, str(SEA_ROOT))
+if "rsl_rl" in sys.modules:
+    loaded_root = Path(sys.modules["rsl_rl"].__file__).resolve().parent
+    if loaded_root != SEA_ROOT / "training/rsl_rl/rsl_rl":
+        raise RuntimeError("foreign rsl_rl already loaded; start a fresh bundled-package process")
+from rsl_rl.runtime_preflight import preflight as shared_preflight, blocked_result
 
+args = None
+simulation_app = None
+active_trace = None
+active_carrier = None
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--iterations", type=int, default=4)
-parser.add_argument("--rollout-steps", type=int, default=4)
-parser.add_argument("--num-envs", type=int, default=1)
-parser.add_argument("--seed", type=int, default=42)
-parser.add_argument("--timeout-seconds", type=float, default=60.0)
-parser.add_argument("--result", type=str, required=True)
-parser.add_argument("--log-dir", type=str, required=True)
-parser.add_argument("--init-checkpoint", type=str, default="")
-parser.add_argument("--cbf-fov-deg", type=float, default=240.0)
-parser.add_argument("--cbf-footprint-radius-m", type=float, default=0.0)
-parser.add_argument("--cbf-min-effective-clearance-m", type=float, default=1.0e-4)
-parser.add_argument("--ppo-learning-rate", type=float, default=1.0e-4)
-parser.add_argument("--ppo-entropy-coef", type=float, default=0.003)
-parser.add_argument("--ppo-num-learning-epochs", type=int, default=1)
-parser.add_argument("--ppo-num-mini-batches", type=int, default=1)
-parser.add_argument("--ppo-schedule", choices=["fixed", "adaptive"], default="fixed")
-parser.add_argument("--init-std", type=float, default=1.5)
-parser.add_argument(
-    "--command-filter-mode",
-    choices=("source_alpha_only",),
-    default="source_alpha_only",
-)
-parser.add_argument("--command-delay-s", type=float, default=0.1)
-parser.add_argument("--command-filter-alpha", type=float, default=0.5)
-parser.add_argument("--enable-collision-replay", action="store_true")
-parser.add_argument("--replay-reset-policy", choices=["new_replay_episode_v1"], default="new_replay_episode_v1")
-parser.add_argument("--implementation-delta", action="append", default=[])
-parser.add_argument("--replay-prob", type=float, default=0.8)
-parser.add_argument("--replay-ring-buffer-steps", type=int, default=180)
-parser.add_argument("--replay-undo-min", type=int, default=100)
-parser.add_argument("--replay-undo-max", type=int, default=150)
-parser.add_argument("--force-replay-smoke", action="store_true")
-parser.add_argument("--replay-smoke-result", type=str, default="")
-parser.add_argument("--enable-source-parity-reset", action="store_true")
-parser.add_argument("--enable-source-perception-delay", action="store_true")
-parser.add_argument("--source-random-root-velocity", action="store_true")
-parser.add_argument("--enable-source-reward-done-parity", action="store_true")
-parser.add_argument("--source-pos-hist-interval-steps", type=int, default=10)
-parser.add_argument("--source-early-reset-prob-min", type=float, default=0.1)
-parser.add_argument("--source-early-reset-prob-max", type=float, default=0.5)
-parser.add_argument("--source-goal-level", type=float, default=0.0)
-parser.add_argument("--source-max-goal-level", type=float, default=10.0)
-parser.add_argument("--source-stand-still-time-steps", type=int, default=150)
-parser.add_argument("--disable-source-contact-termination", action="store_true")
-parser.add_argument("--source-play-eval-terminal-semantics", action="store_true")
-parser.add_argument("--enable-source-prop-noise", action="store_true")
-parser.add_argument("--source-prop-noise-level", type=float, default=1.0)
-parser.add_argument("--source-noise-gravity", type=float, default=0.05)
-parser.add_argument("--source-noise-lin-vel", type=float, default=0.1)
-parser.add_argument("--source-noise-ang-vel", type=float, default=0.1)
-parser.add_argument("--force-source-parity-smoke", action="store_true")
-parser.add_argument("--source-parity-smoke-result", type=str, default="")
-parser.add_argument("--force-reward-done-parity-smoke", action="store_true")
-parser.add_argument("--reward-done-parity-smoke-result", type=str, default="")
-parser.add_argument("--enable-room-pool", action="store_true")
-parser.add_argument("--room-pool-size", type=int, default=1)
-parser.add_argument("--room-pool-spacing-m", type=float, default=12.0)
-AppLauncher.add_app_launcher_args(parser)
-args = parser.parse_args()
-if args.ppo_num_learning_epochs < 1:
-    parser.error("--ppo-num-learning-epochs must be >= 1")
-if args.ppo_num_mini_batches < 1:
-    parser.error("--ppo-num-mini-batches must be >= 1")
-if args.source_stand_still_time_steps <= 0:
-    parser.error("--source-stand-still-time-steps must be positive")
-if min(args.source_prop_noise_level, args.source_noise_gravity, args.source_noise_lin_vel, args.source_noise_ang_vel) < 0.0:
-    parser.error("source prop-noise level and scales must be non-negative")
+def build_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--iterations", type=int, default=4)
+    parser.add_argument("--rollout-steps", type=int, default=4)
+    parser.add_argument("--num-envs", type=int, default=1)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--timeout-seconds", type=float, default=60.0)
+    parser.add_argument("--result", type=str, default="")
+    parser.add_argument("--log-dir", type=str, default="")
+    parser.add_argument("--init-checkpoint", type=str, default="")
+    parser.add_argument("--cbf-fov-deg", type=float, default=180.0)
+    parser.add_argument("--cbf-footprint-radius-m", type=float, default=0.0)
+    parser.add_argument("--cbf-min-effective-clearance-m", type=float, default=1.0e-4)
+    parser.add_argument("--ppo-learning-rate", type=float, default=1.0e-4)
+    parser.add_argument("--ppo-entropy-coef", type=float, default=0.003)
+    parser.add_argument("--ppo-num-learning-epochs", type=int, default=1)
+    parser.add_argument("--ppo-num-mini-batches", type=int, default=1)
+    parser.add_argument("--ppo-schedule", choices=["fixed", "adaptive"], default="fixed")
+    parser.add_argument("--init-std", type=float, default=1.5)
+    parser.add_argument(
+        "--command-filter-mode",
+        choices=("source_alpha_only",),
+        default="source_alpha_only",
+    )
+    parser.add_argument("--command-delay-s", type=float, default=0.0)
+    parser.add_argument("--command-filter-alpha", type=float, default=0.5)
+    parser.add_argument("--enable-collision-replay", action="store_true")
+    parser.add_argument("--replay-reset-policy", choices=["new_replay_episode_v1"], default="new_replay_episode_v1")
+    parser.add_argument("--replay-prob", type=float, default=0.8)
+    parser.add_argument("--replay-ring-buffer-steps", type=int, default=180)
+    parser.add_argument("--replay-undo-min", type=int, default=100)
+    parser.add_argument("--replay-undo-max", type=int, default=150)
+    parser.add_argument("--force-replay-smoke", action="store_true")
+    parser.add_argument("--replay-smoke-result", type=str, default="")
+    parser.add_argument("--enable-source-parity-reset", action="store_true")
+    parser.add_argument("--enable-source-perception-delay", action="store_true")
+    parser.add_argument("--source-random-root-velocity", action="store_true")
+    parser.add_argument("--enable-source-reward-done-parity", action="store_true")
+    parser.add_argument("--source-pos-hist-interval-steps", type=int, default=10)
+    parser.add_argument("--source-early-reset-prob-min", type=float, default=0.1)
+    parser.add_argument("--source-early-reset-prob-max", type=float, default=0.5)
+    parser.add_argument("--source-goal-level", type=float, default=0.0)
+    parser.add_argument("--source-max-goal-level", type=float, default=10.0)
+    parser.add_argument("--source-stand-still-time-steps", type=int, default=150)
+    parser.add_argument("--disable-source-contact-termination", action="store_true")
+    parser.add_argument("--source-play-eval-terminal-semantics", action="store_true")
+    parser.add_argument("--enable-source-prop-noise", action="store_true")
+    parser.add_argument("--source-prop-noise-level", type=float, default=1.0)
+    parser.add_argument("--source-noise-gravity", type=float, default=0.05)
+    parser.add_argument("--source-noise-lin-vel", type=float, default=0.1)
+    parser.add_argument("--source-noise-ang-vel", type=float, default=0.1)
+    parser.add_argument("--force-source-parity-smoke", action="store_true")
+    parser.add_argument("--source-parity-smoke-result", type=str, default="")
+    parser.add_argument("--force-reward-done-parity-smoke", action="store_true")
+    parser.add_argument("--reward-done-parity-smoke-result", type=str, default="")
+    parser.add_argument("--enable-room-pool", action="store_true")
+    parser.add_argument("--room-pool-size", type=int, default=1)
+    parser.add_argument("--room-pool-spacing-m", type=float, default=12.0)
+    return parser
 
-app_launcher = AppLauncher(args)
-simulation_app = app_launcher.app
+def preflight(argv):
+    return shared_preflight(argv, runtime_stack="isaaclab_adapter", repo_root=SEA_ROOT,
+                            build_parser=build_parser, entrypoint="acsi")
 
 
 def ppo_update_contract(args):
@@ -155,10 +159,10 @@ class TrainerCommandFilter:
 
     def step(self, command):
         filtered, debug = self.queue_filter.step(command)
-        self._filtered = filtered.detach().clone()
+        self._filtered = self.queue_filter.filtered.detach().clone()
         debug["mode"] = self.mode
         debug["bypassed_queue_delay"] = True
-        return self._filtered.clone(), {
+        return filtered, {
             **debug,
             "mode": self.mode,
             "filtered_command": self._filtered.detach().clone(),
@@ -341,6 +345,17 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
         self.step_dt = float(getattr(carrier.unwrapped, "step_dt", 0.02))
         self.max_episode_length = int(round(timeout_seconds / self.step_dt))
         self.timeout_seconds = timeout_seconds
+        from rsl_rl.environment_profile import environment_settings
+        from rsl_rl.perception_delay import PerceptionDelayConfig, TimestampedPerception
+        self.environment_receipt = environment_settings(resolved_config, policy_dt_s=self.step_dt,
+            timeout_seconds=timeout_seconds, replay_enabled=args.enable_collision_replay,
+            capacity=args.replay_ring_buffer_steps, undo=(args.replay_undo_min,args.replay_undo_max),
+            max_level=args.source_max_goal_level, command_filter_alpha=args.command_filter_alpha)
+        self.perception = TimestampedPerception(PerceptionDelayConfig(**self.environment_receipt["perception"]),
+                                               self.num_envs,41,self.device)
+        self.trace_logger = None
+        self.trace_policy = None
+        self.trace_step = 0
         if args.replay_undo_min > args.replay_undo_max:
             raise ValueError("--replay-undo-min must be <= --replay-undo-max")
         if room_ids is None:
@@ -832,37 +847,14 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
             torch.stack([goal_local[env_ids_tensor]] * 10, dim=1),
             torch.cat((self.goal_hist[env_ids_tensor, 1:], goal_local[env_ids_tensor].unsqueeze(1)), dim=1),
         )
-        if self.source_perception_delay_enabled:
-            delay_interval = max(1, int(round(args.command_delay_s / self.step_dt)))
-            env_ids_to_update = env_ids_tensor[
-                self.episode_length_buf[env_ids_tensor] % delay_interval == 0
-            ]
-            resample_indices = []
-            if len(env_ids_to_update) != 0:
-                resample_idx = -torch.randint(2, 4, (len(env_ids_to_update),), device=self.device) - 1
-                self.delay_rays[env_ids_to_update] = self.rays_hist[env_ids_to_update, resample_idx, :]
-                self.delay_goal[env_ids_to_update] = self.goal_hist[env_ids_to_update, resample_idx, :]
-                resample_indices = [int(x) for x in resample_idx.detach().cpu().tolist()]
-            rays_obs = self.delay_rays
-            goal_obs = self.delay_goal
-            self.last_perception_delay_debug = {
-                "used_delayed_perception": True,
-                "delay_interval_steps": int(delay_interval),
-                "updated_env_ids": [int(x) for x in env_ids_to_update.detach().cpu().tolist()],
-                "resample_indices": resample_indices,
-                "delay_rays_min": float(self.delay_rays.min().detach().cpu()),
-                "delay_rays_max": float(self.delay_rays.max().detach().cpu()),
-                "delay_goal_norm_mean": float(torch.norm(self.delay_goal, dim=-1).mean().detach().cpu()),
-            }
-        else:
-            rays_obs = rays_m
-            goal_obs = goal_local
-            self.last_perception_delay_debug = {
-                "used_delayed_perception": False,
-                "delay_interval_steps": None,
-                "updated_env_ids": [],
-                "resample_indices": [],
-            }
+        now = self.episode_length_buf[env_ids_tensor].to(torch.float64) * self.step_dt
+        self.perception.push(env_ids_tensor,now,rays_m[env_ids_tensor],goal_local[env_ids_tensor])
+        observed = self.perception.observe(env_ids_tensor,now)
+        self.delay_rays[env_ids_tensor] = observed.rays
+        self.delay_goal[env_ids_tensor] = observed.goals
+        rays_obs,goal_obs = self.delay_rays,self.delay_goal
+        self.last_perception_delay_debug = {"used_delayed_perception":True,
+            "clock_contract":"timestamped_policy_tick_sample_and_hold","synthetic_bootstrap":"noise_free_step_0"}
         rays_log2 = torch.log2(rays_obs.clip(min=0.1, max=5.0))
         prop = torch.cat((projected_gravity, self.slr_command * self.high_level_command_scale, base_lin_vel, base_ang_vel), dim=-1)
         if self.source_prop_noise_enabled:
@@ -1060,6 +1052,7 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
         self.command_filter.reset_state(ids)
         self.delay_rays[ids]=rays[ids]
         self.delay_goal[ids]=goal[ids]
+        self.perception.reset(ids,0.,rays[ids],goal[ids])
         from rsl_rl.replay import bootstrap_episode_buffers
         bootstrap_episode_buffers({
             "navigation_history":self.sea_obs_hist,"slr_history":self.slr_obs_hist,
@@ -1178,40 +1171,24 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
         stand_still_flag = self.stay_timer >= self.source_stand_still_time_steps
         done = terminate_buf | hard_reset | goal_reached_flag | stand_still_flag | time_out_buf | fall_down
 
-        reward_terms = {}
-        reach_bonus = 1.0 / (1.0 + 2.0 * torch.square(distance))
-        reward_terms["reach_pos_target_tight"] = 10.0 * reach_bonus * (distance < 0.5)
-        goal_dir_norm = goal_local / (distance.unsqueeze(1) + 1e-4)
-        alignment = goal_dir_norm[:, 0].clip(min=0.0)
-        target_speed = (distance * 1.0).clip(max=0.5)
-        forward_vel = base_lin_vel[:, 0].clip(min=0.0)
-        vel_reward = torch.clamp(alignment * forward_vel, max=target_speed)
-        reward_terms["velo_dir"] = 4.0 * (vel_reward + reach_bonus)
+        from rsl_rl.navigation_reward import compute_navigation_reward_terms, weight_reward_terms, GYM_REWARD_NAMES
         front_clearance, _ = self._clearance(rays_m, fov_deg=None)
         dir_alignment, _ = self._guidance_nav_alignment(rays_m, fov_deg=150.0)
-        safe_vel_limit = (front_clearance * 1.0).clip(max=0.5)
-        close_obst = (dir_alignment * torch.min(forward_vel, safe_vel_limit) - (forward_vel - safe_vel_limit).clip(min=0.0) * 0.2).clip(min=0.0)
-        reward_terms["close_obst_vel"] = 5.0 * torch.where(far_goal, close_obst, reach_bonus)
         _, max_front_space = self._clearance(rays_m, fov_deg=120.0)
-        is_dead_end = max_front_space < 1.0
-        no_backward = base_lin_vel[:, 0] > 0.0
-        no_turn_back = torch.abs(base_ang_vel[:, 2]) < 1.0
-        stand_velo = torch.abs(base_ang_vel[:, 2]) + torch.abs(base_lin_vel[:, 1].clip(max=0.5)) + torch.abs(base_lin_vel[:, 0].clip(max=0.5))
-        not_just_reset = (self.episode_length_buf.float() / float(self.max_episode_length)) > 0.1
-        stuck_raw = not_just_reset * far_goal * (((is_dead_end & (no_backward | no_turn_back)) | is_dead_end) & (move_dist_max < 0.1)).float()
-        stuck_raw += stand_velo * (~far_goal).float()
-        reward_terms["stuck"] = -5.0 * stuck_raw
-        over_th = contact_norm > 0.1
-        generic = torch.sum(over_th[:, penalized_ids], dim=1).float() if penalized_ids else torch.zeros(self.num_envs, device=self.device)
-        head_base = torch.sum(over_th[:, head_base_ids], dim=1).float() if head_base_ids else torch.zeros(self.num_envs, device=self.device)
-        legs = torch.sum(over_th[:, leg_ids], dim=1).float() if leg_ids else torch.zeros(self.num_envs, device=self.device)
-        vel_square = torch.square(base_lin_vel[:, :2]).sum(dim=-1) + torch.square(base_ang_vel[:, 2])
-        reward_terms["collision"] = -4.0 * (1.0 + 4.0 * vel_square) * (generic + 10.0 * head_base + 10.0 * legs) * (~initial).float()
-        reward_terms["ang_vel_xy"] = -0.05 * torch.sum(torch.square(base_ang_vel[:, :2]), dim=1)
-        reward_terms["termination"] = -100.0 * terminate_buf.float()
-        reward = torch.zeros(self.num_envs, device=self.device)
-        for value in reward_terms.values():
-            reward += value
+        over_th = contact_norm > .1
+        generic = torch.sum(over_th[:, penalized_ids], dim=1).float() if penalized_ids else torch.zeros_like(distance)
+        head_base = torch.sum(over_th[:, head_base_ids], dim=1).float() if head_base_ids else torch.zeros_like(distance)
+        legs = torch.sum(over_th[:, leg_ids], dim=1).float() if leg_ids else torch.zeros_like(distance)
+        raw_terms = compute_navigation_reward_terms(dict(distance=distance,goal_x=goal_local[:,0],
+            cos_theta=goal_local[:,0]/distance.clamp(min=1e-8),vx=base_lin_vel[:,0],vy=base_lin_vel[:,1],
+            wx=base_ang_vel[:,0],wy=base_ang_vel[:,1],wz=base_ang_vel[:,2],cos_phi=dir_alignment,
+            min_ray=front_clearance,dead=max_front_space<1,position_history=self.pos_hist,position=root_xy,
+            terminated=terminate_buf,initial=initial,
+            not_just_reset=self.episode_length_buf.float()/self.max_episode_length>.1,
+            generic=generic,head_base=head_base,leg=legs),self.environment_receipt["formula_mode"])
+        weighted = weight_reward_terms(raw_terms,self.environment_receipt["raw_weights"],self.step_dt)
+        reward_terms = {GYM_REWARD_NAMES[k]:v for k,v in weighted.items()}
+        reward = sum(weighted.values())
 
         self.semantic_done_count += int(done.sum().detach().cpu())
         self.collision_count += int(new_collisions.sum().detach().cpu())
@@ -1262,9 +1239,15 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
 
     def step(self, actions):
         torch = self.torch
+        from adapters.trace_logger import capture_policy_stages,write_transition
+        trace_stages = capture_policy_stages(self.trace_policy(),actions) if self.trace_logger is not None else None
+        trace_time = self.episode_length_buf.to(torch.float64)*self.step_dt if trace_stages is not None else None
         nav_action_orig = actions.detach().clip(-3.0, 3.0)
         self.slr_command, self.last_delay_debug = self.command_filter.step(nav_action_orig)
         self.slr_command = torch.max(torch.min(self.slr_command, self.command_high), self.command_low)
+        if trace_stages is not None:
+            trace_stages["clipped_policy_action"] = nav_action_orig.detach().clone()
+            trace_stages["executed_command"] = self.slr_command.detach().clone()
         base_ang_vel = self.policy_obs[:, 3:6]
         projected_gravity = self.policy_obs[:, 6:9]
         joint_pos_rel = self.policy_obs[:, 12:24]
@@ -1302,6 +1285,9 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
             done = semantic_done | carrier_done
             self._terminal_timeout |= carrier_truncated.to(self.device)
         self.reset_buf = done.clone()
+        if trace_stages is not None:
+            write_transition(self.trace_logger,self.trace_step,trace_stages,reward,done,self.perception,trace_time)
+            self.trace_step += 1
         self.rew_buf = reward.clone()
         self._capture_replay_record(collision=self.last_collision_active)
         running=(~done).nonzero(as_tuple=False).flatten()
@@ -1321,7 +1307,14 @@ class SeaNavOriginalSemanticsIsaacLabEnv:
         return self.extras
 
 
-def main():
+def main(request):
+    global args, simulation_app, active_trace, active_carrier
+    args = request.arguments
+    from rsl_rl.runtime_preflight import require_runtime_prerequisites
+    require_runtime_prerequisites(request)
+    from isaaclab.app import AppLauncher
+    app_launcher = AppLauncher(args)
+    simulation_app = app_launcher.app
     import gymnasium as gym
     import numpy as np
     import torch
@@ -1337,9 +1330,6 @@ def main():
     if str(adapter_root) not in sys.path:
         sys.path.insert(0, str(adapter_root))
     # Select the shared core before importing adapters that inherit its layer.
-    for module_name in list(sys.modules):
-        if module_name == "rsl_rl" or module_name.startswith("rsl_rl."):
-            del sys.modules[module_name]
     sys.path.insert(0, str(sea_root / "training/rsl_rl"))
     from adapters.cbf_shield import FootprintAwareLSECBFLayer
 
@@ -1394,7 +1384,7 @@ def main():
                 self.configure_env_origins(room_pool_origins)
 
     task = "Isaac-Velocity-Flat-Unitree-Go2-v0"
-    env_cfg = parse_env_cfg(task, device="cuda:0", num_envs=args.num_envs, use_fabric=True)
+    env_cfg = parse_env_cfg(task, device=args.device, num_envs=args.num_envs, use_fabric=True)
     env_cfg.scene.terrain.class_type = HardRoomTerrainImporter
     env_cfg.scene.terrain.terrain_type = "plane"
     env_cfg.scene.terrain.terrain_generator = None
@@ -1408,31 +1398,12 @@ def main():
     env_cfg.observations.policy.enable_corruption = False
     env_cfg.episode_length_s = args.timeout_seconds
     env_cfg.scene.terrain.visual_material = None
-    go2_usd_override = os.environ.get("SEA_NAV_FULL_METHOD_GO2_USD", "").strip()
-    asset_resolution = {
-        "go2_usd_path": str(env_cfg.scene.robot.spawn.usd_path),
-        "override_enabled": False,
-        "override_source": None,
-        "ground_plane": "procedural mesh plane via TerrainImporter.import_mesh; avoids remote default_environment.usd",
-        "terrain_visual_material": "disabled to avoid remote MDL dependency; hard_room mesh keeps vertex colors",
-    }
-    if go2_usd_override:
-        go2_usd_path = Path(go2_usd_override).expanduser().resolve()
-        if not go2_usd_path.is_file():
-            raise FileNotFoundError(f"SEA_NAV_FULL_METHOD_GO2_USD does not exist: {go2_usd_path}")
-        env_cfg.scene.robot.spawn.usd_path = str(go2_usd_path)
-        asset_resolution = {
-            "go2_usd_path": str(go2_usd_path),
-            "override_enabled": True,
-            "override_source": os.environ.get(
-                "SEA_NAV_FULL_METHOD_GO2_USD_SOURCE",
-                "official IsaacLab Go2 USD local mirror",
-            ),
-            "original_configured_go2_usd_path": str(asset_resolution["go2_usd_path"]),
-            "ground_plane": asset_resolution["ground_plane"],
-            "terrain_visual_material": asset_resolution["terrain_visual_material"],
-        }
+    go2_usd_path = request.paths.asset_root / "go2.usd"
+    env_cfg.scene.robot.spawn.usd_path = str(go2_usd_path)
+    asset_resolution = {"go2_usd_path":str(go2_usd_path),"source":"explicit_asset_root",
+                        "provenance_status":"unverified","interface_status":"blocked"}
     carrier = gym.make(task, cfg=env_cfg, render_mode=None)
+    active_carrier = carrier
 
     stage = omni.usd.get_context().get_stage()
     mesh_prim = stage.GetPrimAtPath("/World/ground/hard_room/mesh")
@@ -1444,12 +1415,15 @@ def main():
         initial_robot_cell=initial_robot_cells,
         goal_cell=goal_cells,
         grid2ray=grid2ray,
-        ctrl_root=sea_root / "training/legged_gym/legged_gym/ctrl_model",
+        ctrl_root=request.paths.asset_root / "ctrl_model",
+        resolved_config=request.resolved_config,
         timeout_seconds=args.timeout_seconds,
         place_robot_and_goal_fn=custom_terrain.place_robot_and_goal,
         room_pool=room_pool,
         room_ids=room_ids,
     )
+    from rsl_rl.environment_profile import reconcile_environment_receipt
+    reconcile_environment_receipt(adapter_env.environment_receipt,request.environment)
     room_pool_contract = {
         "room_pool_enabled": bool(args.enable_room_pool),
         "room_pool_size": len(room_pool),
@@ -1512,7 +1486,6 @@ def main():
                 "rays_shape": list(adapter_env.rays.shape),
                 "reset_count": adapter_env.reset_count,
             }
-            carrier.close()
             return result
     if args.force_source_parity_smoke:
         source_parity_smoke_result = adapter_env.run_source_parity_contract_smoke()
@@ -1558,7 +1531,6 @@ def main():
                 "rays_shape": list(adapter_env.rays.shape),
                 "reset_count": adapter_env.reset_count,
             }
-            carrier.close()
             return result
 
     if args.force_replay_smoke:
@@ -1620,7 +1592,6 @@ def main():
                 "last_replay_sample_debug": adapter_env.last_replay_sample_debug,
                 "last_delay_debug_keys": sorted(adapter_env.last_delay_debug.keys()),
             }
-            carrier.close()
             return result
 
     log_dir = Path(args.log_dir)
@@ -1658,26 +1629,18 @@ def main():
     }
     train_cfg["algorithm"]["learning_rate"] = args.ppo_learning_rate
     train_cfg["algorithm"]["entropy_coef"] = args.ppo_entropy_coef
+    from rsl_rl.environment_profile import apply_algorithm_profile
+    train_cfg = apply_algorithm_profile(train_cfg, request.resolved_config)
+    expected_constructor = request.environment["constructor_settings"]
+    if any(train_cfg[key] != expected_constructor[key] for key in ("policy","algorithm")):
+        raise ValueError("actual constructor settings differ from preflight")
     runner = OnPolicyRunner(adapter_env, train_cfg, log_dir=str(log_dir), args=SimpleNamespace(wandb=False), device=adapter_env.device)
     init_checkpoint_loaded = False
     init_checkpoint_path = None
-    if args.init_checkpoint:
-        init_checkpoint_path = str(Path(args.init_checkpoint).resolve())
-        payload = torch.load(init_checkpoint_path, map_location=adapter_env.device, weights_only=True)
-        if isinstance(payload, dict) and "model_state_dict" in payload:
-            state_dict = payload["model_state_dict"]
-        elif isinstance(payload, dict) and "state_dict" in payload:
-            state_dict = payload["state_dict"]
-        else:
-            state_dict = payload
-        runner.alg.actor_critic.load_state_dict(state_dict, strict=True)
-        init_checkpoint_loaded = True
-    runner.alg.actor_critic.cbf_layer = FootprintAwareLSECBFLayer(
-        num_rays=41,
-        fov_deg=args.cbf_fov_deg,
-        footprint_radius_m=args.cbf_footprint_radius_m,
-        min_effective_clearance_m=args.cbf_min_effective_clearance_m,
-    ).to(adapter_env.device)
+    from adapters.trace_logger import JsonlTraceLogger
+    active_trace = JsonlTraceLogger(args.trace)
+    adapter_env.trace_logger = active_trace
+    adapter_env.trace_policy = lambda: runner.alg.actor_critic
     runner.learn(
         num_learning_iterations=args.iterations,
         init_at_random_ep_len=False,
@@ -1794,18 +1757,42 @@ def main():
             "No official SEA-Nav high-level checkpoint exists in the local repo, so policy quality still requires current-environment training and 100-episode Hard evaluation.",
         ],
     }
-    carrier.close()
+    result["effective_environment"] = adapter_env.environment_receipt
+    result["effective_constructor"] = {"policy":train_cfg["policy"],"algorithm":train_cfg["algorithm"]}
     return result
 
 
-output = {"ok": False, "error": "not started"}
-try:
-    output = main()
-except Exception as exc:
-    output = {"ok": False, "error_type": type(exc).__name__, "error": str(exc)}
-    raise
-finally:
-    result_path = Path(args.result)
-    result_path.parent.mkdir(parents=True, exist_ok=True)
-    result_path.write_text(json.dumps(output, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    simulation_app.close()
+def cli(argv=None):
+    global active_trace,active_carrier,simulation_app
+    active_trace=active_carrier=simulation_app=None
+    request = preflight(sys.argv[1:] if argv is None else argv)
+    if request.arguments.preflight_only:
+        print(json.dumps({"status": "preflight_passed", "runtime_status": "not_executed",
+                          "resolved_config_sha256": request.resolved_config.resolved_sha256}))
+        return 0
+    try:
+        output = main(request)
+    except ModuleNotFoundError as exc:
+        output = blocked_result("isaaclab_adapter", exc, "install and lock the actual IsaacLab stack",
+                                dependency_status="unavailable")
+    except Exception as exc:
+        output = blocked_result("isaaclab_adapter", exc, "resolve the failed runtime prerequisite")
+        if not str(exc).startswith("blocked:"):
+            output["status"] = "failed"
+    finally:
+        from sea_nav_current_isaaclab_full_method.adapters.manifest import close_runtime_resources
+        close_errors=close_runtime_resources((("trace",active_trace),("carrier",active_carrier),
+                                              ("app",simulation_app)))
+    from sea_nav_current_isaaclab_full_method.adapters.manifest import publish_runtime_result
+    if close_errors:
+        output["status"]="failed"
+        output["close_errors"]=close_errors
+    if "status" not in output:
+        output["status"] = "blocked"
+        output["reason"] = "controller provenance/interface and real lifecycle acceptance remain unverified"
+    output["ok"] = False
+    publish_runtime_result(output,request,active_trace)
+    return 3
+
+if __name__ == "__main__":
+    raise SystemExit(cli())

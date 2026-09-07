@@ -298,15 +298,16 @@ def test_manifest_and_trace_schema() -> None:
     assert manifest.formal_eval.actor_lse_cbf_enabled is True
     assert manifest.runtime_contract.action_chain_mode == "current_pre_delay_cbf"
     assert manifest.runtime_contract.command_filter_mode == "source_alpha_only"
-    assert_close(manifest.runtime_contract.cbf_fov_deg, 240.0)
-    assert_close(manifest.runtime_contract.cbf_footprint_radius_m, 0.55)
-    assert_close(manifest.runtime_contract.cbf_min_effective_clearance_m, 0.01)
-    assert_close(manifest.runtime_contract.timeout_seconds, 40.0)
+    assert_close(manifest.runtime_contract.cbf_fov_deg, 180.0)
+    assert_close(manifest.runtime_contract.cbf_footprint_radius_m, 0.0)
+    assert manifest.runtime_contract.cbf_min_effective_clearance_m is None
+    assert_close(manifest.runtime_contract.timeout_seconds, 60.0)
     assert manifest.runtime_contract.source_perception_delay_enabled is True
     assert manifest.runtime_contract.source_reward_done_parity_enabled is True
     assert manifest.runtime_contract.source_stand_still_time_steps == 150
     assert manifest.runtime_contract.source_contact_termination_enabled is True
-    assert manifest.runtime_contract.source_play_eval_terminal_semantics_enabled is True
+    assert manifest.runtime_contract.source_play_eval_terminal_semantics_enabled is False
+    assert manifest.runtime_contract.application_status == "projection_only_not_runtime_evidence"
     with tempfile.TemporaryDirectory(prefix="sea-nav-gate-a-") as temp_dir:
         out = Path(temp_dir) / "gate_a_manifest.preview.json"
         write_manifest(out, manifest)
@@ -336,6 +337,11 @@ def test_manifest_and_trace_schema() -> None:
     record.update(
         {
             "step": 1,
+            "env_id": 0,
+            "distribution_mean": [.9,0.,0.],
+            "policy_action": [1.,0.,0.],
+            "clipped_policy_action": [1.,0.,0.],
+            "executed_command": [.45,0.,0.],
             "u_nominal": [1.0, 0.0, 0.0],
             "alpha": 1.0,
             "h_min": 0.2,
@@ -381,20 +387,14 @@ def test_cbf_defaults_are_240_degrees() -> None:
 
 
 def test_runtime_checkpoint_load_rebuilds_cbf_layer_after_load() -> None:
+    # Task6 now blocks all loading before startup. Task7 owns manifest migration;
+    # the independent stale-buffer numerical regression below remains unchanged.
     runtime_text = RUNTIME_SCRIPT.read_text(encoding="utf-8")
-    load_token = "high_level.load_state_dict(state_dict, strict=True)"
-    rebuild_token = "high_level.cbf_layer = FootprintAwareLSECBFLayer("
-    load_idx = runtime_text.index(load_token)
-    rebuild_idx = runtime_text.index(rebuild_token)
-    shield_idx = runtime_text.index("cbf_shield = ExactLSECBFShield(", rebuild_idx)
-    rebuild_block = runtime_text[rebuild_idx:shield_idx]
-    assert load_idx < rebuild_idx
-    assert "FootprintAwareLSECBFLayer" in runtime_text
-    assert "num_rays=41" in rebuild_block
-    assert "fov_deg=args.cbf_fov_deg" in rebuild_block
-    assert "footprint_radius_m=args.cbf_footprint_radius_m" in rebuild_block
-    assert "min_effective_clearance_m=args.cbf_min_effective_clearance_m" in rebuild_block
-    assert ").to(device)" in rebuild_block
+    assert "high_level.load_state_dict" not in runtime_text
+    assert "high_level.cbf_layer =" not in runtime_text
+    assert "build_actor_critic(request.resolved_config," in runtime_text
+    preflight_text = (SEA_ROOT / "training/rsl_rl/rsl_rl/runtime_preflight.py").read_text()
+    assert "blocked: checkpoint loading modes require Task 7 manifest loader" in preflight_text
 
 
 def test_runtime_cbf_layer_rebuild_blocks_old_checkpoint_buffer_regression() -> None:
@@ -498,24 +498,20 @@ def test_trainer_surface_contract() -> None:
         assert token in trainer_text, token
     assert "queue_delay_alpha" not in trainer_text
     assert "explicit 0.1s command delay" not in trainer_text
-    assert 'parser.add_argument("--cbf-fov-deg", type=float, default=240.0)' in trainer_text
-    assert 'parser.add_argument("--cbf-fov-deg", type=float, default=240.0)' in simple_trainer_text
-    assert 'parser.add_argument("--cbf-fov-deg", type=float, default=240.0)' in runtime_text
-    assert 'CBF_FOV_DEG="${SEA_NAV_FULL_METHOD_CBF_FOV_DEG:-240.0}"' in shell_text
+    assert 'parser.add_argument("--cbf-fov-deg", type=float, default=180.0)' in trainer_text
+    assert 'parser.add_argument("--cbf-fov-deg", type=float, default=180.0)' in simple_trainer_text
+    assert 'parser.add_argument("--cbf-fov-deg", type=float, default=180.0)' in runtime_text
+    assert "--preflight-only" in shell_text
+    assert "mkdir" not in shell_text
     assert "high_level_command_scale = torch.tensor([1.0, 1.0, 1.0]" in runtime_text
     assert "slr_command_scale = torch.tensor([2.0, 2.0, 0.25]" in runtime_text
     assert "slr_command * high_level_command_scale" in runtime_text
     assert "slr_command[:, :3] * slr_command_scale" in runtime_text
-    old_python_default = "default=180" + ".0"
-    old_shell_default = "CBF_FOV_DEG:-" + "180"
-    for name, text in {
-        "trainer": trainer_text,
-        "simple_trainer": simple_trainer_text,
-        "runtime": runtime_text,
-        "shell": shell_text,
-    }.items():
-        assert old_python_default not in text, name
-        assert old_shell_default not in text, name
+    # Upstream actor geometry and 240-degree sensor geometry remain separate.
+    assert 'default=240.0' not in trainer_text
+    assert 'default=240.0' not in simple_trainer_text
+    assert 'default=240.0' not in runtime_text
+
 
 
 def main() -> None:

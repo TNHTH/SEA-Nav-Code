@@ -27,26 +27,42 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
+import json
 import sys
+from pathlib import Path
+SEA_ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0,str(SEA_ROOT/"training/rsl_rl"))
+from rsl_rl.runtime_preflight import preflight as shared_preflight
 
+def preflight(argv):
+    return shared_preflight(argv,runtime_stack="isaac_gym_preview4",repo_root=SEA_ROOT,entrypoint="play")
 
-from legged_gym import LEGGED_GYM_ROOT_DIR
-import os
-import time
-import isaacgym
-from legged_gym.envs import *
-from legged_gym.utils import  get_args, export_policy_as_jit, task_registry
-import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
-from collections import deque
-import numpy as np
-import torch
-import time
-import cv2
-from isaacgym import gymapi
+def main(argv=None):
+    request=preflight(sys.argv[1:] if argv is None else argv)
+    # Inference remains blocked by preflight until the Task7 manifest loader.
+    import isaacgym
+    from legged_gym.utils import get_args
+    args=get_args(list(request.remaining_argv))
+    args.runtime_request=request
+    play(args,request)
 
-    
-def play(args):
+def play(args, request):
+    import sys
+
+    from legged_gym import LEGGED_GYM_ROOT_DIR
+    import os
+    import time
+    import isaacgym
+    import legged_gym.envs
+    from legged_gym.utils import  get_args, export_policy_as_jit, task_registry
+    import matplotlib.pyplot as plt
+    from matplotlib.animation import FuncAnimation
+    from collections import deque
+    import numpy as np
+    import torch
+    import time
+    import cv2
+    from isaacgym import gymapi
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     # overwrite some parameters for testing
     env_cfg.env.num_envs = min(env_cfg.env.num_envs, 1)
@@ -79,7 +95,7 @@ def play(args):
     env_cfg.asset.terminate_after_contacts_on = [] # no termination
 
     # prepare environment
-    env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
+    env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg, resolved_config=request.resolved_config)
     obs = env.get_observations()
 
     # load policy
@@ -87,7 +103,7 @@ def play(args):
     train_cfg.runner.load_run = -1
     train_cfg.runner.checkpoint = -1
 
-    ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
+    ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg, resolved_config=request.resolved_config)
     policy = ppo_runner.get_inference_policy(device=env.device)
     print('Loaded policy from: ', task_registry.loaded_policy_path)
 
@@ -165,7 +181,5 @@ def play(args):
                 SAVE_IMAGES = False
 
 
-if __name__ == '__main__':
-    args = get_args()
-    args.headless = False
-    play(args)
+if __name__ == "__main__":
+    main()

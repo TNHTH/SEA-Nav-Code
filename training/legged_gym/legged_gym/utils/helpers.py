@@ -33,6 +33,7 @@ import copy
 import torch
 import numpy as np
 import random
+import sys
 from isaacgym import gymapi
 from isaacgym import gymutil
 
@@ -151,7 +152,7 @@ def update_cfg_from_args(env_cfg, cfg_train, args):
 
     return env_cfg, cfg_train
 
-def get_args():
+def get_args(argv=None):
     custom_parameters = [
         {"name": "--task", "type": str, "default": "go2_pos_rough", "help": "Resume training or start testing from a checkpoint. Overrides config file if provided."},
         {"name": "--resume", "action": "store_true", "default": False,  "help": "Resume training from a checkpoint"},
@@ -170,9 +171,15 @@ def get_args():
         {"name": "--max_iterations", "type": int, "help": "Maximum number of training iterations. Overrides config file if provided."},
     ]
     # parse arguments
-    args = gymutil.parse_arguments(
-        description="RL Policy",
-        custom_parameters=custom_parameters)
+    previous_argv = list(sys.argv)
+    try:
+        if argv is not None:
+            sys.argv = [sys.argv[0]] + list(argv)
+        args = gymutil.parse_arguments(
+            description="RL Policy",
+            custom_parameters=custom_parameters)
+    finally:
+        sys.argv = previous_argv
 
     # name allignment
     args.sim_device_id = args.compute_device_id
@@ -182,7 +189,6 @@ def get_args():
         
     # default logic for train and test
     args.wandb = not args.no_wandb
-    args.rl_device = args.sim_device
     if args.test:
         args.headless = False
         args.wandb = False

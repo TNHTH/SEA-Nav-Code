@@ -595,9 +595,14 @@ def test_committed_adapter_examples_are_identity_bound_and_not_original_claims()
     assert manifest["notes"]["result_class"] == "isaaclab_adapter_evidence"
     assert "original_reproduction" not in json.dumps(manifest, sort_keys=True)
 
-    assert adapter_config["run_identity"] == manifest["run_identity"]
-    assert adapter_config["resolved_config_sha256"] == manifest["resolved_config_sha256"]
-    assert adapter_config["application_status"] == "inactive_until_task_6_runtime_wiring"
+    assert adapter_config["schema_version"] == 1
+    assert adapter_config["algorithm_profile"] == "upstream_fbce672c"
+    assert adapter_config["implementation_delta"] == ["ppo_state_identity_repair", "replay_reset_reconstruction_v1"]
+    executable = resolve_run_config(registry_path=REGISTRY,
+        algorithm_profile=adapter_config["algorithm_profile"],runtime_stack="isaaclab_adapter",
+        implementation_delta=adapter_config["implementation_delta"])
+    assert executable.identity.implementation_delta == tuple(adapter_config["implementation_delta"])
+    assert adapter_config["runtime"]["enable_collision_replay"] is False
     assert "original_reproduction" not in json.dumps(adapter_config, sort_keys=True)
 
 

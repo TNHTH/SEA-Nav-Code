@@ -25,17 +25,18 @@ class FormalEvalContract:
 
 @dataclass(frozen=True)
 class RuntimeContract:
-    action_chain_mode: str = "current_pre_delay_cbf"
-    command_filter_mode: str = "source_alpha_only"
-    cbf_fov_deg: float = 240.0
-    cbf_footprint_radius_m: float = 0.55
-    cbf_min_effective_clearance_m: float = 0.01
-    timeout_seconds: float = 40.0
-    source_perception_delay_enabled: bool = True
-    source_reward_done_parity_enabled: bool = True
-    source_stand_still_time_steps: int = 150
-    source_contact_termination_enabled: bool = True
-    source_play_eval_terminal_semantics_enabled: bool = True
+    action_chain_mode: str
+    command_filter_mode: str
+    cbf_fov_deg: float
+    cbf_footprint_radius_m: float
+    cbf_min_effective_clearance_m: Optional[float]
+    timeout_seconds: float
+    source_perception_delay_enabled: bool
+    source_reward_done_parity_enabled: bool
+    source_stand_still_time_steps: int
+    source_contact_termination_enabled: bool
+    source_play_eval_terminal_semantics_enabled: bool
+    application_status: str = "projection_only_not_runtime_evidence"
 
 
 @dataclass(frozen=True)
@@ -105,7 +106,15 @@ def default_manifest(
             "training/legged_gym/legged_gym/envs/go2/go2_pos_config.py",
         ],
         formal_eval=FormalEvalContract(),
-        runtime_contract=RuntimeContract(),
+        runtime_contract=RuntimeContract(
+            action_chain_mode="current_pre_delay_cbf",command_filter_mode="source_alpha_only",
+            cbf_fov_deg=resolved_config.algorithm.cbf["cbf_fov_deg"],
+            cbf_footprint_radius_m=resolved_config.algorithm.cbf["footprint_radius_m"],
+            cbf_min_effective_clearance_m=resolved_config.algorithm.cbf["min_effective_clearance_m"],
+            timeout_seconds=resolved_config.algorithm.horizons["training_episode_s"],
+            source_perception_delay_enabled=True,source_reward_done_parity_enabled=True,
+            source_stand_still_time_steps=150,source_contact_termination_enabled=True,
+            source_play_eval_terminal_semantics_enabled=False),
         run_identity=resolved_config.identity,
         resolved_config_sha256=resolved_config.resolved_sha256,
         validation_rung=validation_rung.strip(),
@@ -120,3 +129,18 @@ def write_manifest(path: str | Path, manifest: AdapterManifest) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(manifest.to_dict(), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def bind_runtime_result(*args, **kwargs):
+    from rsl_rl.runtime_preflight import bind_runtime_result as bind
+    return bind(*args, **kwargs)
+
+
+def close_runtime_resources(*args, **kwargs):
+    from rsl_rl.runtime_preflight import close_runtime_resources as close
+    return close(*args, **kwargs)
+
+
+def publish_runtime_result(*args, **kwargs):
+    from rsl_rl.runtime_preflight import publish_runtime_result as publish
+    return publish(*args, **kwargs)

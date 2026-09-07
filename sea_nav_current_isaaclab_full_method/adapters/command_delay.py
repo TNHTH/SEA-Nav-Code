@@ -39,13 +39,16 @@ class CommandDelayFilter:
     def step(self, command: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, torch.Tensor | int]]:
         clipped_new = torch.clip(command.to(self.device), -3.0, 3.0)
         self.filtered = self.config.alpha * clipped_new + (1.0 - self.config.alpha) * self.filtered
-        self.filtered = clip_body_command(self.filtered)
+        # Match Gym: the alpha recurrence keeps its unclipped state. Bounds
+        # constrain the controller output, not the next recurrence's memory.
+        executed = clip_body_command(self.filtered)
         debug = {
             "delay_steps": 0,
             "queue_len": 0,
             "clipped_new_command": clipped_new.detach().clone(),
             "delayed_command": clipped_new.detach().clone(),
             "filtered_command": self.filtered.detach().clone(),
+            "executed_command": executed.detach().clone(),
             "source_alpha_only": True,
         }
-        return self.filtered.clone(), debug
+        return executed, debug

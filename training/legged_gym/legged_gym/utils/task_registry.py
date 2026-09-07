@@ -40,6 +40,8 @@ from legged_gym import LEGGED_GYM_ROOT_DIR, LEGGED_GYM_ENVS_DIR
 from .helpers import get_args, update_cfg_from_args, class_to_dict, get_load_path, set_seed, parse_sim_params
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
+from rsl_rl.environment_profile import materialize_config, apply_gym_environment, apply_algorithm_profile, reconcile_environment_receipt
+
 class TaskRegistry():
     def __init__(self):
         self.task_classes = {}
@@ -55,13 +57,13 @@ class TaskRegistry():
         return self.task_classes[name]
     
     def get_cfgs(self, name) -> Tuple[LeggedRobotCfg, LeggedRobotCfgPPO]:
-        train_cfg = self.train_cfgs[name]
-        env_cfg = self.env_cfgs[name]
+        train_cfg = materialize_config(self.train_cfgs[name])
+        env_cfg = materialize_config(self.env_cfgs[name])
         # copy seed
         env_cfg.seed = train_cfg.seed
         return env_cfg, train_cfg
     
-    def make_env(self, name, args=None, env_cfg=None) -> Tuple[VecEnv, LeggedRobotCfg]:
+    def make_env(self, name, args=None, env_cfg=None, resolved_config=None) -> Tuple[VecEnv, LeggedRobotCfg]:
         """ Creates an environment either from a registered namme or from the provided config file.
 
         Args:
@@ -88,8 +90,23 @@ class TaskRegistry():
             # load config files
             env_cfg, _ = self.get_cfgs(name)
         # override cfg from args (if specified)
-        env_cfg, _ = update_cfg_from_args(env_cfg, None, args)
+        env_cfg, _ = update_cfg_from_args(materialize_config(env_cfg), None, args)
 
+        if resolved_config is None:
+            raise ValueError("resolved_config required before Gym environment construction")
+        request = args.runtime_request
+        env_cfg = materialize_config(env_cfg)
+        env_cfg.env.num_envs = request.arguments.num_envs
+        env_cfg.seed = request.arguments.seed
+        env_cfg.replay.ring_buffer_steps = request.arguments.replay_ring_buffer_steps
+        env_cfg.replay.undo_steps_range = [request.arguments.replay_undo_min,request.arguments.replay_undo_max]
+        if request.arguments.source_max_goal_level != env_cfg.terrain.num_rows:
+            raise ValueError('source_max_goal_level must match the actual Gym terrain row bound')
+        env_cfg.replay.enable_collision_replay = request.arguments.enable_collision_replay
+        env_cfg, receipt = apply_gym_environment(env_cfg, resolved_config,
+                                                timeout_seconds=request.arguments.timeout_seconds)
+        env_cfg.controller_root = request.paths.asset_root / "ctrl_model"
+        reconcile_environment_receipt(receipt,request.environment)
         set_seed(env_cfg.seed)
         # parse sim params (convert to dict first)
         sim_params = {"sim": class_to_dict(env_cfg.sim)}
@@ -101,7 +118,7 @@ class TaskRegistry():
                             headless=args.headless)
         return env, env_cfg
 
-    def make_alg_runner(self, env, name=None, args=None, train_cfg=None, log_root="default"
+    def make_alg_runner(self, env, name=None, args=None, train_cfg=None, log_root="default", resolved_config=None
                         ) -> Tuple[Union[OnPolicyRunner, OnPolicyRunner], LeggedRobotCfgPPO]:
 
     # def make_alg_runner(self, env, name=None, args=None, train_cfg=None, log_root="default"
@@ -138,7 +155,7 @@ class TaskRegistry():
             if name is not None:
                 print(f"'train_cfg' provided -> Ignoring 'name={name}'")
         # override cfg from args (if specified)
-        _, train_cfg = update_cfg_from_args(None, train_cfg, args)
+        _, train_cfg = update_cfg_from_args(None, materialize_config(train_cfg), args)
 
         if log_root=="default":
             log_root = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name)
@@ -149,18 +166,15 @@ class TaskRegistry():
             log_dir = os.path.join(log_root, datetime.now().strftime('%m_%d_%H-%M-%S') + '_' + train_cfg.runner.run_name)
         
         
-        train_cfg_dict = class_to_dict(train_cfg)
+        if resolved_config is None:
+            raise ValueError("resolved_config required before runner construction")
+        if train_cfg.runner.resume:
+            raise ValueError("blocked: checkpoint loading requires Task 7 manifest loader")
+        train_cfg_dict = apply_algorithm_profile(class_to_dict(train_cfg), resolved_config)
 
         runner_class = eval(train_cfg.runner_class_name)
 
         runner = runner_class(env, train_cfg_dict, log_dir, args=args, device=args.rl_device)
-        resume = train_cfg.runner.resume
-        if resume:
-            # load previously trained model
-            resume_path = get_load_path(log_root, load_run=train_cfg.runner.load_run, checkpoint=train_cfg.runner.checkpoint)
-            self.loaded_policy_path = resume_path
-            print(f"Loading model from: {resume_path}")
-            runner.load(resume_path)
         return runner, train_cfg
 
 # make global task registry

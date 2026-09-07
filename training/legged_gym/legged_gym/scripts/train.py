@@ -28,31 +28,69 @@
 #
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
 
-import numpy as np
-import os
+import json
 import sys
-from legged_gym.envs import *
-from legged_gym.utils import get_args, task_registry, helpers
-from legged_gym import LEGGED_GYM_ROOT_DIR, LEGGED_GYM_ENVS_DIR
-from datetime import datetime
-from legged_gym.envs.go2.go2_pos_config import Go2PosRoughCfg
-from legged_gym.utils.helpers import class_to_dict
+from pathlib import Path
 
-def print_config():
-    config = class_to_dict(Go2PosRoughCfg.rewards)
-    print('-'*80)
-    import pprint
-    pprint.pprint(config, indent=2)
-    print('-'*80)
+SEA_ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(SEA_ROOT / "training/rsl_rl"))
+sys.path.insert(0, str(SEA_ROOT / "training/legged_gym"))
+from rsl_rl.runtime_preflight import preflight as shared_preflight, blocked_result
 
-    return config
+def preflight(argv):
+    return shared_preflight(argv,runtime_stack="isaac_gym_preview4",repo_root=SEA_ROOT)
 
-def train(args):
-    config = print_config()
-    env, env_cfg = task_registry.make_env(name=args.task, args=args)
-    ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args)
-    ppo_runner.learn(num_learning_iterations=train_cfg.runner.max_iterations, init_at_random_ep_len=True, config=config)
-    
-if __name__ == '__main__':
-    args = get_args()
-    train(args)
+def main(argv=None):
+    request=preflight(sys.argv[1:] if argv is None else argv)
+    if request.arguments.preflight_only:
+        return {"status":"preflight_passed","runtime_status":"not_executed"}
+    env=None
+    try:
+        from rsl_rl.runtime_preflight import require_runtime_prerequisites
+        require_runtime_prerequisites(request)
+        import isaacgym
+        import legged_gym.envs
+        from legged_gym.utils import get_args,task_registry
+        args=get_args(list(request.remaining_argv))
+        from rsl_rl.runtime_preflight import reconcile_gym_arguments
+        args=reconcile_gym_arguments(request,args)
+        args.runtime_request=request
+        # Validate the registered run's real constructors before the first environment.
+        from rsl_rl.environment_profile import apply_algorithm_profile
+        from legged_gym.utils.helpers import class_to_dict
+        _,preconstruction_train_cfg=task_registry.get_cfgs(args.task)
+        apply_algorithm_profile(class_to_dict(preconstruction_train_cfg),request.resolved_config)
+        env,env_cfg=task_registry.make_env(name=args.task,args=args,resolved_config=request.resolved_config)
+        runner,train_cfg=task_registry.make_alg_runner(env=env,name=args.task,args=args,
+            log_root=str(request.paths.run_root/"training"),resolved_config=request.resolved_config)
+        runner.learn(num_learning_iterations=train_cfg.runner.max_iterations,init_at_random_ep_len=True,
+                     config=env_cfg.environment_receipt)
+        output=blocked_result("isaac_gym_preview4","runtime acceptance not established",
+                              "complete real controller/reset and lifecycle validation")
+        output["effective_environment"]=env_cfg.environment_receipt
+    except (ModuleNotFoundError,ImportError) as exc:
+        output=blocked_result("isaac_gym_preview4",exc,"install and lock Isaac Gym Preview 4",
+                              dependency_status="unavailable")
+    except Exception as exc:
+        output=blocked_result("isaac_gym_preview4",exc,"resolve runtime prerequisites")
+        if not str(exc).startswith("blocked:"):
+            output["status"]="failed"
+    finally:
+        errors=[]
+        if env is not None:
+            for name,resource in (("viewer",getattr(env,"viewer",None)),("sim",getattr(env,"sim",None))):
+                if resource is not None:
+                    try:
+                        getattr(env.gym,"destroy_"+name)(resource)
+                    except Exception as exc:
+                        errors.append(dict(resource=name,error=str(exc)))
+    if errors:
+        output.update(status="failed",close_errors=errors)
+    output["ok"]=False
+    from rsl_rl.runtime_preflight import publish_runtime_result
+    return publish_runtime_result(output,request)
+
+if __name__ == "__main__":
+    output=main()
+    print(json.dumps(output,sort_keys=True))
+    raise SystemExit(0 if output["status"]=="preflight_passed" else 3)

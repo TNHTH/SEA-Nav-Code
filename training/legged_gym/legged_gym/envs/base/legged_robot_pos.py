@@ -52,6 +52,9 @@ from rsl_rl.replay import (
     execute_reset_transaction, build_reset_frames, bootstrap_history, advance_history, local_goal, require_runtime_contract,
 )
 
+from rsl_rl.navigation_reward import compute_navigation_reward_terms, GYM_REWARD_NAMES
+from rsl_rl.perception_delay import PerceptionDelayConfig, TimestampedPerception
+
 SAVE_IMG = False
 MAX_DEPTH = 10
 
@@ -107,6 +110,8 @@ class LeggedRobotPos(LeggedRobot):
         self.delay_rays = torch.ones(self.num_envs, self.ray_angles.shape[0], dtype=torch.float, device=self.device, requires_grad=False) * 5.0
         self.nav_clip_min = torch.tensor([self.cfg.commands.ranges.limit_vx[0], self.cfg.commands.ranges.limit_vy[0], self.cfg.commands.ranges.limit_vyaw[0]], dtype=torch.float, device=self.device, requires_grad=False)
         self.nav_clip_max = torch.tensor([self.cfg.commands.ranges.limit_vx[1], self.cfg.commands.ranges.limit_vy[1], self.cfg.commands.ranges.limit_vyaw[1]], dtype=torch.float, device=self.device, requires_grad=False)
+        self.perception = TimestampedPerception(PerceptionDelayConfig(**self.cfg.environment_receipt["perception"]),
+                                               self.num_envs,self.ray_angles.shape[0],self.device)
         self.nav_actions_filtered = torch.zeros(self.num_envs, 3, device=self.device, requires_grad=False)
         
         self.rays_hist = torch.ones(
@@ -159,9 +164,9 @@ class LeggedRobotPos(LeggedRobot):
         self.collision_pos_hist = torch.zeros(self.num_envs, max_col_pts, 3, device=self.device, dtype=torch.float)
         self.num_collisions = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
         
-        self.slr_body = torch.jit.load(f"{LEGGED_GYM_ROOT_DIR}/legged_gym/ctrl_model/body_latest.jit")
-        self.slr_encoder_vel = torch.jit.load(f"{LEGGED_GYM_ROOT_DIR}/legged_gym/ctrl_model/encoder_vel.jit")
-        self.slr_encoder_latent = torch.jit.load(f"{LEGGED_GYM_ROOT_DIR}/legged_gym/ctrl_model/encoder_latent.jit")
+        self.slr_body = torch.jit.load(str(self.cfg.controller_root / "body_latest.jit"))
+        self.slr_encoder_vel = torch.jit.load(str(self.cfg.controller_root / "encoder_vel.jit"))
+        self.slr_encoder_latent = torch.jit.load(str(self.cfg.controller_root / "encoder_latent.jit"))
 
     def _capture_replay_boundary(self, env_ids=None):
         ids = torch.arange(self.num_envs, device=self.device) if env_ids is None else env_ids
@@ -398,6 +403,7 @@ class LeggedRobotPos(LeggedRobot):
         self.fall_down[ids] = frames["gravity"][:,2] > -.8
         self.delay_rays[ids] = self.rays[ids]
         self.delay_goal[ids] = goal
+        self.perception.reset(ids, 0., self.rays[ids], goal)
         if not hasattr(self, "rays_rand"):
             self.rays_rand = self.rays.clone()
         self.rays_rand[ids] = self.rays[ids]
@@ -669,10 +675,25 @@ class LeggedRobotPos(LeggedRobot):
             Calls each reward function which had a non-zero scale (processed in self._prepare_reward_function())
             adds each terms to the episode sums and to the total reward
         """
+        # Current physical goal, not the previous delayed observation, owns reward.
+        self.goal_local_pos = local_goal(self.root_states, self.position_targets)
+        counts = torch.norm(self.contact_forces[:, self.penalised_contact_indices, :2],dim=-1) > .1
+        clearance,_ = self._get_clearance(fov_deg=None)
+        _,front = self._get_clearance(fov_deg=120.)
+        opening = self._get_guidance_nav_alignment(fov_deg=150.)
+        raw = compute_navigation_reward_terms(dict(distance=self.distance,goal_x=self.goal_local_pos[:,0],
+            cos_theta=self.goal_local_pos[:,0]/self.distance.clamp(min=1e-8),
+            vx=self.base_lin_vel[:,0],vy=self.base_lin_vel[:,1],wx=self.base_ang_vel[:,0],
+            wy=self.base_ang_vel[:,1],wz=self.base_ang_vel[:,2],cos_phi=opening,min_ray=clearance,
+            dead=front<1,position_history=self.pos_hist,position=self.root_states[:,:2],
+            terminated=self.terminate_buf,initial=self.initial_,not_just_reset=self.not_just_reset,
+            generic=counts.sum(-1),head_base=counts[:,8:11].sum(-1),leg=counts[:,:8].sum(-1)),
+            self.cfg.rewards.formula_mode)
+        self.navigation_reward_terms = {GYM_REWARD_NAMES[k]:v for k,v in raw.items()}
         self.rew_buf[:] = 0.
         for i in range(len(self.reward_functions)):
             name = self.reward_names[i]
-            rew = self.reward_functions[i]() * self.reward_scales[name]
+            rew = self.navigation_reward_terms[name] * self.reward_scales[name]
             self.rew_buf += rew
             self.episode_sums[name] += rew
             if torch.isnan(rew).nonzero().any():
@@ -681,7 +702,7 @@ class LeggedRobotPos(LeggedRobot):
             self.rew_buf[:] = torch.clip(self.rew_buf[:], min=0.)
         # add termination reward after clipping
         if "termination" in self.reward_scales:
-            rew = self._reward_termination() * self.reward_scales["termination"]
+            rew = self.navigation_reward_terms["termination"] * self.reward_scales["termination"]
             self.rew_buf += rew
             self.episode_sums["termination"] += rew
 
@@ -695,11 +716,11 @@ class LeggedRobotPos(LeggedRobot):
         initial = self.episode_length_buf <= 1
         advance_history(self.rays_hist, self.rays, initial, ids)
         advance_history(self.goal_hist, self.goal_local_pos, initial, ids)
-        refresh = ids[self.episode_length_buf[ids] % max(1, int(self.cfg.commands.delay_time / self.dt)) == 0]
-        if len(refresh):
-            sample = -torch.randint(2,4,(len(refresh),),device=self.device)-1
-            self.delay_rays[refresh] = self.rays_hist[refresh,sample]
-            self.delay_goal[refresh] = self.goal_hist[refresh,sample]
+        now = self.episode_length_buf[ids].to(torch.float64) * self.dt
+        self.perception.push(ids, now, self.rays[ids], self.goal_local_pos[ids])
+        perceived = self.perception.observe(ids, now)
+        self.delay_rays[ids], self.delay_goal[ids] = perceived.rays, perceived.goals
+        self.last_perception = perceived
         pos_ids = ids[self.episode_length_buf[ids] % 10 == 0]
         advance_history(self.pos_hist, self.root_states[:,:2], initial, pos_ids)
         prop = torch.cat((self.projected_gravity[ids],self.slr_commands[ids,:3]*self.commands_scale[:3],

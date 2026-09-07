@@ -34,6 +34,9 @@ def test_gate_writes_only_to_the_requested_path(tmp_path: Path) -> None:
         "rsl_rl_cpu_imports",
         "rsl_rl_cpu_smoke",
         "isaac_gym_runtime",
+        "isaac_gym_dependency",
+        "isaaclab_dependency",
+        "isaaclab_runtime",
     }
     report = tmp_path / "requested" / "gate-a.json"
     write_report(report, cases)
@@ -100,10 +103,22 @@ def test_missing_isaac_gym_is_blocked(monkeypatch: pytest.MonkeyPatch) -> None:
     def missing(name: str):
         raise ModuleNotFoundError(name)
 
-    monkeypatch.setattr(importlib, "import_module", missing)
-    case = probe_isaac_gym()
-    assert (case.name, case.status) == ("isaac_gym_runtime", "blocked")
-    assert "Isaac Gym" in case.detail
+    case = probe_isaac_gym(import_probe=missing)
+    assert (case.name, case.status) == ("isaac_gym_dependency", "blocked")
+    assert "isaacgym" in case.detail
+
+@pytest.mark.parametrize('package,prefix',[('isaacgym','isaac_gym'),('isaaclab','isaaclab')])
+@pytest.mark.parametrize('outcome',['available','missing','broken'])
+def test_dependency_result_never_implies_runtime(package,prefix,outcome):
+    from tools.gate_a import probe_dependency, runtime_not_executed
+    def boundary(name):
+        assert name==package
+        if outcome=='missing': raise ModuleNotFoundError(name)
+        if outcome=='broken': raise ImportError('binary dependency failed')
+    dependency=probe_dependency(package,prefix,import_probe=boundary)
+    assert dependency.status=={'available':'passed','missing':'blocked','broken':'failed'}[outcome]
+    runtime=runtime_not_executed(prefix)
+    assert runtime.name==prefix+'_runtime' and runtime.status=='blocked'
 
 
 def test_gate_case_is_immutable() -> None:
@@ -219,4 +234,4 @@ def test_runtime_wrapper_rejects_missing_run_directory() -> None:
     )
 
     assert result.returncode == 2
-    assert "run directory" in result.stderr.lower()
+    assert "--run-root" in result.stderr and "--launcher" in result.stderr

@@ -18,7 +18,7 @@ def bootstrap(path):
                  if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "adapter_root"
                                                          for t in node.targets))
     end = next(i for i, node in enumerate(main.body)
-               if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("rsl_rl."))
+               if i >= start and isinstance(node, ast.ImportFrom) and (node.module or "").startswith("rsl_rl."))
     return tree, main, main.body[start:end + 1]
 
 
@@ -29,14 +29,18 @@ def test_bundled_selection_precedes_dependent_adapter_import(script):
     adapter_import = next(n for n in nodes if isinstance(n, ast.ImportFrom) and n.module == "adapters.cbf_shield")
     purge = [n for n in nodes if isinstance(n, ast.For) and
              any(isinstance(child, ast.Delete) for child in ast.walk(n))]
-    assert len(purge) == 1 and purge[0].lineno < adapter_import.lineno
+    assert not purge  # Preflight objects must retain their original module identity.
     select = [n for n in nodes if isinstance(n, ast.Expr) and isinstance(n.value, ast.Call)
               and isinstance(n.value.func, ast.Attribute) and n.value.func.attr == "insert"]
     assert len(select) == 1 and select[0].lineno < adapter_import.lineno
-    # Main stays after the real application launcher, which these CPU tests do not run.
+    # Task6 moved application startup into guarded main, after pure preflight.
     launchers = [n for n in ast.walk(tree) if isinstance(n, ast.Call)
                  and isinstance(n.func, ast.Name) and n.func.id == "AppLauncher"]
-    assert len(launchers) == 1 and launchers[0].lineno < main.lineno
+    assert len(launchers) == 1 and launchers[0] in list(ast.walk(main))
+    assert not any(isinstance(n, ast.ImportFrom) and n.module == "isaaclab.app" for n in tree.body)
+    cli = next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name == "cli")
+    calls=[n for n in ast.walk(cli) if isinstance(n,ast.Call) and isinstance(n.func,ast.Name)]
+    assert next(n.lineno for n in calls if n.func.id=='preflight') < next(n.lineno for n in calls if n.func.id=='main')
 
 
 @pytest.mark.parametrize("script", SCRIPTS)
@@ -48,13 +52,19 @@ def test_fresh_process_bootstrap_preserves_real_core_class_identity(script, prel
     prelude = "from pathlib import Path\nimport sys\n__file__ = " + repr(str(path)) + "\n"
     if preload_real_core:
         prelude += ("sys.path.insert(0, " + repr(str(ROOT / "training/rsl_rl")) + ")\n"
-                    "import rsl_rl.modules.cbf_lse_layer\nsys.path.pop(0)\n")
+                    "from rsl_rl.modules.cbf_lse_layer import ExactLSECBFLayer as original_core\n"
+                    "from rsl_rl.experiment_config import ResolvedRunConfig as original_config\n"
+                    "sys.path.pop(0)\n")
     checks = """
 from adapters.cbf_shield import ExactLSECBFLayer as adapter_core, FootprintAwareLSECBFLayer
 from rsl_rl.modules.cbf_lse_layer import ExactLSECBFLayer as training_core
 import rsl_rl
 assert adapter_core is training_core
 assert isinstance(FootprintAwareLSECBFLayer(), training_core)
+if 'original_core' in globals():
+    from rsl_rl.experiment_config import ResolvedRunConfig
+    assert original_core is training_core
+    assert original_config is ResolvedRunConfig
 assert Path(rsl_rl.__file__).resolve().parent == sea_root / "training/rsl_rl/rsl_rl"
 assert not any(name.startswith(("isaacgym", "isaaclab", "omni")) for name in sys.modules)
 print("real bundled CBF class identity passed")

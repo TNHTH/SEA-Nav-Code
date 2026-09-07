@@ -6,51 +6,64 @@ import os
 import sys
 from pathlib import Path
 
-from isaaclab.app import AppLauncher
+# Select the bundled package before adapter or proprietary imports.
+SEA_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SEA_ROOT / "training/rsl_rl"))
+sys.path.insert(0, str(SEA_ROOT))
+if "rsl_rl" in sys.modules:
+    loaded_root = Path(sys.modules["rsl_rl"].__file__).resolve().parent
+    if loaded_root != SEA_ROOT / "training/rsl_rl/rsl_rl":
+        raise RuntimeError("foreign rsl_rl already loaded; start a fresh bundled-package process")
+from rsl_rl.runtime_preflight import preflight as shared_preflight, blocked_result
 
+args = None
+simulation_app = None
+active_trace = None
+active_carrier = None
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--steps", type=int, default=16)
-parser.add_argument("--num-envs", type=int, default=1)
-parser.add_argument("--seed", type=int, default=42)
-parser.add_argument("--timeout-seconds", type=float, default=40.0)
-parser.add_argument("--result", type=str, required=True)
-parser.add_argument("--trace", type=str, default="")
-parser.add_argument("--manifest-out", type=str, default="")
-parser.add_argument("--checkpoint", type=str, default="")
-parser.add_argument("--stop-on-first-done", action="store_true")
-parser.add_argument("--cbf-footprint-radius-m", type=float, default=0.55)
-parser.add_argument("--cbf-min-effective-clearance-m", type=float, default=0.01)
-parser.add_argument("--cbf-fov-deg", type=float, default=240.0)
-parser.add_argument(
-    "--command-filter-mode",
-    choices=("source_alpha_only",),
-    default="source_alpha_only",
-)
-parser.add_argument("--enable-source-perception-delay", action="store_true")
-parser.add_argument("--enable-source-reward-done-parity", action="store_true")
-parser.add_argument("--source-pos-hist-interval-steps", type=int, default=10)
-parser.add_argument("--source-early-reset-prob-min", type=float, default=0.1)
-parser.add_argument("--source-early-reset-prob-max", type=float, default=0.5)
-parser.add_argument("--source-goal-level", type=float, default=0.0)
-parser.add_argument("--source-stand-still-time-steps", type=int, default=150)
-parser.add_argument("--disable-source-contact-termination", action="store_true")
-parser.add_argument("--source-play-eval-terminal-semantics", action="store_true")
-parser.add_argument(
-    "--action-chain-mode",
-    choices=("current_pre_delay_cbf", "post_delay_cbf", "no_delay_post_cbf", "no_cbf_delay_only"),
-    default="current_pre_delay_cbf",
-)
-parser.set_defaults(
-    enable_source_perception_delay=True,
-    enable_source_reward_done_parity=True,
-    source_play_eval_terminal_semantics=True,
-)
-AppLauncher.add_app_launcher_args(parser)
-args = parser.parse_args()
+def build_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--steps", type=int, default=16)
+    parser.add_argument("--num-envs", type=int, default=1)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--timeout-seconds", type=float, default=40.0)
+    parser.add_argument("--result", type=str, default="")
+    parser.add_argument("--trace", type=str, default="")
+    parser.add_argument("--manifest-out", type=str, default="")
+    parser.add_argument("--checkpoint", type=str, default="")
+    parser.add_argument("--stop-on-first-done", action="store_true")
+    parser.add_argument("--cbf-footprint-radius-m", type=float, default=0.0)
+    parser.add_argument("--cbf-min-effective-clearance-m", type=float, default=1.0e-4)
+    parser.add_argument("--cbf-fov-deg", type=float, default=180.0)
+    parser.add_argument(
+        "--command-filter-mode",
+        choices=("source_alpha_only",),
+        default="source_alpha_only",
+    )
+    parser.add_argument("--enable-source-perception-delay", action="store_true")
+    parser.add_argument("--enable-source-reward-done-parity", action="store_true")
+    parser.add_argument("--source-pos-hist-interval-steps", type=int, default=10)
+    parser.add_argument("--source-early-reset-prob-min", type=float, default=0.1)
+    parser.add_argument("--source-early-reset-prob-max", type=float, default=0.5)
+    parser.add_argument("--source-goal-level", type=float, default=0.0)
+    parser.add_argument("--source-stand-still-time-steps", type=int, default=150)
+    parser.add_argument("--disable-source-contact-termination", action="store_true")
+    parser.add_argument("--source-play-eval-terminal-semantics", action="store_true")
+    parser.add_argument(
+        "--action-chain-mode",
+        choices=("current_pre_delay_cbf", "post_delay_cbf", "no_delay_post_cbf", "no_cbf_delay_only"),
+        default="current_pre_delay_cbf",
+    )
+    parser.set_defaults(
+        enable_source_perception_delay=True,
+        enable_source_reward_done_parity=True,
+        source_play_eval_terminal_semantics=False,
+    )
+    return parser
 
-app_launcher = AppLauncher(args)
-simulation_app = app_launcher.app
+def preflight(argv):
+    return shared_preflight(argv, runtime_stack="isaaclab_adapter", repo_root=SEA_ROOT,
+                            build_parser=build_parser, entrypoint="smoke")
 
 
 def load_module(name, path):
@@ -115,7 +128,14 @@ def tensor_list(tensor, limit=None):
     return values
 
 
-def main():
+def main(request):
+    global args, simulation_app, active_trace, active_carrier
+    args = request.arguments
+    from rsl_rl.runtime_preflight import require_runtime_prerequisites
+    require_runtime_prerequisites(request)
+    from isaaclab.app import AppLauncher
+    app_launcher = AppLauncher(args)
+    simulation_app = app_launcher.app
     import gymnasium as gym
     import numpy as np
     import torch
@@ -132,9 +152,6 @@ def main():
     if str(adapter_root) not in sys.path:
         sys.path.insert(0, str(adapter_root))
     # Select the shared core before importing adapters that inherit its layer.
-    for module_name in list(sys.modules):
-        if module_name == "rsl_rl" or module_name.startswith("rsl_rl."):
-            del sys.modules[module_name]
     sys.path.insert(0, str(sea_root / "training/rsl_rl"))
     from adapters.cbf_shield import CBFShieldConfig, ExactLSECBFShield, FootprintAwareLSECBFLayer, clip_body_command
     from adapters.collision_replay import CollisionReplayBuffer, CollisionReplayConfig
@@ -173,7 +190,7 @@ def main():
             self.import_mesh("hard_room", hard_room_mesh)
 
     task = "Isaac-Velocity-Flat-Unitree-Go2-v0"
-    env_cfg = parse_env_cfg(task, device="cuda:0", num_envs=args.num_envs, use_fabric=True)
+    env_cfg = parse_env_cfg(task, device=args.device, num_envs=args.num_envs, use_fabric=True)
     env_cfg.seed = int(args.seed)
     env_cfg.scene.terrain.class_type = HardRoomTerrainImporter
     env_cfg.scene.terrain.terrain_type = "plane"
@@ -184,44 +201,25 @@ def main():
     env_cfg.commands.base_velocity.debug_vis = False
     env_cfg.observations.policy.enable_corruption = False
     env_cfg.scene.terrain.visual_material = None
-    go2_usd_override = os.environ.get("SEA_NAV_FULL_METHOD_GO2_USD", "").strip()
-    asset_resolution = {
-        "go2_usd_path": str(env_cfg.scene.robot.spawn.usd_path),
-        "override_enabled": False,
-        "override_source": None,
-        "ground_plane": "procedural mesh plane via TerrainImporter.import_mesh; avoids remote default_environment.usd",
-        "terrain_visual_material": "disabled to avoid remote MDL dependency; hard_room mesh keeps vertex colors",
-    }
-    if go2_usd_override:
-        go2_usd_path = Path(go2_usd_override).expanduser().resolve()
-        if not go2_usd_path.is_file():
-            raise FileNotFoundError(f"SEA_NAV_FULL_METHOD_GO2_USD does not exist: {go2_usd_path}")
-        env_cfg.scene.robot.spawn.usd_path = str(go2_usd_path)
-        asset_resolution = {
-            "go2_usd_path": str(go2_usd_path),
-            "override_enabled": True,
-            "override_source": os.environ.get(
-                "SEA_NAV_FULL_METHOD_GO2_USD_SOURCE",
-                "official IsaacLab Go2 USD local mirror",
-            ),
-            "original_configured_go2_usd_path": str(asset_resolution["go2_usd_path"]),
-            "ground_plane": asset_resolution["ground_plane"],
-            "terrain_visual_material": asset_resolution["terrain_visual_material"],
-        }
-
-    seed_evidence = {
-        "requested_seed": int(args.seed),
-        "env_seed": int(env_cfg.seed),
-        "seed_source": "args.seed -> env_cfg.seed before gym.make; carrier.reset(seed=args.seed) retained",
-    }
-
-    env_cfg.episode_length_s = args.timeout_seconds
+    go2_usd_path = request.paths.asset_root / "go2.usd"
+    env_cfg.scene.robot.spawn.usd_path = str(go2_usd_path)
+    asset_resolution = {"go2_usd_path":str(go2_usd_path),"source":"explicit_asset_root",
+                        "provenance_status":"unverified","interface_status":"blocked"}
     carrier = gym.make(task, cfg=env_cfg, render_mode=None)
+    active_carrier = carrier
     carrier_cfg_seed = getattr(carrier.unwrapped.cfg, "seed", None)
     if carrier_cfg_seed is not None:
         seed_evidence["env_seed"] = int(carrier_cfg_seed)
     device = carrier.unwrapped.device
     step_dt = float(getattr(carrier.unwrapped, "step_dt", 0.02))
+    from rsl_rl.environment_profile import environment_settings
+    from rsl_rl.perception_delay import PerceptionDelayConfig, TimestampedPerception
+    effective_environment = environment_settings(request.resolved_config,policy_dt_s=step_dt,
+        timeout_seconds=args.timeout_seconds,replay_enabled=False,capacity=args.replay_ring_buffer_steps,
+        undo=(args.replay_undo_min,args.replay_undo_max),max_level=args.source_max_goal_level)
+    from rsl_rl.environment_profile import reconcile_environment_receipt
+    reconcile_environment_receipt(effective_environment,request.environment)
+    perception = TimestampedPerception(PerceptionDelayConfig(**effective_environment["perception"]),args.num_envs,41,device)
     max_episode_length = int(round(args.timeout_seconds / step_dt))
 
     stage = omni.usd.get_context().get_stage()
@@ -257,37 +255,11 @@ def main():
         device=device,
     )
 
-    high_level = DifferentiableSafeActorCritic(
-        num_actions=3,
-        actor_hidden_dims=[512, 256, 128],
-        critic_hidden_dims=[512, 256, 128],
-        encoder_hidden_dims=[512, 256, 128],
-        activation="elu",
-        init_noise_std=1.5,
-        num_props=12,
-        num_rays=41,
-        cbf_fov_deg=args.cbf_fov_deg,
-        his_len=10,
-    ).to(device).eval()
+    from rsl_rl.policy_factory import build_actor_critic
+    high_level = build_actor_critic(request.resolved_config,
+        **request.environment["constructor_settings"]["policy"],num_actions=3,num_props=12).to(device).eval()
     checkpoint_loaded = False
     checkpoint_path = None
-    if args.checkpoint:
-        checkpoint_path = str(Path(args.checkpoint).resolve())
-        payload = torch.load(checkpoint_path, map_location=device, weights_only=True)
-        if isinstance(payload, dict) and "model_state_dict" in payload:
-            state_dict = payload["model_state_dict"]
-        elif isinstance(payload, dict) and "state_dict" in payload:
-            state_dict = payload["state_dict"]
-        else:
-            state_dict = payload
-        high_level.load_state_dict(state_dict, strict=True)
-        high_level.cbf_layer = FootprintAwareLSECBFLayer(
-            num_rays=41,
-            fov_deg=args.cbf_fov_deg,
-            footprint_radius_m=args.cbf_footprint_radius_m,
-            min_effective_clearance_m=args.cbf_min_effective_clearance_m,
-        ).to(device)
-        checkpoint_loaded = True
     cbf_shield = ExactLSECBFShield(
         CBFShieldConfig(
             fov_deg=args.cbf_fov_deg,
@@ -297,7 +269,7 @@ def main():
         device=device,
     )
 
-    ctrl_root = sea_root / "training/legged_gym/legged_gym/ctrl_model"
+    ctrl_root = request.paths.asset_root / "ctrl_model"
     encoder_vel = torch.jit.load(str(ctrl_root / "encoder_vel.jit"), map_location=device).eval()
     encoder_latent = torch.jit.load(str(ctrl_root / "encoder_latent.jit"), map_location=device).eval()
     body = torch.jit.load(str(ctrl_root / "body_latest.jit"), map_location=device).eval()
@@ -344,7 +316,7 @@ def main():
 
         def step(self, command):
             filtered, debug = self.queue_filter.step(command)
-            self.filtered = filtered.detach().clone()
+            self.filtered = self.queue_filter.filtered.detach().clone()
             return filtered, {
                 **debug,
                 "mode": self.mode,
@@ -391,49 +363,16 @@ def main():
         return source_early_reset_prob_min + (source_early_reset_prob_max - source_early_reset_prob_min) * level_scale
 
     def update_source_perception_observation(rays_m, goal_local):
-        nonlocal rays_hist, goal_hist, delay_rays, delay_goal, last_perception_delay_debug
-
-        rays_hist = torch.where(
-            (episode_length_buf <= 1)[:, None, None],
-            torch.stack([rays_m] * 10, dim=1),
-            torch.cat((rays_hist[:, 1:], rays_m.unsqueeze(1)), dim=1),
-        )
-        goal_hist = torch.where(
-            (episode_length_buf <= 1)[:, None, None],
-            torch.stack([goal_local] * 10, dim=1),
-            torch.cat((goal_hist[:, 1:], goal_local.unsqueeze(1)), dim=1),
-        )
-
-        if source_perception_delay_enabled:
-            delay_interval = max(1, int(round(0.1 / step_dt)))
-            env_ids = (episode_length_buf % delay_interval == 0).nonzero(as_tuple=False).flatten()
-            resample_indices = []
-            if len(env_ids) != 0:
-                resample_idx = -torch.randint(2, 4, (len(env_ids),), device=device) - 1
-                delay_rays[env_ids] = rays_hist[env_ids, resample_idx, :]
-                delay_goal[env_ids] = goal_hist[env_ids, resample_idx, :]
-                resample_indices = [int(x) for x in resample_idx.detach().cpu().tolist()]
-            rays_obs = delay_rays
-            goal_obs = delay_goal
-            last_perception_delay_debug = {
-                "used_delayed_perception": True,
-                "delay_interval_steps": int(delay_interval),
-                "updated_env_ids": [int(x) for x in env_ids.detach().cpu().tolist()],
-                "resample_indices": resample_indices,
-                "delay_rays_min": float(delay_rays.min().detach().cpu()),
-                "delay_rays_max": float(delay_rays.max().detach().cpu()),
-                "delay_goal_norm_mean": float(torch.norm(delay_goal, dim=-1).mean().detach().cpu()),
-            }
-        else:
-            rays_obs = rays_m
-            goal_obs = goal_local
-            last_perception_delay_debug = {
-                "used_delayed_perception": False,
-                "delay_interval_steps": None,
-                "updated_env_ids": [],
-                "resample_indices": [],
-            }
-        return rays_obs, goal_obs, last_perception_delay_debug
+        nonlocal delay_rays,delay_goal,last_perception_delay_debug
+        ids=torch.arange(num_envs,device=device)
+        now=episode_length_buf.to(torch.float64)*step_dt
+        fresh=ids[episode_length_buf==0]
+        perception.reset(fresh,now[fresh],rays_m[fresh],goal_local[fresh])
+        perception.push(ids,now,rays_m,goal_local)
+        observed=perception.observe(ids,now)
+        delay_rays,delay_goal=observed.rays,observed.goals
+        last_perception_delay_debug={"used_delayed_perception":True,"clock_contract":"timestamped_policy_tick_sample_and_hold"}
+        return delay_rays,delay_goal,last_perception_delay_debug
 
     def root_grid_goal_rays():
         root_pos_w = robot.data.root_pos_w.detach()
@@ -580,55 +519,23 @@ def main():
         done = terminate_buf | hard_reset | goal_reached_flag | stand_still_flag | time_out_buf | fall_down
         source_early_reset_count += int(early_reset_mask.sum().detach().cpu())
 
-        reward_terms = {}
-        reach_bonus = 1.0 / (1.0 + 2.0 * torch.square(distance))
-        reward_terms["reach_pos_target_tight"] = 10.0 * reach_bonus * (distance < 0.5)
-
-        goal_dir_norm = goal_local / (distance.unsqueeze(1) + 1e-4)
-        alignment = goal_dir_norm[:, 0].clip(min=0.0)
-        target_speed = (distance * 1.0).clip(max=0.5)
-        forward_vel = base_lin_vel[:, 0].clip(min=0.0)
-        vel_reward = torch.clamp(alignment * forward_vel, max=target_speed)
-        reward_terms["velo_dir"] = 4.0 * (vel_reward + reach_bonus)
-
-        front_clearance, _ = clearance(rays_m, fov_deg=None)
-        dir_alignment, guide_idx = guidance_nav_alignment(rays_m, fov_deg=150.0)
-        safe_vel_limit = (front_clearance * 1.0).clip(max=0.5)
-        reward_vel_clamped = torch.min(forward_vel, safe_vel_limit)
-        reward_base = dir_alignment * reward_vel_clamped
-        overspeed = (forward_vel - safe_vel_limit).clip(min=0.0)
-        close_obst = (reward_base - overspeed * 0.2).clip(min=0.0)
-        reward_terms["close_obst_vel"] = 5.0 * torch.where(far_goal, close_obst, reach_bonus)
-
-        _, max_front_space = clearance(rays_m, fov_deg=120.0)
-        is_dead_end = max_front_space < 1.0
-        no_backward = base_lin_vel[:, 0] > 0.0
-        no_turn_back = torch.abs(base_ang_vel[:, 2]) < 1.0
-        no_escape = is_dead_end & (no_backward | no_turn_back)
-        stand_velo = (
-            torch.abs(base_ang_vel[:, 2])
-            + torch.abs(base_lin_vel[:, 1].clip(max=0.5))
-            + torch.abs(base_lin_vel[:, 0].clip(max=0.5))
-        )
-        not_just_reset = (episode_length_buf.float() / float(max_episode_length)) > 0.1
-        stuck_raw = not_just_reset * far_goal * ((no_escape | is_dead_end) & (move_dist_max < 0.1)).float()
-        stuck_raw = stuck_raw + stand_velo * (~far_goal).float()
-        reward_terms["stuck"] = -5.0 * stuck_raw
-
-        contact_over_th = contact_norm > 0.1
-        generic = torch.sum(contact_over_th[:, penalized_indices], dim=1).float() if penalized_indices else torch.zeros(num_envs, device=device)
-        head_base = torch.sum(contact_over_th[:, head_base_indices], dim=1).float() if head_base_indices else torch.zeros(num_envs, device=device)
-        legs = torch.sum(contact_over_th[:, leg_indices], dim=1).float() if leg_indices else torch.zeros(num_envs, device=device)
-        vel_square = torch.square(base_lin_vel[:, :2]).sum(dim=-1) + torch.square(base_ang_vel[:, 2])
-        collision_raw = (1.0 + 4.0 * vel_square) * (generic + 10.0 * head_base + 10.0 * legs)
-        collision_raw = collision_raw * (~initial).float()
-        reward_terms["collision"] = -4.0 * collision_raw
-        reward_terms["ang_vel_xy"] = -0.05 * torch.sum(torch.square(base_ang_vel[:, :2]), dim=1)
-        reward_terms["termination"] = -100.0 * terminate_buf.float()
-
-        total_reward = torch.zeros(num_envs, device=device)
-        for value in reward_terms.values():
-            total_reward += value
+        from rsl_rl.navigation_reward import compute_navigation_reward_terms,weight_reward_terms,GYM_REWARD_NAMES
+        front_clearance,_=clearance(rays_m,fov_deg=None)
+        dir_alignment,guide_idx=guidance_nav_alignment(rays_m,fov_deg=150.)
+        _,max_front_space=clearance(rays_m,fov_deg=120.)
+        over=contact_norm>.1
+        generic=over[:,penalized_indices].sum(-1) if penalized_indices else torch.zeros_like(distance)
+        head_base=over[:,head_base_indices].sum(-1) if head_base_indices else torch.zeros_like(distance)
+        legs=over[:,leg_indices].sum(-1) if leg_indices else torch.zeros_like(distance)
+        raw=compute_navigation_reward_terms(dict(distance=distance,goal_x=goal_local[:,0],
+            cos_theta=goal_local[:,0]/distance.clamp(min=1e-8),vx=base_lin_vel[:,0],vy=base_lin_vel[:,1],
+            wx=base_ang_vel[:,0],wy=base_ang_vel[:,1],wz=base_ang_vel[:,2],cos_phi=dir_alignment,
+            min_ray=front_clearance,dead=max_front_space<1,position_history=pos_hist,position=root_xy,
+            terminated=terminate_buf,initial=initial,not_just_reset=episode_length_buf.float()/max_episode_length>.1,
+            generic=generic,head_base=head_base,leg=legs),effective_environment["formula_mode"])
+        weighted=weight_reward_terms(raw,effective_environment["raw_weights"],step_dt)
+        reward_terms={GYM_REWARD_NAMES[k]:v for k,v in weighted.items()}
+        total_reward=sum(weighted.values())
 
         diagnostics = {
             "initial": initial,
@@ -665,6 +572,7 @@ def main():
     final_rays_observed = None
     final_goal_distance = None
     trace_logger = JsonlTraceLogger(args.trace) if args.trace else None
+    active_trace = trace_logger
     trace_rows = 0
     action_chain_mode = args.action_chain_mode
     done_contract_mode = (
@@ -704,6 +612,7 @@ def main():
             final_rays = rays_m
             final_goal_distance = distance
             rays_obs, goal_obs, perception_delay_debug = update_source_perception_observation(rays_m, goal_local)
+            decision_time=episode_length_buf.to(torch.float64)*step_dt
             final_rays_observed = rays_obs
 
             base_lin_vel = policy_obs[:, 0:3]
@@ -859,6 +768,17 @@ def main():
             )
 
             trace_record = {
+                "env_id": 0,
+                "observation_timestamp":float(decision_time[0]),
+                "sample_timestamp":float(perception.held_time[0]),
+                "sampled_latency":float(perception.held_latency[0]),
+                "actual_sample_age":float(decision_time[0]-perception.held_time[0]),
+                "synthetic_bootstrap":bool(perception.synthetic[0]),
+                "distribution_mean": tensor_list(pre_delay_u_safe[0]),
+                "policy_action": tensor_list(pre_delay_u_safe[0]),
+                "clipped_policy_action": tensor_list(delay_debug["clipped_new_command"][0]),
+                "executed_command": tensor_list(u_applied[0]),
+                "policy_mode": "deterministic_mean",
                 "step": int(step),
                 "u_nominal": tensor_list(u_nominal[0]),
                 "alpha": float(shield_debug["gamma"][0, 0].detach().cpu()),
@@ -1020,15 +940,6 @@ def main():
             )
             if args.stop_on_first_done and bool(terminal_done_for_stop[0].detach().cpu()):
                 break
-
-    if trace_logger is not None:
-        trace_logger.close()
-    if args.manifest_out:
-        manifest = default_manifest(str(adapter_root))
-        manifest.notes["runtime_requested_seed"] = str(seed_evidence["requested_seed"])
-        manifest.notes["runtime_env_seed"] = str(seed_evidence["env_seed"])
-        manifest.notes["runtime_seed_source"] = seed_evidence["seed_source"]
-        write_manifest(args.manifest_out, manifest)
 
     source_done_reason_keys = [
         "goal_reached_flag",
@@ -1259,18 +1170,43 @@ def main():
         ],
         "step_summaries": step_summaries,
     }
-    carrier.close()
+    result["effective_environment"] = effective_environment
+    # The CLI closes and verifies physical rows before publishing this claim.
+    result["trace_rows"] = trace_logger.row_count if trace_logger is not None else 0
     return result
 
 
-output = {"ok": False, "error": "not started"}
-try:
-    output = main()
-except Exception as exc:
-    output = {"ok": False, "error_type": type(exc).__name__, "error": str(exc)}
-    raise
-finally:
-    result_path = Path(args.result)
-    result_path.parent.mkdir(parents=True, exist_ok=True)
-    result_path.write_text(json.dumps(output, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    simulation_app.close()
+def cli(argv=None):
+    global active_trace,active_carrier,simulation_app
+    active_trace=active_carrier=simulation_app=None
+    request = preflight(sys.argv[1:] if argv is None else argv)
+    if request.arguments.preflight_only:
+        print(json.dumps({"status": "preflight_passed", "runtime_status": "not_executed",
+                          "resolved_config_sha256": request.resolved_config.resolved_sha256}))
+        return 0
+    try:
+        output = main(request)
+    except ModuleNotFoundError as exc:
+        output = blocked_result("isaaclab_adapter", exc, "install and lock the actual IsaacLab stack",
+                                dependency_status="unavailable")
+    except Exception as exc:
+        output = blocked_result("isaaclab_adapter", exc, "resolve the failed runtime prerequisite")
+        if not str(exc).startswith("blocked:"):
+            output["status"] = "failed"
+    finally:
+        from sea_nav_current_isaaclab_full_method.adapters.manifest import close_runtime_resources
+        close_errors=close_runtime_resources((("trace",active_trace),("carrier",active_carrier),
+                                              ("app",simulation_app)))
+    from sea_nav_current_isaaclab_full_method.adapters.manifest import publish_runtime_result
+    if close_errors:
+        output["status"]="failed"
+        output["close_errors"]=close_errors
+    if "status" not in output:
+        output["status"] = "blocked"
+        output["reason"] = "controller provenance/interface and real lifecycle acceptance remain unverified"
+    output["ok"] = False
+    publish_runtime_result(output,request,active_trace)
+    return 3
+
+if __name__ == "__main__":
+    raise SystemExit(cli())

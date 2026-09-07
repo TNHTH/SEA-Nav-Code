@@ -81,6 +81,25 @@ def test_gym_bad_masks_snapshot_is_not_mutated_by_new_episode_bootstrap():
     value=assignments[0].value
     assert isinstance(value,ast.Call) and isinstance(value.func,ast.Attribute) and value.func.attr=='clone'
 
+def test_public_trainer_filter_saturated_state_mirrors_survive_masked_reset():
+    import sys
+    sys.path.insert(0,str(ROOT/'sea_nav_current_isaaclab_full_method'))
+    from adapters.command_delay import CommandDelayFilter,CommandDelayConfig
+    from adapters.cbf_shield import clip_body_command
+    tree=ast.parse(ADAPTER.read_text())
+    cls=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='TrainerCommandFilter')
+    namespace={}
+    exec(compile(ast.Module(body=[cls],type_ignores=[]),str(ADAPTER),'exec'),namespace)
+    queue=CommandDelayFilter(CommandDelayConfig(alpha=.5),num_envs=2)
+    wrapper=namespace['TrainerCommandFilter']('source_alpha_only',queue,.5,2,'cpu',clip_body_command)
+    for _ in range(2): wrapper.step(torch.full((2,3),3.))
+    assert torch.equal(wrapper.filtered,queue.filtered) and wrapper.filtered.tolist()==[[2.25]*3]*2
+    wrapper.reset_state(torch.tensor([1]))
+    out,debug=wrapper.step(torch.zeros(2,3))
+    assert out.tolist()==[[1.125,1.,1.],[0.,0.,0.]]
+    assert torch.equal(wrapper.filtered,queue.filtered)
+    assert torch.equal(debug['executed_command'],out)
+
 
 def test_adapter_normal_fallback_hooks_surround_writes_before_reconstruction():
     names = calls(method(ADAPTER, '_normal_reset_rows'))
