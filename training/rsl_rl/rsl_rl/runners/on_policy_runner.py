@@ -28,20 +28,39 @@
 #
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
 
+from __future__ import annotations
+
+import importlib
 import time
 import os
 from collections import deque
 import statistics
 from datetime import datetime
+from types import ModuleType
+from typing import Optional
 
 # from torch.utils.tensorboard import SummaryWriter
 import torch
 
 from rsl_rl.env import VecEnv
-import wandb
 from rsl_rl.algorithms.ppo import PPO
 from rsl_rl.modules.actor_critic import ActorCritic
 from rsl_rl.modules.cbf_actor_critic import DifferentiableSafeActorCritic
+
+
+def _wandb_enabled(args: Optional[object]) -> bool:
+    return bool(getattr(args, "wandb", False))
+
+
+def _require_wandb() -> ModuleType:
+    try:
+        return importlib.import_module("wandb")
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "wandb logging requested but the optional 'wandb' dependency is not installed"
+        ) from exc
+
+
 class OnPolicyRunner:
 
     def __init__(self,
@@ -144,14 +163,14 @@ class OnPolicyRunner:
             stop = time.time()
             learn_time = stop - start
             if it == self.current_learning_iteration + 10:
-                if self.args.wandb:
-                    wandb.init(
+                if _wandb_enabled(self.args):
+                    _require_wandb().init(
                             project='Nav_Loc',
                             name = datetime.now().strftime('%m_%d_%H-%M-%S') ,
                             config = config,
                     )
             if self.log_dir is not None and it % 10 == 0 and it > self.current_learning_iteration + 10:
-                if self.args.wandb:
+                if _wandb_enabled(self.args):
                     self.wandb_log(locals())
                 else:
                     self.print_log(locals(), extra=True)
@@ -166,6 +185,7 @@ class OnPolicyRunner:
 
     
     def wandb_log(self, locs, width=80, pad=35):
+        wandb = _require_wandb()
         self.tot_timesteps += self.num_steps_per_env * self.env.num_envs
         self.tot_time += locs['collection_time'] + locs['learn_time']
         iteration_time = locs['collection_time'] + locs['learn_time']

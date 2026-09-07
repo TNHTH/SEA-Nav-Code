@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import math
 import sys
+import tempfile
 from pathlib import Path
 
 import torch
@@ -313,15 +314,21 @@ def test_manifest_and_trace_schema() -> None:
     assert manifest.runtime_contract.source_stand_still_time_steps == 150
     assert manifest.runtime_contract.source_contact_termination_enabled is True
     assert manifest.runtime_contract.source_play_eval_terminal_semantics_enabled is True
-    out = ROOT / "tests" / "gate_a_manifest.preview.json"
-    write_manifest(out, manifest)
-    payload = json.loads(out.read_text(encoding="utf-8"))
-    assert payload["formal_eval"]["forbid_astar_policy_input"] is True
-    assert payload["formal_eval"]["collision_replay_enabled"] is False
-    assert payload["runtime_contract"]["action_chain_mode"] == "current_pre_delay_cbf"
-    assert payload["runtime_contract"]["command_filter_mode"] == "source_alpha_only"
-    assert payload["runtime_contract"]["source_contact_termination_enabled"] is True
-    out.unlink()
+    with tempfile.TemporaryDirectory(prefix="sea-nav-gate-a-") as temp_dir:
+        out = Path(temp_dir) / "gate_a_manifest.preview.json"
+        write_manifest(out, manifest)
+        payload = json.loads(out.read_text(encoding="utf-8"))
+        assert payload["formal_eval"]["forbid_astar_policy_input"] is True
+        assert payload["formal_eval"]["collision_replay_enabled"] is False
+        assert payload["runtime_contract"]["action_chain_mode"] == "current_pre_delay_cbf"
+        assert payload["runtime_contract"]["command_filter_mode"] == "source_alpha_only"
+        assert payload["runtime_contract"]["source_contact_termination_enabled"] is True
+        assert payload["source_repo"] == "."
+        assert payload["adapter_root"] == "sea_nav_current_isaaclab_full_method"
+        assert all(not Path(path).is_absolute() for path in payload["upstream_reference_paths"])
+
+    committed_payload = json.loads((ROOT / "adapter_manifest.json").read_text(encoding="utf-8"))
+    assert "/home/" not in json.dumps(committed_payload, sort_keys=True)
 
     record = {field: None for field in REQUIRED_TRACE_FIELDS}
     record.update(

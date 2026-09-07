@@ -2,7 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RUN_DIR="${SEA_NAV_FULL_METHOD_RUN_DIR:-/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_source_graph_parity_footprint_preserved_learned_policy_contract_runtime_smoke}"
+LAUNCHER="${SEA_NAV_FULL_METHOD_LAUNCHER:-}"
+RUN_DIR="${SEA_NAV_FULL_METHOD_RUN_DIR:-}"
 STEPS="${SEA_NAV_FULL_METHOD_STEPS:-16}"
 NUM_ENVS="${SEA_NAV_FULL_METHOD_NUM_ENVS:-1}"
 SEED="${SEA_NAV_FULL_METHOD_SEED:-42}"
@@ -20,6 +21,47 @@ SOURCE_STAND_STILL_TIME_STEPS="${SEA_NAV_FULL_METHOD_SOURCE_STAND_STILL_TIME_STE
 DISABLE_SOURCE_CONTACT_TERMINATION="${SEA_NAV_FULL_METHOD_DISABLE_SOURCE_CONTACT_TERMINATION:-0}"
 SOURCE_PLAY_EVAL_TERMINAL_SEMANTICS="${SEA_NAV_FULL_METHOD_SOURCE_PLAY_EVAL_TERMINAL_SEMANTICS:-1}"
 
+usage() {
+  echo "usage: $0 --launcher PATH --run-dir DIR" >&2
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --launcher)
+      [[ $# -ge 2 ]] || { usage; exit 2; }
+      LAUNCHER="$2"
+      shift 2
+      ;;
+    --run-dir)
+      [[ $# -ge 2 ]] || { usage; exit 2; }
+      RUN_DIR="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "error: unknown argument: $1" >&2
+      usage
+      exit 2
+      ;;
+  esac
+done
+
+if [[ -z "$LAUNCHER" ]]; then
+  echo "error: IsaacLab launcher is required via --launcher or SEA_NAV_FULL_METHOD_LAUNCHER" >&2
+  exit 2
+fi
+if [[ -z "$RUN_DIR" ]]; then
+  echo "error: run directory is required via --run-dir or SEA_NAV_FULL_METHOD_RUN_DIR" >&2
+  exit 2
+fi
+if [[ ! -f "$LAUNCHER" || ! -x "$LAUNCHER" ]]; then
+  echo "error: launcher must be an executable regular file: $LAUNCHER" >&2
+  exit 2
+fi
+
 if [[ "${TERM:-}" == "" || "${TERM:-}" == "dumb" ]]; then
   export TERM=xterm-256color
 fi
@@ -30,7 +72,7 @@ printf '{"status":"starting","run_dir":"%s","action_chain_mode":"%s","command_fi
 printf '{"event":"runtime_smoke_start","run_dir":"%s"}\n' "$RUN_DIR" >> "$RUN_DIR/events.jsonl"
 
 set +e
-cmd=(/home/gwh/IsaacLab/isaaclab.sh -p "$SCRIPT_DIR/full_method_runtime_smoke.py"
+cmd=("$LAUNCHER" -p "$SCRIPT_DIR/full_method_runtime_smoke.py"
   --headless \
   --steps "$STEPS" \
   --num-envs "$NUM_ENVS" \

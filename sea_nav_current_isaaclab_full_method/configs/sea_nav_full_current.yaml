@@ -1,5 +1,5 @@
 route_id: sea_nav_source_graph_parity_footprint_preserved_learned_policy_contract
-source_repo: /home/gwh/SEA-Nav-Code
+source_repo: .
 source_commit: fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96
 result_class: original_reproduction
 runtime_stack: current_isaaclab

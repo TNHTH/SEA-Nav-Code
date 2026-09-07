@@ -1,17 +1,17 @@
 {
   "route_id": "sea_nav_source_graph_parity_footprint_preserved_learned_policy_contract",
-  "source_repo": "/home/gwh/SEA-Nav-Code",
+  "source_repo": ".",
   "source_commit": "fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96",
-  "adapter_root": "/home/gwh/SEA-Nav-Code/sea_nav_current_isaaclab_full_method",
+  "adapter_root": "sea_nav_current_isaaclab_full_method",
   "owned_paths": [
-    "/home/gwh/SEA-Nav-Code/sea_nav_current_isaaclab_full_method/**"
+    "sea_nav_current_isaaclab_full_method/**"
   ],
   "upstream_reference_paths": [
-    "/home/gwh/SEA-Nav-Code/training/rsl_rl/rsl_rl/modules/cbf_lse_layer.py",
-    "/home/gwh/SEA-Nav-Code/training/rsl_rl/rsl_rl/modules/cbf_actor_critic.py",
-    "/home/gwh/SEA-Nav-Code/training/rsl_rl/rsl_rl/algorithms/ppo.py",
-    "/home/gwh/SEA-Nav-Code/training/legged_gym/legged_gym/envs/base/legged_robot_pos.py",
-    "/home/gwh/SEA-Nav-Code/training/legged_gym/legged_gym/envs/go2/go2_pos_config.py"
+    "training/rsl_rl/rsl_rl/modules/cbf_lse_layer.py",
+    "training/rsl_rl/rsl_rl/modules/cbf_actor_critic.py",
+    "training/rsl_rl/rsl_rl/algorithms/ppo.py",
+    "training/legged_gym/legged_gym/envs/base/legged_robot_pos.py",
+    "training/legged_gym/legged_gym/envs/go2/go2_pos_config.py"
   ],
   "formal_eval": {
     "hard_room": true,
@@ -40,9 +40,9 @@
   },
   "gate_a": {
     "status": "passed",
-    "python": "/home/gwh/NeuPAN/.venv/bin/python",
+    "python": "python3",
     "torch": "2.11.0+cu130",
-    "command": "/home/gwh/NeuPAN/.venv/bin/python SEA-Nav-Code/sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py",
+    "command": "python3 sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py",
     "passed_tests": [
       "test_observation_contract",
       "test_cbf_synthetic_cases",
@@ -63,27 +63,27 @@
   "runtime_smoke": {
     "status": "passed_runtime_contract_not_metric",
     "completed_at": "2026-05-17T16:59:30+0800",
-    "run_dir": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_runtime_smoke_20260517_1658",
-    "command": "timeout 900s SEA-Nav-Code/sea_nav_current_isaaclab_full_method/run_full_method_runtime_smoke.sh",
+    "run_dir": "<caller-selected-run-dir>",
+    "command": "timeout 900s sea_nav_current_isaaclab_full_method/run_full_method_runtime_smoke.sh --launcher <isaaclab-launcher> --run-dir <caller-selected-run-dir>",
     "exit_code": 0,
-    "result": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_runtime_smoke_20260517_1658/result.json",
-    "trace": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_runtime_smoke_20260517_1658/full_method_trace.jsonl",
+    "result": "<caller-selected-run-dir>/result.json",
+    "trace": "<caller-selected-run-dir>/full_method_trace.jsonl",
     "trace_rows": 16,
     "scope": "actor+LSE-CBF command chain, source_alpha_only filter with no queue delay, collision replay recording, trace schema, current IsaacLab hard-room carrier smoke; not SR/CR/TR metric evidence"
   },
   "checkpoint_init_and_load_smoke": {
     "status": "passed_checkpoint_load_contract_not_metric",
     "completed_at": "2026-05-17T17:08:17+0800",
-    "checkpoint_init_run_dir": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_checkpoint_init_20260517_1704",
-    "checkpoint": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_checkpoint_init_20260517_1704/full_method_init_seed42.pt",
-    "checkpoint_metadata": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_checkpoint_init_20260517_1704/checkpoint_metadata.json",
+    "checkpoint_init_run_dir": "<caller-selected-checkpoint-init-run-dir>",
+    "checkpoint": "<caller-selected-checkpoint-init-run-dir>/full_method_init_seed42.pt",
+    "checkpoint_metadata": "<caller-selected-checkpoint-init-run-dir>/checkpoint_metadata.json",
     "checkpoint_sha256": "02d30cdc9207201f52d2c91e273bf88dfe6715a5bb370e96d0769abd9889007a",
-    "load_smoke_run_dir": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_checkpoint_load_smoke_20260517_1704",
+    "load_smoke_run_dir": "<caller-selected-load-smoke-run-dir>",
     "load_smoke_exit_code": 0,
-    "load_smoke_result": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_checkpoint_load_smoke_20260517_1704/result.json",
-    "load_smoke_trace": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_checkpoint_load_smoke_20260517_1704/full_method_trace.jsonl",
+    "load_smoke_result": "<caller-selected-load-smoke-run-dir>/result.json",
+    "load_smoke_trace": "<caller-selected-load-smoke-run-dir>/full_method_trace.jsonl",
     "load_smoke_trace_rows": 16,
-    "weights_only_regression_run_dir": "/home/gwh/.codex/runs/paper-reproduction-80pct/sea_nav_full_method_checkpoint_load_smoke_weights_only_20260517_1707",
+    "weights_only_regression_run_dir": "<caller-selected-weights-only-regression-run-dir>",
     "weights_only_regression_exit_code": 0,
     "weights_only_regression_trace_rows": 1,
     "scope": "initialized/random full-method actor checkpoint load contract only; not SR/CR/TR metric evidence"

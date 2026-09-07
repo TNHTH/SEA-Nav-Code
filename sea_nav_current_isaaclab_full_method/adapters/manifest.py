@@ -52,18 +52,21 @@ class AdapterManifest:
 
 
 def default_manifest(adapter_root: str) -> AdapterManifest:
+    adapter_path = Path(adapter_root)
+    portable_adapter_root = adapter_path.name if adapter_path.is_absolute() else adapter_path.as_posix().rstrip("/")
+    portable_adapter_root = portable_adapter_root or "."
     return AdapterManifest(
         route_id="sea_nav_source_graph_parity_footprint_preserved_learned_policy_contract",
-        source_repo="/home/gwh/SEA-Nav-Code",
+        source_repo=".",
         source_commit="fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96",
-        adapter_root=adapter_root,
-        owned_paths=[f"{adapter_root}/**"],
+        adapter_root=portable_adapter_root,
+        owned_paths=[f"{portable_adapter_root}/**"],
         upstream_reference_paths=[
-            "/home/gwh/SEA-Nav-Code/training/rsl_rl/rsl_rl/modules/cbf_lse_layer.py",
-            "/home/gwh/SEA-Nav-Code/training/rsl_rl/rsl_rl/modules/cbf_actor_critic.py",
-            "/home/gwh/SEA-Nav-Code/training/rsl_rl/rsl_rl/algorithms/ppo.py",
-            "/home/gwh/SEA-Nav-Code/training/legged_gym/legged_gym/envs/base/legged_robot_pos.py",
-            "/home/gwh/SEA-Nav-Code/training/legged_gym/legged_gym/envs/go2/go2_pos_config.py",
+            "training/rsl_rl/rsl_rl/modules/cbf_lse_layer.py",
+            "training/rsl_rl/rsl_rl/modules/cbf_actor_critic.py",
+            "training/rsl_rl/rsl_rl/algorithms/ppo.py",
+            "training/legged_gym/legged_gym/envs/base/legged_robot_pos.py",
+            "training/legged_gym/legged_gym/envs/go2/go2_pos_config.py",
         ],
         formal_eval=FormalEvalContract(),
         runtime_contract=RuntimeContract(),
