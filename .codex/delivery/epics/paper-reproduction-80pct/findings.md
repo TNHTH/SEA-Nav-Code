@@ -15,7 +15,7 @@
 | Confirmed facts | remote snapshots are unrelated roots; only `main` is a complete tree; post-sample CBF and PPO smoothness state mutation are real regressions | Git object analysis and CPU/source comparison | confirmed |
 | Candidate hypothesis | repairing packaging/config/PPO/CBF/replay/runtime/checkpoint contracts will make Rungs 0–2 reliable; simulator viability remains unknown | approved spec and batch mappings | implementation pending |
 | Highest validation rung | Rung1 for Tasks1–6; non-final GateA passed_with_blockers | Task6 scoped Spec/Quality PASS and fresh primary full run | frozen final-candidate Rung2 still pending |
-| Unpublished/unverified work | Tasks1–6 integrated through b5b9455; Task7 sole writer active at detached BASE562d4ae0b56ca977ea433def6dbd05607284e38b, exact26 paths; independent core reviewer preparing contracts; final CBF P2 remains open | Resumed writer HEAD still562d4ae with two preserved registration diffs, new owned checkpoint tests/log; no fixed implementation slice yet | local only; no remote write; moving tests are not Task7 acceptance; frozen verification, runtime and accepted-paper blockers remain |
+| Unpublished/unverified work | Tasks1–6 integrated through b5b9455; Task7 core fixed2387cf02d85a1a9a52b0e85da54c7ebad09b0cec from BASE562d4ae, exact eight-file slice; independent review assigned while same writer continues remaining callers/converter/docs | Worker committed log: full387 passed34.30s before final test regrouping, then focused45 passed1.54s; no independent core verdict yet | local only, not integrated; no remote write; whole Task7, CBF P2, frozen verification and runtime/paper blockers remain |
 
 ## Research Findings
 
