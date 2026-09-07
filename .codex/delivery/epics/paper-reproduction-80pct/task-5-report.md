@@ -89,7 +89,7 @@ Public gate: `rsl_rl.replay.require_runtime_contract(contract, runtime_stack)`.
 - Required methods: `validate(env, selection)`, `prepare_rows(env, env_ids)`, `refresh_rows(env, env_ids)`, `finish_rows(env, env_ids)`.
 - validate must establish compatible immutable scene/map/terrain, asset and joint ordering, quaternion/frame convention, dt/profile and controller identity for the source episode/task generation. prepare/refresh/finish must provide supported masked contact/sensor/actuator reset and cache/FK handling; they must preserve neighbors and suppress incompatible physical randomization. Adapter carrier auto-reset must be deferred before terminal capture. Declaring capabilities without real validated integration is not runtime proof.
 - A missing/partial contract is an explicit startup **blocked** error when replay is enabled. Existing direct CLI defaults do not invent a verified carrier. Later per-selection validation/write/reconstruction failures produce recorded normal-fallback reasons; failed fallback propagates.
-- Replay activation requires explicit `replay_reset_reconstruction_v1`. Legacy adapter CLI now accepts repeatable `--implementation-delta` and `--replay-reset-policy new_replay_episode_v1`; the delta is not silently added. `trainer_contract_locks` records policy, declared deltas and noise-free synthetic bootstrap. Gym exposes equivalent policy/delta state.
+- Replay activation requires explicit `replay_reset_reconstruction_v1`. Legacy adapter CLI now accepts repeatable `--implementation-delta` and `--replay-reset-policy new_replay_episode_v1`; the delta is not silently added. The training result records policy, declared deltas and noise-free synthetic bootstrap as top-level fields, not inside `trainer_contract_locks`. Gym exposes equivalent policy/delta state. Task 6 retains final identity/manifest consistency obligations.
 - `replay_configs_from_resolved(resolved, max_level=..., capacity=..., undo=..., enabled=...)` consumes integrity-validated existing replay/environment projections and requires the activation delta. Gym accepts `cfg.resolved_run_config`; the adapter constructor accepts `resolved_config=None`. Task 6 owns passing the final resolved config and serializing final applied identity. Adapter maximum stored goal level is explicitly configurable as `--source-max-goal-level` (legacy default 10); the final runtime value must be recorded.
 - Task 6 also owns current-goal regular reward timing and timestamped actual perception acquisition/transport/hold. The shared bootstrap accepts explicit current rays/goals and returns a noise-free synthetic time-0 frame; it does not claim old timestamps or unavailable sensor history. Cross-episode curriculum/learner/global RNG are not restored from snapshots.
 
@@ -127,3 +127,100 @@ Final `git show --stat`: **17 files, 1476 insertions, 769 deletions**. Registrat
 Self-review traced the actual base epilogue, terminal output aliases, old adapter global controller bootstrap, fallback curriculum timing, pending-token lifetime, repeated producer step IDs, cross-ring ownership, mask scope, physical schema/frame validation and hot-path operators. The new filter test executes only the real simulator-independent class AST, not a fake task import. All Gym task code is AST/syntax-only; CPU lifecycle fixtures exercise shared policy callbacks and cannot certify any physical setter, FK/cache refresh, contact history, or carrier-manager behavior.
 
 **No Rung 3G or 3L success is claimed.** Those runtimes and their needed context integration are unavailable; the former synthetic forced smoke is intentionally blocked. Full-history/PhysX continuation is unsupported. Formal 100-trial metrics, publication rights and hardware remain outside this CPU/static task. Parent/controller independent review is still required before integration.
+
+## Fix round 1 — all four independent-review findings addressed
+
+Status: **DONE_WITH_CONCERNS**, awaiting the controller's scoped re-review. This addendum supersedes the original report's incomplete normal/fallback-hook, timeout-exclusion and cancellation-retention claims. Rung 3G/3L remains blocked.
+
+Review input read in full: primary `task-5-review.md` (Spec FAIL, Quality FAIL, four P2 findings against `53c479dea2a2ff43fcfe5aa718da29395c5df191`). Fix commit: **`a7fe32ecbff4aae420dd073a8e2a032d941a0a10`**, `fix: close replay reset and reporting review gaps`. Scoped re-review range: `53c479dea2a2ff43fcfe5aa718da29395c5df191..a7fe32ecbff4aae420dd073a8e2a032d941a0a10`.
+
+### Changes tied to the findings
+
+1. **Normal/fallback runtime integration:** `_normal_reset_rows` obtains the active replay runtime contract, invokes `prepare_rows(self, ids)` before carrier reset/manual writes, and invokes `refresh_rows(self, ids)` after `_place_robot_at_start` completes. Reconstruction remains the next transaction callback; `finish_rows` remains the epilogue. Ack/cancel still occurs only after successful completion. Preparation/refresh exceptions propagate through failed fallback without ack/cancel. Disabled replay does not require a contract. The AST test binds both write paths, hook order and actual transaction callback order; the pure lifecycle test injects preparation and refresh failures after a prevalidation rejection. Neither test claims real cache/physics behavior.
+2. **Effective carrier timeout exclusion:** ordinary `step` now unions `carrier_truncated` into the saved `_terminal_timeout` used by `reset` and `select_terminal_replay`. The union occurs only in the branch that selects carrier termination sources. Explicit play/evaluation mode continues to ignore carrier done/truncated signals. Tests execute the real pure selection block with carrier-only truncation, overlapping semantic/carrier terminal reasons, a semantic-only timeout and carrier-only termination, then feed the actual resulting mask to the shared replay decision. Both modes are checked.
+3. **JSON boundaries:** device-side `+= active.sum()` remains unchanged. Both actual result mappings now emit `int(adapter_env.replay_collision_record_count)`. Tests execute the real accumulation expression with zero-collision and nonzero-collision captures, confirm it remains a Tensor with no `_local_scalar_dense` during accumulation, evaluate each actual result-value expression and successfully encode/decode the result fragment with plain `json.dumps`/`json.loads`. Host scalar extraction is permitted only at reporting boundaries. No simulator/trainer startup is executed.
+4. **Bounded cancellation diagnostics:** `last_cancellations` stores at most one frozen `ReplayCancellation` per environment, containing source episode ID, task generation, reservation token and reason. `cancel_reasons` preserves read access through a bounded compatibility snapshot keyed by `(env_id, token)`. Repeated cancellation replaces only that environment's last event; untouched neighbors remain. The latest event may survive `begin_episode` with its original episode provenance until replaced. Full cancellation history is intentionally not retained. Tests perform 1,000 retries, cross an episode/task generation, verify a bound of two entries for two environments, retain neighbor provenance, reject a stale cancellation token and prove the current retry remains committable.
+
+Report correction: the policy/delta/bootstrap values in the original implementation are top-level training-result fields, **not `trainer_contract_locks` fields**. The original paragraph above is corrected. This round does not change their source location or take over Task 6 manifest wiring.
+
+### RED and GREEN evidence
+
+Working directory for every command: `/home/twyc/Documents/Codex/2026-09-04/https-github-com-tnhth-sea-nav-2/work/SEA-Nav-Code-batch5`.
+
+Targeted RED, executed before either source edit:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=$PWD/training/rsl_rl ../sea-nav-cpu-venv/bin/python -m pytest -q -p no:cacheprovider tests/test_collision_replay_cpu.py tests/test_replay_runtime_wiring.py -k 'cancellation_history or normal_fallback_hooks or selected_carrier_timeout or result_boundaries'
+```
+
+Observed failures: cancellation count **1001 rather than 2**; missing `prepare_rows`; ordinary-mode timeout mask `[False, False, True, False]` rather than `[True, True, True, False]`; and **four `TypeError: Object of type Tensor is not JSON serializable` failures**, covering both real result mappings at counts 0 and 2. The ignore-carrier play-mode regression already passed and was retained.
+
+```text
+FFF.FFFF                                                                 [100%]
+7 failed, 1 passed, 13 deselected in 1.50s
+```
+
+Same exact command after source fixes, exit 0:
+
+```text
+........                                                                 [100%]
+8 passed, 13 deselected in 1.51s
+```
+
+Final covering test files: `tests/test_collision_replay_cpu.py`, `tests/test_replay_curriculum.py`, `tests/test_replay_reset_partition.py`, `tests/test_replay_lifecycle.py`, `tests/test_replay_push_work.py`, `tests/test_replay_runtime_wiring.py`, and inherited `sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py`.
+
+Exact covering command and full concise output:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=$PWD/training/rsl_rl ../sea-nav-cpu-venv/bin/python -m pytest -q -p no:cacheprovider tests/test_collision_replay_cpu.py tests/test_replay_curriculum.py tests/test_replay_reset_partition.py tests/test_replay_lifecycle.py tests/test_replay_push_work.py tests/test_replay_runtime_wiring.py sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py && git diff --check
+```
+
+```text
+...........................................................              [100%]
+59 passed in 2.16s
+```
+
+Exit 0; diff check produced no output. The 59 cases include 43 Task 5 cases plus 16 inherited Gate A checks. No full-suite rerun was performed for this fix round; the original **202 passed** belongs to `53c479d`, not the new fix commit. No source/test edits followed the 59-case run.
+
+Python 3.8 grammar check:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 ../sea-nav-cpu-venv/bin/python - <<'PY'
+import ast
+from pathlib import Path
+for name in ['training/rsl_rl/rsl_rl/replay/ring.py','sea_nav_current_isaaclab_full_method/train_full_method_acsi_replay_ppo.py']:
+ ast.parse(Path(name).read_text(),filename=name,feature_version=(3,8))
+print('PASS Python 3.8 grammar: 2 changed source files')
+PY
+```
+
+```text
+PASS Python 3.8 grammar: 2 changed source files
+```
+
+Portable Gate A after exact staging:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=$PWD/training/rsl_rl ../sea-nav-cpu-venv/bin/python tools/gate_a.py --repo-root "$PWD" --report /tmp/sea-nav-task5-fix1-gate-a.An0o27/portable-staged.json
+```
+
+```text
+{"report": "/tmp/sea-nav-task5-fix1-gate-a.An0o27/portable-staged.json", "status": "passed_with_blockers"}
+```
+
+Exit 0. Full report remains outside the checkout. It records passed syntax for 72 tracked Python files, 65 baseline assets, 20 static Gym files (8 simulator-bound), 7 CPU-safe package imports and actor/value/PPO/storage smoke. Isaac Gym Preview 4 runtime is **blocked: not installed**. Only log/registration/report text changed after staged Gate A.
+
+### Exact fix inventory and self-review
+
+Six committed files, **173 insertions, 5 deletions**:
+
+- `training/rsl_rl/rsl_rl/replay/ring.py`
+- `sea_nav_current_isaaclab_full_method/train_full_method_acsi_replay_ppo.py`
+- `tests/test_collision_replay_cpu.py`
+- `tests/test_replay_lifecycle.py`
+- `tests/test_replay_runtime_wiring.py`
+- `.codex/delivery/epics/paper-reproduction-80pct/task-5-log.md`
+
+Self-review checked active versus disabled integration, normal/fallback prepare→write→refresh→reconstruct→finish order, failed-hook token retention, selected versus ignored carrier timeouts, both result-value expressions, unchanged hot-path scalar behavior, cancellation replacement across episodes, untouched neighbor records and stale-token rejection. Tests extract only pure source expressions/AST; there are no fake simulator imports, carrier execution or physics stubs. No Task 6 files, new paths, branches, pushes, dependencies or worktrees were changed. Local task_plan/resume registration remains intentionally unstaged.
+
+Remaining runtime blockers are unchanged: real indexed writes/readback, contact/sensor/actuator clearing, cache/FK refresh, stateless controller integration, carrier terminal capture before auto-reset, neighbor preservation and first/next physical observations require the supported Gym/IsaacLab runtime. The prior capture-only forced smoke stays blocked. Scoped independent re-review is required before integration.

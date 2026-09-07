@@ -9,13 +9,13 @@
 
 | Field | Current value | Evidence | Status / limits |
 |---|---|---|---|
-| Artifact / version identity | integrated source `test@a660d74af257d252b734eec38ae769312c6e90f7`; `main=stable=1c5675bbedf1dcbe5a4c1a91830cae528c780793` | 2026-09-07 Task 4 cherry-pick and verification | coordination-only successor does not change the tested source |
-| Active evidence instance | Task 4 primary checkout run: 169 tests passed in 10.70s; Gate A five CPU/static passes and real Gym blocked | `../task-4-integrated-gate-a.json`; summary in progress.md | non-final batch evidence; not a frozen-candidate artifact |
+| Artifact / version identity | integrated source `test@1ae9187e293bd13550a70f7858207a62ea6f6da5`; `main=stable=1c5675bbedf1dcbe5a4c1a91830cae528c780793` | 2026-09-07 Task 5 serial cherry-picks and verification | coordination-only successor does not change the tested source |
+| Active evidence instance | Task 5 primary checkout run: 212 tests passed in 13.17s; Gate A five CPU/static passes and real Gym blocked | `../task-5-integrated-gate-a.json`; summary in progress.md | non-final batch evidence; not a frozen-candidate artifact |
 | Declared configuration | 2026-09-07 evidence-corrected design and task briefs | scientific/checkpoint audit reports; original 252f3f85 design is historical | action-bound row blocks accepted paper_v1; upstream diagnostic repair proceeds |
 | Confirmed facts | remote snapshots are unrelated roots; only `main` is a complete tree; post-sample CBF and PPO smoothness state mutation are real regressions | Git object analysis and CPU/source comparison | confirmed |
 | Candidate hypothesis | repairing packaging/config/PPO/CBF/replay/runtime/checkpoint contracts will make Rungs 0–2 reliable; simulator viability remains unknown | approved spec and batch mappings | implementation pending |
-| Highest validation rung | Rung 1 for Tasks 1–4; non-final Gate A passed_with_blockers | independent Task 4 review and primary run | frozen final-candidate Rung 2 still pending |
-| Unpublished/unverified work | Tasks 1–4 integrated; detached Task 5 `53c479dea2a2ff43fcfe5aa718da29395c5df191` in fix round 1 for four P2; Tasks 6–7 pending | task-5-review.md: spec/quality FAIL; initial 202-test pass did not cover the four findings | local only; Task 5 not integrated; no remote write; runtime scientific application still future |
+| Highest validation rung | Rung 1 for Tasks 1–5; non-final Gate A passed_with_blockers | independent Task 5 scoped review and fresh primary run | frozen final-candidate Rung 2 still pending |
+| Unpublished/unverified work | Tasks 1–5 integrated; Task 6 registration/preparation and Task 7 pending; final whole-branch review still required | task-5-rereview-1.md closes the four initial P2; source/test tree equals reviewed worker, no baseline deletion | local only; no remote write; real runtime and accepted paper identity remain blocked |
 
 ## Research Findings
 
