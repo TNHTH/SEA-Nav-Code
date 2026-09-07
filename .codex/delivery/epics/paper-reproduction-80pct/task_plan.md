@@ -34,9 +34,9 @@ Phase 3 — strict serial implementation
 - [x] Batch 3 — PPO action/likelihood and auxiliary-state identity (`37f0763`, reviewed, 85 CPU tests).
 - [x] Batch 4 — paper-damped CBF semantics, diagnostics, and golden vectors (`a660d74`, independent spec/quality PASS, 169 CPU tests).
 - [x] Batch 5 — replay ring/reservation/reset partition and CPU policy evidence (`97252ed`, `1ae9187`; scoped review PASS, fresh integrated 212 CPU tests).
-- [ ] Batch 6 — portable runtime inputs and manifest-backed recovery contracts.
+- [x] Batch 6 — scientific runtime consumers, checked startup/evidence, corrected filter and opt-in training trace (`dbc609d`, `b52808d`, `4183d2b`, `b5b9455`; scoped Spec/Quality PASS; fresh integrated342 CPU tests).
 - [ ] Batch 7 — checkpoint schema v2, safe loading, and explicit class registries.
-- **Status:** in_progress; Task 6 is next
+- **Status:** in_progress; Task 7 is next
 
 ### Phase 4: Frozen-candidate verification
 - [ ] Freeze one candidate OID and create a clean detached verification checkout.
@@ -60,17 +60,18 @@ Phase 3 — strict serial implementation
 
 | Worktree | Branch/commit | Owner | Owned paths | Dependencies | Status |
 |---|---|---|---|---|---|
-| `work/SEA-Nav-Code` | `test@1ae9187` plus coordination successor | controller | plan/coordination now; each integrated batch serially | approved spec | active |
+| `work/SEA-Nav-Code` | `test@b5b9455` plus coordination successor | controller | plan/coordination now; each integrated batch serially | approved spec | active, Tasks1–6 integrated and verified |
 | `work/SEA-Nav-Code-latest-review` | detached `b53d3fe` | read-only source audit | none | none | clean/read-only |
 | `work/SEA-Nav-Code-batch1` | detached `4dec41b` | task1 implementer | Task 1 exact paths | reviewed and integrated as `a58ad21`, `eac2657`, `484f682` | finished, clean and retained; historical worker registration preserved in task-1-registration-history.md |
 | `work/SEA-Nav-Code-batch2` | detached `3359215` | `/root/implement_batch2` | Task 2 exact paths | reviewed and integrated as `ed8e7e7`, `6f5e544` | finished, clean and retained; local registration preserved in task-2-registration-history.md |
 | `work/SEA-Nav-Code-batch3` | detached `9e91c72` | `/root/implement_batch3` | Task 3 exact paths | reviewed and integrated as `37f0763` | finished, porcelain clean and retained; registration preserved in task-3-registration-history.md; ignored verification caches are not final-candidate evidence |
 | `work/SEA-Nav-Code-batch4` | detached `ac0567e` | `/root/implement_batch4` | Task 4 registered paths | reviewed and integrated as `a660d74` | finished, porcelain clean and retained; registration preserved in task-4-registration-history.md |
 | `work/SEA-Nav-Code-batch5` | detached `a7fe32ecbff4aae420dd073a8e2a032d941a0a10` | `/root/implement_batch5` | Task 5 registered replay/reset/ACSI paths | independently reviewed; integrated as `97252ed`, `1ae9187`; primary 212 passed | finished, porcelain clean and retained; registration preserved in task-5-registration-history.md |
-| `work/SEA-Nav-Code-batch6` | detached BASE `65dcbbc2b13c92af99a9e7d4cba4110880f9b509` | `/root/implement_batch6` | exact 29-path task-6-brief.md inventory and local log/registration; primary task-6-report exception | Task 5 integrated/verified; fresh detached 212 passed | active, sole source writer |
+| `work/SEA-Nav-Code-batch6` | detached `0efc1934cbefc1a9780baced7846484f29eb776e` | `/root/implement_batch6` | Task6 registered paths and two narrow extensions | reviewed; four ordered commits integrated through b5b9455; primary342 passed | complete; clean including ignored, registration preserved in task-6-registration-history.md, all commits/worktree retained |
 | `work/SEA-Nav-Code-batch6-review-slice1` | detached `7945a9e6037fee5045cbc12ac59a054ad958b43b` (previous fixed slice `6e097ac`) | `/root/review_batch6_slice1` | no source writes; only primary coordination task-6-slice1-review.md and scoped rereview report | fixed Task 6 clock correction; subsequent Task 6 source remains separate | initial one-P2 review complete; scoped fix re-review, not Task 6 whole integration acceptance |
 | `work/SEA-Nav-Code-batch6-review-full` | detached `844514929726a1cade3303867cc11702b710a04d`; BASE `65dcbbc2b13c92af99a9e7d4cba4110880f9b509` | `/root/review_batch6_full` | only primary coordination task-6-review.md and scoped rereview reports; no source/ref writes | corrected Task 6 brief (29 paths plus two narrow extensions); full fixed diff and final worker report | whole Spec/Quality FAIL, 1 P1 and 4 P2; review tree retained clean; original writer fix round 1/5, no integration |
-| `work/SEA-Nav-Code-batch6-review-fix1` | detached `0efc1934cbefc1a9780baced7846484f29eb776e`; fix BASE `844514929726a1cade3303867cc11702b710a04d` | `/root/review_batch6_full` | only primary task-6-rereview-1.md; no source/ref writes | complete 11-file fix diff and worker postcommit addendum | registered for scoped five-finding rereview; old whole-review snapshot retained |
+| `work/SEA-Nav-Code-batch6-review-fix1` | detached `0efc1934cbefc1a9780baced7846484f29eb776e`; fix BASE `844514929726a1cade3303867cc11702b710a04d` | `/root/review_batch6_full` | only primary task-6-rereview-1.md; no source/ref writes | complete 11-file fix diff and worker postcommit addendum | complete, all5 findings closed; Spec/Quality PASS; clean and retained |
+| `work/SEA-Nav-Code-batch7` | detached BASE to be the next coordination commit after b5b9455 | `/root/implement_batch7` | exact26-path task-7-brief.md inventory plus local log/registration; primary task-7-report exception | Task6 integrated, independent PASS, fresh primary342 and GateA | registered; not started until fresh detached baseline |
 | Primary read-only CBF hotpath review | source through Task 5 | `/root/cbf_hotpath_review` | only coordination cbf-hotpath-review.md | unchanged CBF source since Task 4 | completed with one open final-review P2; no source mutation |
 | Primary read-only CBF checked-path preparation | fixed source `12e4fff0714f5753e30bf2575e740dc12a32c051`, unchanged at coordination successor `c3db30d` | `/root/cbf_hotpath_review` | only coordination cbf-checked-path-probe.md | prior open CBF P2; Task 6 remains sole source writer | completed bounded in-memory CPU prototype, valid extraction 5→1; no production fix or acceptance |
 | Primary read-only publication preflight | `test` | `/root/publication_preflight` | only coordination publication-preflight.md | no source dependency | read-only remote inspection; no Git/remote mutation |
@@ -86,7 +87,11 @@ Narrow additional source path: `sea_nav_current_isaaclab_full_method/adapters/co
 
 Narrow additional test path: only the historical adapter-YAML assertions in `tests/test_experiment_config.py::test_committed_adapter_examples_are_identity_bound_and_not_original_claims`; migrate to real loader/explicit-delta behavior after executable YAML conversion. The adjacent historical manifest assertions and all unrelated integrity tests remain unchanged. Exact rationale in Task 6 brief.
 
-Worktree `work/SEA-Nav-Code-batch6`, detached BASE `65dcbbc2b13c92af99a9e7d4cba4110880f9b509` after verified Task 5 source. Owner `/root/implement_batch6`; fresh detached baseline 212 passed. Status active: slice1 and its clock fix at `7945a9e` passed scoped independent review; remaining runtime consumer wiring is in progress, not integrated. Exact owned source/test paths are the explicit 29-path text inventory plus the narrow inherited YAML-test extension in task-6-brief.md (four packaged pure modules; Gym train/play/helpers/registry/two base consumers; adapter runtime inputs/manifest/trace/three entries/shell/YAML; portable gate and focused tests). Reads all source and prior scientific/replay/preflight/oracle reports. Only local registration/log plus primary task-6-report.md write exception; no CBF/PPO/runner/replay-core ownership and no concurrent source implementation. Checkpoint loading stays blocked until Task 7; actual runtime never inferred from application receipts.
+Task6 historical scope is recorded in task-6-brief.md and preserved worker registration history. Final worker0efc193 independently accepted and integrated through primaryb5b9455; fresh342 tests and GateA verified. All five whole-review findings closed; physics/runtime and accepted-paper boundaries remain blocked. Worker source/log retained and two exact registration files restored after lossless diff preservation; no broader cleanup.
+
+## Task 7 exact scope registration
+
+Owner `/root/implement_batch7`; detached BASE will be the coordination-only successor of b5b9455. The explicit26-path inventory in task-7-brief.md covers checkpoint core/registry/runner, every Gym/adapter/initializer manifest caller, isolated operator tool, focused tests and the three existing README usage sections. Preserve Task6 actual shape/reset/trace/seed/runtime boundaries; no CBF/PPO/replay-core or deferred evaluator/CI/deployment ownership. Only worker task-7-log may be committed from its local coordination changes; registration remains uncommitted and primary task-7-report is its sole primary write exception. Must verify clean fresh342 baseline before editing; original checkpoint-contract-audit and real runner/sandbox capability reports are preparation, not Task7 acceptance.
 
 ## Decisions Made
 

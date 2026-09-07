@@ -2,6 +2,10 @@
 
 ## Session: 2026-09-07
 
+- Task6 integrated in order as `dbc609d63e9194530bbefb7fbb253db0c5ce909f`, `b52808dd84fd48e649429b6240da7a3ba58fb22e`, `4183d2baf1536b9c5e51110021ac41274d26222c`, `b5b945513acb4d3e48c401653198442654a387e9`. Fresh primary explicit full suite342 passed34.53s; ../task-6-integrated-gate-a.json read back five CPU/static passes (83 syntax files/65 baseline paths) and four independent Gym/Lab dependency/runtime blockers. Source/test/tools/config trees equal reviewed0efc193; no baseline deletions, shell/diff checks pass. Primary's existing ignored caches/review diffs remained exactly unchanged; this is non-final integration evidence, not a fresh empty final-candidate checkout.
+
+- Preserved both Task6 worker registration diffs losslessly in task-6-registration-history.md, checked unchanged before exact apply_patch restoration, and confirmed worker0efc193 clean including ignored. All source commits/worktrees and prior review snapshots retained. Registered exact26-path Task7 scope after accepted integration; no Task7 source edit or remote write yet.
+
 - Received/read complete Task 6 scoped fix review: Spec PASS / Quality PASS, all five original findings ADDRESSED, zero new actionable findings. Independent fixed0efc193 full342 passed34.25s, covering90 passed20.53s, smoke5 passed1.04s and five GateA CPU/static passes/four blockers; review checkout remained clean including ignored. Ready to integrate all four ordered Task6 commits after saving this report; fresh primary validation remains required before Task7.
 
 - Read complete fix1 addendum and actual postcommit Gate A JSON: `0efc193` full342 passed34.20s, five CPU/static passes and four Gym/Lab dependency/runtime blockers; grammar83, shell and range/index checks passed. New detached ../SEA-Nav-Code-batch6-review-fix1 verified exact HEAD and empty full ignored porcelain; original reviewer assigned complete 8445149..0efc193 diff and five scoped verdicts. Source/report evidence is local only; do not infer acceptance from worker tests or clear findings before independent review.

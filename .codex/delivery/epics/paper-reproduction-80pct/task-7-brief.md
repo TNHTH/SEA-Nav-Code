@@ -12,6 +12,49 @@ Read `legacy-sandbox-capability.md` for a later trusted namespace/Torch dependen
 
 Checkpoint/startup migration also owns the narrow current-usage sections of `README.md`, `training/legged_gym/README.md` and `sea_nav_current_isaaclab_full_method/README.md`. Current root train/play examples omit the new required identity/runtime inputs; the inherited Gym README actively recommends `--resume`, numeric `--checkpoint` and latest-run discovery and mentions Preview 3. Preserve upstream attribution and clearly mark historical installation guidance as historical, but supply actual validated CPU/preflight/manifests commands and the honest blocked simulator boundary for this repaired checkout. Use the final Task 6/7 parser interfaces, not guessed flags. This is user-facing documentation of the changed callers, not deferred packaging/CI/deployment work; do not erase provenance or claim a locked simulator environment. Test relevant example arguments through the real pure parser/CLI boundary without launching simulation.
 
+## Exact Task 7 registration after verified Task 6
+
+Task 6 is integrated as `dbc609d`, `b52808d`, `4183d2b`, `b5b945513acb4d3e48c401653198442654a387e9`; original reviewer closed all five whole-review findings. Primary fresh full suite: 342 passed in34.53s; five Gate A CPU/static passes and four explicit Gym/Lab dependency/runtime blockers. Source/test/tools/config tree equals reviewed `0efc193`, with no baseline deletions. Only after this acceptance may the next detached Task 7 source worker begin.
+
+Exact 26-path inventory (supersedes the shorter original Files section; no edits outside it without controller registration):
+
+```text
+training/rsl_rl/rsl_rl/utils/checkpoint.py
+training/rsl_rl/rsl_rl/utils/__init__.py
+training/rsl_rl/rsl_rl/runners/on_policy_runner.py
+training/rsl_rl/rsl_rl/runtime_preflight.py
+tools/convert_legacy_checkpoint.py
+sea_nav_current_isaaclab_full_method/init_full_method_checkpoint.py
+sea_nav_current_isaaclab_full_method/full_method_runtime_smoke.py
+sea_nav_current_isaaclab_full_method/train_full_method_ppo.py
+sea_nav_current_isaaclab_full_method/train_full_method_acsi_replay_ppo.py
+sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py
+training/legged_gym/legged_gym/scripts/train.py
+training/legged_gym/legged_gym/scripts/play.py
+training/legged_gym/legged_gym/utils/helpers.py
+training/legged_gym/legged_gym/utils/task_registry.py
+tests/test_checkpoint_v2.py
+tests/test_checkpoint_security.py
+tests/test_checkpoint_legacy_converter.py
+tests/test_runner_registry.py
+tests/test_runner_checkpoint.py
+tests/test_checkpoint_runtime_wiring.py
+tests/test_runtime_cli_contract.py
+tests/test_runtime_manifest_contract.py
+tests/test_environment_profile.py
+README.md
+training/legged_gym/README.md
+sea_nav_current_isaaclab_full_method/README.md
+```
+
+Owner is the sole Task 7 source implementer in `../SEA-Nav-Code-batch7`, detached from the next primary coordination commit. Register its actual BASE and fresh 342-test baseline before edits. Local task_plan.md/resume_state.json registration and task-7-log.md may be written; commit only the log, not worker registration. Sole primary write exception: task-7-report.md in the coordination directory. Read-only independent slice review may run on fixed commits while this same implementer continues later owned callers; no other source writer or temporary named branch.
+
+Read the complete Task 6 report including fix1 addendum and scoped re-review. Preserve validated runner-owned shape adaptation plus applied_shapes receipts, initial/operator/one-shot terminal reset events, smoke seed/horizon readback, no-replay smoke, default-disabled trainer tracing/explicit --trace PATH, closed physical-row/path binding, attempt-all cleanup and exclusive output guards. The actor/algorithm consumer identity and blocked controller/runtime provenance are not checkpoint features to remove. Migrate only Task-7-specific loading blockers and old checkpoint callers; never relax unavailable-runtime or accepted-paper blockers to make tests pass. Gym parent must remain Torch-free until real Gym import; perform Torch-dependent manifest capability/loading checks in the correctly isolated preflight phase as needed and bind the configuration across phases.
+
+The three existing runtime/environment test files may only migrate checkpoint-specific expectations or supply the new required persistence metadata in actual runner/caller fixtures. Preserve every independent Task 6 shape, reset, trace, output, startup and scientific assertion. Core CBF/PPO/replay, controller assets, unrelated configuration values and deferred CI/deployment/evaluator files are not owned.
+
+Use two ordered reviewable implementation boundaries: checkpoint schema/atomic loader/registry/actual runner CPU continuation first, then all manifest callers, isolated operator conversion and validated current README examples. Tests must exercise real OnPolicyRunner save/load with nonempty Adam and N+M continuation, not just serializers or lower-level actor factories. Keep the existing pending CBF hotpath finding separate; no CBF source change during Task 7. New paths for a genuinely necessary separately isolated worker or narrow inherited-test migration require a concrete controller decision before editing.
+
 ## Global Constraints
 
 - Working branches must remain exactly `main`, `stable`, and `test`; all repair commits land only on `test`.

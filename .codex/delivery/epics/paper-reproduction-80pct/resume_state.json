@@ -1,36 +1,29 @@
 {
   "schema_version": 1,
-  "coord_rev": 7,
+  "coord_rev": 8,
   "repository": "TNHTH/SEA-Nav-Code",
   "branch": "test",
-  "head": "cd80127c49e1c2b5a99b0286cf40c43669877c14",
+  "head": "b5b945513acb4d3e48c401653198442654a387e9",
   "head_semantics": "last observed primary HEAD; a coordination-only successor may exist; verify git rev-parse HEAD on recovery",
   "phase": "serial_implementation",
-  "next_action": "Task 6 original-reviewer fix1 PASS received; integrate four ordered commits then fresh primary342/GateA verification before Task7; remote authorization questions remain pending",
+  "next_action": "Create Task7 detached worktree at next coordination commit, verify fresh clean342 baseline, then dispatch sole Task7 writer; no remote publication or CBF concurrent edits",
   "active_implementation": {
-    "task": 6,
-    "agent": "/root/implement_batch6",
-    "base": "65dcbbc2b13c92af99a9e7d4cba4110880f9b509",
-    "head": "0efc1934cbefc1a9780baced7846484f29eb776e",
-    "worktree": "../SEA-Nav-Code-batch6",
-    "status": "review_passed_pending_integration",
-    "open_findings": 0,
-    "whole_fix_round": 1,
-    "whole_review": "task-6-review.md",
-    "slice1_reviewer": "/root/review_batch6_slice1",
-    "slice1_review": "task-6-slice1-rereview-1.md",
-    "whole_reviewer": "/root/review_batch6_full",
-    "whole_review_worktree": "../SEA-Nav-Code-batch6-review-full",
-    "rereview_worktree": "../SEA-Nav-Code-batch6-review-fix1",
-    "head_semantics": "fixed 11-file repair, only worker registration files dirty; five findings remain open until independent scoped verdict",
-    "rereview": "task-6-rereview-1.md"
+    "task": 7,
+    "agent": "/root/implement_batch7",
+    "worktree": "../SEA-Nav-Code-batch7",
+    "base": null,
+    "head": null,
+    "status": "registered_pending_fresh_detached_baseline",
+    "scope_file": "task-7-brief.md",
+    "scope_count": 26
   },
   "completed_tasks": [
     1,
     2,
     3,
     4,
-    5
+    5,
+    6
   ],
   "strict_batch_order": [
     1,
@@ -67,5 +60,13 @@
     "formal_100_trial_metrics",
     "real_robot_validation",
     "public_redistribution_rights"
-  ]
+  ],
+  "last_completed_task": {
+    "task": 6,
+    "worker_head": "0efc1934cbefc1a9780baced7846484f29eb776e",
+    "integrated_head": "b5b945513acb4d3e48c401653198442654a387e9",
+    "review": "task-6-rereview-1.md",
+    "primary_tests": "342 passed in 34.53s",
+    "registration_history": "task-6-registration-history.md"
+  }
 }

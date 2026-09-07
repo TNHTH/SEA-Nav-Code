@@ -9,13 +9,13 @@
 
 | Field | Current value | Evidence | Status / limits |
 |---|---|---|---|
-| Artifact / version identity | integrated source `test@1ae9187e293bd13550a70f7858207a62ea6f6da5`; `main=stable=1c5675bbedf1dcbe5a4c1a91830cae528c780793` | 2026-09-07 Task 5 serial cherry-picks and verification | coordination-only successor does not change the tested source |
-| Active evidence instance | Task 5 primary checkout run: 212 tests passed in 13.17s; Gate A five CPU/static passes and real Gym blocked | `../task-5-integrated-gate-a.json`; summary in progress.md | non-final batch evidence; not a frozen-candidate artifact |
+| Artifact / version identity | integrated source `test@b5b945513acb4d3e48c401653198442654a387e9`; `main=stable=1c5675bbedf1dcbe5a4c1a91830cae528c780793` | 2026-09-07 Task6 four serial cherry-picks and fresh verification | coordination-only successor does not change tested source |
+| Active evidence instance | Task6 primary342 tests passed in34.53s; five GateA CPU/static passes, Gym/Lab dependency/runtime four blockers | `../task-6-integrated-gate-a.json`; progress.md and independent rereview | non-final integrated evidence; existing ignored inventory unchanged, not frozen empty-checkout evidence |
 | Declared configuration | 2026-09-07 evidence-corrected design and task briefs | scientific/checkpoint audit reports; original 252f3f85 design is historical | action-bound row blocks accepted paper_v1; upstream diagnostic repair proceeds |
 | Confirmed facts | remote snapshots are unrelated roots; only `main` is a complete tree; post-sample CBF and PPO smoothness state mutation are real regressions | Git object analysis and CPU/source comparison | confirmed |
 | Candidate hypothesis | repairing packaging/config/PPO/CBF/replay/runtime/checkpoint contracts will make Rungs 0–2 reliable; simulator viability remains unknown | approved spec and batch mappings | implementation pending |
-| Highest validation rung | Rung 1 for Tasks 1–5; non-final Gate A passed_with_blockers | independent Task 5 scoped review and fresh primary run | frozen final-candidate Rung 2 still pending |
-| Unpublished/unverified work | Tasks 1–5 integrated; primary HEAD `cd80127c49e1c2b5a99b0286cf40c43669877c14`; Task 6 original `8445149` plus fixed repair `0efc1934cbefc1a9780baced7846484f29eb776e`; Task 7 pending | Original independent full review one P1/four P2; read complete postcommit342-pass addendum/Gate A; original reviewer active on clean fixed fix1 checkout; no source dirt | local only; no remote write; Task 6 not integrated; five independent fix verdicts, final whole-branch/CBF P2 and runtime/accepted-paper blockers remain |
+| Highest validation rung | Rung1 for Tasks1–6; non-final GateA passed_with_blockers | Task6 scoped Spec/Quality PASS and fresh primary full run | frozen final-candidate Rung2 still pending |
+| Unpublished/unverified work | Tasks1–6 integrated through b5b9455; Task7 exact26-path scope registered, no source work yet; final CBF P2 remains open | Task6 all5 review findings closed, source tree equals reviewed0efc193, worker clean/registration history retained | local only; no remote write; Task7, final review/frozen verification, runtime and accepted-paper blockers remain |
 
 ## Research Findings
 
