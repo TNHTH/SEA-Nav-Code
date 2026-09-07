@@ -29,3 +29,5 @@
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
 
 from .utils import split_and_pad_trajectories, unpad_trajectories
+from .checkpoint import (CheckpointError, CheckpointManifest, LoadedCheckpoint,
+                         load_checkpoint_v2, save_checkpoint_v2)

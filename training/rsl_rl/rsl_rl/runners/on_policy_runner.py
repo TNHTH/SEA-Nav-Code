@@ -38,6 +38,7 @@ import statistics
 from datetime import datetime
 from types import ModuleType
 from typing import Optional
+from pathlib import Path
 
 # from torch.utils.tensorboard import SummaryWriter
 import torch
@@ -46,6 +47,25 @@ from rsl_rl.env import VecEnv
 from rsl_rl.algorithms.ppo import PPO
 from rsl_rl.modules.actor_critic import ActorCritic
 from rsl_rl.modules.cbf_actor_critic import DifferentiableSafeActorCritic
+from rsl_rl.utils.checkpoint import (CheckpointError, load_checkpoint_v2,
+                                    save_checkpoint_v2, validate_checkpoint_mode)
+
+
+POLICY_REGISTRY = {"ActorCritic": ActorCritic,
+                   "DifferentiableSafeActorCritic": DifferentiableSafeActorCritic}
+ALGORITHM_REGISTRY = {"PPO": PPO}
+
+
+def resolve_policy_class(name):
+    if type(name) is not str or name not in POLICY_REGISTRY:
+        raise ValueError("unknown policy class: " + str(name))
+    return POLICY_REGISTRY[name]
+
+
+def resolve_algorithm_class(name):
+    if type(name) is not str or name not in ALGORITHM_REGISTRY:
+        raise ValueError("unknown algorithm class: " + str(name))
+    return ALGORITHM_REGISTRY[name]
 
 
 def _wandb_enabled(args: Optional[object]) -> bool:
@@ -68,7 +88,7 @@ class OnPolicyRunner:
                  train_cfg,
                  log_dir=None,
                  args=None,
-                 device='cpu'):
+                 device='cpu', *, producer_commit=None, resolved_config_sha256=None):
 
         self.cfg=train_cfg["runner"]
         self.alg_cfg = train_cfg["algorithm"]
@@ -76,11 +96,13 @@ class OnPolicyRunner:
         self.device = device
         self.env = env
         self.args = args
+        self.producer_commit = producer_commit
+        self.resolved_config_sha256 = resolved_config_sha256
 
         num_obs = self.env.num_obs
         num_rays = self.env.rays.shape[1]
         num_nav_actions = self.env.num_nav_actions
-        actor_critic_class = eval(self.cfg["policy_class_name"])
+        actor_critic_class = resolve_policy_class(self.cfg["policy_class_name"])
 
         actor_critic: ActorCritic = actor_critic_class( 
                                         num_actions=num_nav_actions,
@@ -89,7 +111,7 @@ class OnPolicyRunner:
                                         num_rays=num_rays,
                                         **self.policy_cfg).to(self.device)
 
-        alg_class = eval(self.cfg["algorithm_class_name"]) # PPO
+        alg_class = resolve_algorithm_class(self.cfg["algorithm_class_name"])
         
         self.alg: PPO = alg_class(actor_critic, device=self.device, **self.alg_cfg)
 
@@ -109,6 +131,15 @@ class OnPolicyRunner:
         _, _ = self.env.reset()
     
     def learn(self, num_learning_iterations, init_at_random_ep_len=False, config=None):
+        if type(num_learning_iterations) is not int or num_learning_iterations < 0:
+            raise ValueError("num_learning_iterations must be a nonnegative integer")
+        if self.log_dir is None:
+            raise CheckpointError("learning requires an explicit checkpoint output directory")
+        if self.producer_commit is None or self.resolved_config_sha256 is None:
+            raise CheckpointError("learning requires explicit producer_commit and resolved_config_sha256")
+        if type(self.save_interval) is not int or self.save_interval <= 0:
+            raise ValueError("save_interval must be a positive integer")
+        os.makedirs(self.log_dir, exist_ok=True)
         
         # initialize writer
         if init_at_random_ep_len:
@@ -126,7 +157,8 @@ class OnPolicyRunner:
         cur_reward_sum = torch.zeros(self.env.num_envs, dtype=torch.float, device=self.device)
         cur_episode_length = torch.zeros(self.env.num_envs, dtype=torch.float, device=self.device)
         
-        tot_iter = self.current_learning_iteration + num_learning_iterations
+        start_iteration = self.current_learning_iteration
+        tot_iter = start_iteration + num_learning_iterations
         # self.num_steps_per_env = 1
         for it in range(self.current_learning_iteration, tot_iter):
             start = time.time()
@@ -159,29 +191,29 @@ class OnPolicyRunner:
                 self.alg.compute_returns(critic_obs, infos)
             
             mean_value_loss, mean_surrogate_loss, mean_regularization_loss, mean_smooth_loss, mean_interv_loss = self.alg.update()
+            self.current_learning_iteration = it + 1
             
             stop = time.time()
             learn_time = stop - start
-            if it == self.current_learning_iteration + 10:
+            if it == start_iteration + 10:
                 if _wandb_enabled(self.args):
                     _require_wandb().init(
                             project='Nav_Loc',
                             name = datetime.now().strftime('%m_%d_%H-%M-%S') ,
                             config = config,
                     )
-            if self.log_dir is not None and it % 10 == 0 and it > self.current_learning_iteration + 10:
+            if self.log_dir is not None and it % 10 == 0 and it > start_iteration + 10:
                 if _wandb_enabled(self.args):
                     self.wandb_log(locals())
                 else:
                     self.print_log(locals(), extra=True)
-            if it == self.current_learning_iteration + 100:
-                os.makedirs(self.log_dir, exist_ok=True)
-            if it % self.save_interval == 0 and it > self.current_learning_iteration + 100:
-                self.save(os.path.join(self.log_dir, 'model_{}.pt'.format(it)))
+            if self.current_learning_iteration % self.save_interval == 0:
+                self.save(Path(self.log_dir) / ('model_%d.manifest.json' % self.current_learning_iteration))
             ep_infos.clear()
         
-        self.current_learning_iteration += num_learning_iterations
-        self.save(os.path.join(self.log_dir, 'model_{}.pt'.format(self.current_learning_iteration)))
+        final_manifest = Path(self.log_dir) / ('model_%d.manifest.json' % self.current_learning_iteration)
+        self.save(final_manifest)
+        return final_manifest
 
     
     def wandb_log(self, locs, width=80, pad=35):
@@ -265,21 +297,32 @@ class OnPolicyRunner:
 
         print(log_string)
 
-    def save(self, path, infos=None):
-        torch.save({
-            'model_state_dict': self.alg.actor_critic.state_dict(),
-            'optimizer_state_dict': self.alg.optimizer.state_dict(),
-            'iter': self.current_learning_iteration,
-            'infos': infos,
-            }, path)
+    def save(self, path):
+        return save_checkpoint_v2(path, model_state_dict=self.alg.actor_critic.state_dict(),
+                                  optimizer_state_dict=self.alg.optimizer.state_dict(),
+                                  iteration=self.current_learning_iteration,
+                                  producer_commit=self.producer_commit,
+                                  resolved_config_sha256=self.resolved_config_sha256)
 
-    def load(self, path, load_optimizer=True):
-        loaded_dict = torch.load(path, map_location=self.device)
-        self.alg.actor_critic.load_state_dict(loaded_dict['model_state_dict'])
-        if load_optimizer:
-            self.alg.optimizer.load_state_dict(loaded_dict['optimizer_state_dict'])
-        self.current_learning_iteration = loaded_dict['iter']
-        return loaded_dict['infos']
+    def load(self, path, *, artifact_root, mode="resume"):
+        loaded = validate_checkpoint_mode(load_checkpoint_v2(
+            path, artifact_root=artifact_root, map_location=self.device,
+            expected_resolved_config_sha256=self.resolved_config_sha256), mode)
+        if mode == "resume":
+            rates = {group["lr"] for group in loaded.optimizer_state_dict["param_groups"]}
+            if len(rates) != 1:
+                raise CheckpointError("PPO resume requires one shared learning rate")
+        elif mode == "warm_start":
+            if self.current_learning_iteration != 0 or self.alg.optimizer.state:
+                raise CheckpointError("warm start requires a fresh runner")
+        self.alg.actor_critic.load_state_dict(loaded.model_state_dict)
+        if mode == "resume":
+            self.alg.optimizer.load_state_dict(loaded.optimizer_state_dict)
+            self.alg.learning_rate = self.alg.optimizer.param_groups[0]["lr"]
+            self.current_learning_iteration = loaded.iteration
+        elif mode == "warm_start":
+            self.current_learning_iteration = 0
+        return loaded.manifest
 
     def get_inference_policy(self, device=None):
         self.alg.actor_critic.eval() # switch to evaluation mode (dropout for example)
