@@ -30,13 +30,13 @@ Phase 3 — strict serial implementation
 
 ### Phase 3: Strict serial implementation
 - [x] Batch 1 — portable Gate A and lazy optional `wandb` (`484f682`, reviewed, 31 CPU tests).
-- [ ] Batch 2 — parity registry, profiles, typed resolved config, and two-axis identity.
+- [x] Batch 2 — parity registry, profiles, typed resolved config, and two-axis identity (`6f5e544`, reviewed, 71 CPU tests).
 - [ ] Batch 3 — PPO action/likelihood and auxiliary-state identity.
 - [ ] Batch 4 — paper-damped CBF semantics, diagnostics, and golden vectors.
 - [ ] Batch 5 — replay ring/reservation/reset partition and CPU policy evidence.
 - [ ] Batch 6 — portable runtime inputs and manifest-backed recovery contracts.
 - [ ] Batch 7 — checkpoint schema v2, safe loading, and explicit class registries.
-- **Status:** in_progress; Task 2 is next
+- **Status:** in_progress; Task 3 is next
 
 ### Phase 4: Frozen-candidate verification
 - [ ] Freeze one candidate OID and create a clean detached verification checkout.
@@ -60,10 +60,12 @@ Phase 3 — strict serial implementation
 
 | Worktree | Branch/commit | Owner | Owned paths | Dependencies | Status |
 |---|---|---|---|---|---|
-| `work/SEA-Nav-Code` | `test@484f682` plus coordination commit | controller | plan/coordination now; each integrated batch serially | approved spec | active |
+| `work/SEA-Nav-Code` | `test@6f5e544` plus coordination commit | controller | plan/coordination now; each integrated batch serially | approved spec | active |
 | `work/SEA-Nav-Code-latest-review` | detached `b53d3fe` | read-only source audit | none | none | clean/read-only |
 | `work/SEA-Nav-Code-batch1` | detached `4dec41b` | task1 implementer | Task 1 exact paths | reviewed and integrated as `a58ad21`, `eac2657`, `484f682` | finished, clean and retained; historical worker registration preserved in task-1-registration-history.md |
-| `work/SEA-Nav-Code-batch2` | detached BASE `e224933` | `/root/implement_batch2` | `requirements-cpu.txt`, `requirements-cpu.lock`, `configs/parity_registry.yaml`, `configs/profiles/upstream_fbce672c.yaml`, `configs/profiles/paper_v1.yaml`, `training/rsl_rl/rsl_rl/experiment_config.py`, `sea_nav_current_isaaclab_full_method/adapters/experiment_config.py`, `tests/test_experiment_config.py`, adapter manifest/config/static gate, local task-2-log | Task 1 integrated and verified | active |
+| `work/SEA-Nav-Code-batch2` | detached `3359215` | `/root/implement_batch2` | Task 2 exact paths | reviewed and integrated as `ed8e7e7`, `6f5e544` | finished, clean and retained; local registration preserved in task-2-registration-history.md |
+| `work/SEA-Nav-Code-batch3` | detached from post-Task-2 coordination commit | Task 3 implementer | `training/rsl_rl/tests/test_ppo_action_state_identity.py`, `training/rsl_rl/rsl_rl/modules/cbf_actor_critic.py`, `training/rsl_rl/rsl_rl/modules/actor_critic.py`, `training/rsl_rl/rsl_rl/algorithms/ppo.py`, local task-3-log; primary task-3-report exception | Task 2 integrated and verified | registered; creation next |
+| Primary read-only publication preflight | `test` | `/root/publication_preflight` | only coordination publication-preflight.md | no source dependency | read-only remote inspection; no Git/remote mutation |
 
 ## Decisions Made
 

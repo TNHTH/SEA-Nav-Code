@@ -2,6 +2,10 @@
 
 ## Session: 2026-09-07
 
+- Continuation verified primary `50d41b0`, detached Task 2 fix `3359215`, and only the worker report dirty in primary. The complete fix addendum supplies RED/GREEN commands, 71 passed postcommit, corrected hashes and explicit API migration. Generated `7367aa8..3359215` scoped package and resumed the independent Task 2 reviewer; Task 2 is not integrated yet. Restored current truth table before new source decisions.
+- Task 2 scoped re-review approved all five P2 and horizon P3 with no new findings; integrated `7367aa8`/`3359215` as `ed8e7e7`/`6f5e544`. Fresh primary command `PYTHONPATH="$PWD/training/rsl_rl" PYTHONDONTWRITEBYTECODE=1 ../sea-nav-cpu-venv/bin/python -m pytest -q tests/test_experiment_config.py tests/test_runner_optional_wandb.py tests/test_gate_a_portable.py sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py` exited 0: **71 passed in 4.09s**. Gate A report `/tmp/sea-nav-task2-integrated.dLTZ2y/gate-a.json` has all five CPU/static cases passed (56 syntax files, 65 complete-tree paths), Gym blocked. `git diff --check` passed; no baseline deletion. This is integrated Task 2 evidence, not a frozen final candidate.
+- Task 2 worker registration diffs preserved verbatim as decoded JSON in `task-2-registration-history.md`, then exact-file patched to committed baseline; detached `3359215` is clean and retained. Registered Task 3 only after reviewed Task 2 integration. Publication-preflight agent owns only its read-only report and cannot mutate refs or protections.
+
 - Resumed from clean `test@1259bae`; the plan commit exists, and all seven code tasks remain pending.
 - Registered detached Task 1 checkout at `../SEA-Nav-Code-batch1`; no additional branch created.
 - Reproduced the system Torch / NumPy 2 ABI failure. The old temporary NumPy override no longer exists; rebuilding a task-scoped NumPy 1.26.4 override without changing system packages.

@@ -60,3 +60,9 @@ Task 2: implemented detached HEAD=7367aa872619dfd8eccc4821ab25c4608bb3ee85, full
 Task 2: review changes requested (five P2: shallow frozen/hash-bound data, absent field validation, implicit legacy delta, eager manifest import boundary, conflated acquisition/refresh; one P3 horizon status). Controller read complete feedback and confirmed the first four at the actual new data/manifest boundary and the cadence against scientific-wiring-audit.md. Round 1/5 assigned to original implementer; tests/test_gate_a_portable.py ownership may expand only for its explicit manifest caller migration.
 
 Ruling: change the horizon parity row from resolved to profile_fork — paper evaluation 30 s and upstream unsupported are not directly matched under the spec's own status definition — fixes a plan-mandated P3 without inventing an upstream evaluator, and requires regenerated configuration hashes. No simulation semantics changed.
+
+Task 2: fix round 1/5 implementation received at `3359215`; report contains exact covering tests and outputs (71 passed). Scoped re-review assigned to original `/root/review_batch2` with `7367aa8..3359215` diff; all five P2 and the horizon P3 require verdicts before integration.
+
+Task 2: fix round 1/5 (five P2 and one P3 addressed, 0 open; commits 7367aa8..3359215), spec PASS and quality PASS in task-2-rereview-1.md.
+Task 2: complete (detached commits e224933..3359215, review clean; integrated as ed8e7e7/6f5e544). Fresh primary 71 passed, five Gate A CPU/static cases passed with Gym blocked; no deleted baseline path. Consumer migration remains Tasks 3–7, not claimed as applied here.
+Task 3: registered; detached BASE will be the coordination-only successor of 6f5e544; owned paths and exact corrected fixture/update requirements are in task_plan.md and task-3-brief.md.

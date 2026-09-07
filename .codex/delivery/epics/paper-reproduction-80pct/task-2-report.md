@@ -136,3 +136,77 @@ All primary definitions below live in packaged `rsl_rl.experiment_config`; the a
 - Adapter/runtime scientific values have not been rewired. In particular, the current adapter runtime contract still describes pre-Task-3/4/6 behavior and remains `unverified`/blocked, so this commit makes no simulator or parity execution claim.
 - `paper_v1` cannot produce a resolved accepted-run hash until authoritative Table V evidence and the perception scheduler ambiguity are resolved. CPU formula work in later tasks must use registry literals diagnostically without relabeling a run.
 - Isaac Gym and IsaacLab are unavailable; real environment application, simulator state, first-observation, replay, training, metrics, hardware, and publication-rights claims remain blocked/deferred.
+
+## Review Fix Addendum — Round 1/5
+
+This addendum supersedes the initial report's positional-manifest compatibility statement, old configuration hashes, 100 ms upstream acquisition declaration, and `time_horizons=resolved` classification.
+
+### Commit and Scope
+
+- Review-fix commit: `3359215` (`fix: harden resolved configuration integrity`).
+- Parent Task 2 commit: `7367aa8`.
+- Changed exact paths: local `task-2-log.md`, parity registry, upstream profile, adapter example manifest/config, adapter manifest module, experiment-config tests, inherited portable Gate A tests, and the shared packaged experiment-config module.
+- `tests/test_gate_a_portable.py` was added to the local registered scope before edits. Local `task_plan.md` and `resume_state.json` remain unstaged. No runtime, PPO, CBF, replay, reset, or trainer implementation was modified.
+
+### Resolved Findings
+
+1. Resolved data is recursively immutable: mappings use read-only mapping proxies and sequences use tuples. Selected contracts, algorithm sections, and projection values cannot be mutated beneath frozen dataclass attributes.
+2. `ConfigProjection.materialize_values() -> Dict[str, Any]` returns a recursively detached mutable constructor-input copy. `resolved_config_to_dict()` likewise returns detached data, recomputes the canonical payload hash, and rejects a stale or forged `resolved_sha256`. Projection getters validate integrity before returning, and `default_manifest` validates integrity before binding identity/hash.
+3. All 22 contracts have explicit selected-field schemas. Exact required/allowed keys, finite numeric types, positive/nonnegative/probability/FOV domains, booleans, vector lengths, enums, and nested reward schemas are validated for both profiles. Cross-field checks cover command bounds, latency ordering, ACSI probability/threshold order, zero-footprint initial profiles, and upstream acquisition/history/hold cadence. Matching changes to registry and profile inputs no longer bypass validation.
+4. The identity-free positional `default_manifest(adapter_root)` form now raises a precise migration error requiring explicit `repo_root`, `adapter_root`, `resolved_config`, and `validation_rung` at Task 6. It never synthesizes `ppo_state_identity_repair`. The inherited portable test now constructs an explicit resolved identity.
+5. `adapters.manifest` uses type-checking-only annotations and delays its sole runtime `rsl_rl` import until explicit manifest construction. A clean subprocess with no `PYTHONPATH`, only the adapter directory inserted, and `rsl_rl` explicitly unavailable imports the module successfully.
+6. Upstream ray timing now declares `acquisition_period_s=.02` and separate `output_refresh_period_s=.1`; indices `[-3,-4]` therefore produce 40/60 ms refresh ages, and the four intervening held ticks produce the recorded 140 ms maximum age. Paper acquisition remains .1 s.
+7. `time_horizons` now uses `profile_fork`: paper evaluation is 30 s and upstream remains `null` with `unsupported_no_complete_upstream_metric_runner`. No upstream evaluation value was invented.
+
+The corrected registry SHA-256 is `c86c6a90f1aea78641ac0543657fa8d2c55b096ba497a5b5884164b9f9b7c621`. Corrected canonical hashes are:
+
+- upstream profile + Isaac Gym + `ppo_state_identity_repair`: `6d90936678c80a531ef425b9b994fc4a0f1b610dc976946cc3919d364806953e`;
+- upstream profile + IsaacLab + `ppo_state_identity_repair`: `a93012f2a13b409975dbec24ae36a801ec113ae9f86d8fb036352abe8d02823a`.
+
+### RED Evidence
+
+Main review regression command:
+
+`PYTHONPATH=$PWD/training/rsl_rl PYTHONDONTWRITEBYTECODE=1 ../sea-nav-cpu-venv/bin/python -m pytest -q tests/test_experiment_config.py::test_resolved_data_is_deeply_immutable tests/test_experiment_config.py::test_materialized_consumer_values_and_serialization_are_detached tests/test_experiment_config.py::test_serialization_and_manifest_reject_broken_resolved_hash tests/test_experiment_config.py::test_matching_registry_and_profile_invalid_selections_are_rejected tests/test_experiment_config.py::test_upstream_ray_acquisition_and_output_refresh_cadences_are_distinct tests/test_experiment_config.py::test_differing_evaluation_horizons_are_a_profile_fork tests/test_gate_a_portable.py::test_default_manifest_rejects_legacy_identity_free_call tests/test_gate_a_portable.py::test_manifest_module_imports_without_rsl_rl_on_path`
+
+- Exit 1; `12 failed in 0.79s`.
+- Failures independently demonstrated writable nested data, absent detached materialization/integrity checks, accepted matching invalid fields/values, incorrect upstream cadence, incorrect horizon status, implicit legacy delta insertion, and eager adapter import failure.
+
+Additional FOV-domain RED used a matching registry/profile pair with `cbf_fov_deg=361.0`:
+
+- Exit 1; `1 failed in 0.16s` because the resolver accepted the out-of-domain value.
+
+### GREEN and Post-Commit Verification
+
+- Explicit manifest, legacy rejection, and import-boundary regression: `3 passed in 0.08s`.
+- Cadence and horizon classification regressions: `2 passed in 0.11s`.
+- Deep immutable/hash/schema regressions: `8 passed in 0.59s`.
+- FOV upper-domain regression after enforcing `(0,360]`: `1 passed in 0.14s`.
+- Combined pre-commit corrected suite: `71 passed in 4.02s`.
+- Fresh post-commit full CPU/inherited command:
+
+  `PYTHONPATH=$PWD/training/rsl_rl PYTHONDONTWRITEBYTECODE=1 ../sea-nav-cpu-venv/bin/python -m pytest -q tests/test_experiment_config.py tests/test_runner_optional_wandb.py tests/test_gate_a_portable.py sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py`
+
+  Exit 0; `71 passed in 3.94s`.
+
+- Fresh post-commit Gate A:
+
+  `PYTHONPATH=$PWD/training/rsl_rl PYTHONDONTWRITEBYTECODE=1 ../sea-nav-cpu-venv/bin/python tools/gate_a.py --repo-root "$PWD" --report /tmp/sea-nav-gate-a-task2-fix1-postcommit.RDqVd3/gate-a.json`
+
+  Exit 0; `passed_with_blockers`. All five CPU/static cases passed, 56 tracked Python files compiled, and `isaac_gym_runtime` remained blocked.
+
+- Python 3.8 grammar parsing passed for the shared packaged module. All 22 registry contracts have exactly one explicit selected schema. YAML/JSON parsing, `git diff --cached --check`, and post-commit `git show --check` passed.
+
+### API Differences for Later Tasks
+
+- `ConfigProjection.values` and every resolved mapping/sequence are immutable. Tasks 3–6 should call `projection.materialize_values()` when a mutable `dict`/`list` carrier is required; direct mutation is intentionally rejected.
+- `build_policy_kwargs`, `build_ppo_kwargs`, `build_env_profile_values`, and `build_replay_kwargs` now validate the stored resolved hash before returning a projection.
+- `resolved_config_to_dict` and `write_resolved_config` fail closed on resolved payload/hash disagreement.
+- `default_manifest` has only the explicit identity-bound construction path. The current legacy call in `full_method_runtime_smoke.py` intentionally receives the Task 6 migration error until Task 6 wires a caller-supplied resolved identity; Task 2 does not alter that future runtime consumer.
+- Importing `adapters.manifest` no longer requires `rsl_rl` to be installed or already on `sys.path`. Explicit manifest construction still requires the packaged loader, as intended after the runtime selects the bundled package.
+
+### Remaining Boundaries
+
+- All scientific consumer projections remain `future_task_*`; none is labeled applied.
+- Accepted `paper_v1` remains blocked by literal Table V bounds and unresolved perception timing.
+- Isaac Gym/IsaacLab execution, formal metrics, physical replay application, real hardware, and publication rights remain blocked/deferred exactly as before.

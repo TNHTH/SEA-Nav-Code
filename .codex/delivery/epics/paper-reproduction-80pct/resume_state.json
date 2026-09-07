@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "coord_rev": 3,
+  "coord_rev": 4,
   "repository": "TNHTH/SEA-Nav-Code",
   "branch": "test",
-  "head": "df2f4b12deb942e0a0dc5b39fd336910112c104c",
+  "head": "6f5e544f5d0a6e8a6e397e141a8e432157e88146",
   "phase": "serial_implementation",
-  "next_action": "await /root/implement_batch2 fix round1 for task-2-review.md; verify covering report, generate 7367aa8..fix_head diff, ask /root/review_batch2 for scoped re-review; integrate only after review clean, verify primary, start Task 3 from updated test",
-  "active_implementation": {"task": 2, "agent": "/root/implement_batch2", "reviewer": "/root/review_batch2", "base": "e22493377065c445cfd2b1ac43c01aa4d99c5120", "head": "7367aa872619dfd8eccc4821ab25c4608bb3ee85", "worktree": "../SEA-Nav-Code-batch2", "status": "fix_round_1", "open_findings": 5},
-  "completed_tasks": [1],
+  "next_action": "create detached Task 3 from this coordination commit; verify baseline and dispatch implementation with corrected brief and PPO audit; source serial order remains mandatory",
+  "active_implementation": {"task": 3, "agent": null, "reviewer": null, "base": null, "head": null, "worktree": "../SEA-Nav-Code-batch3", "status": "registered", "open_findings": 0},
+  "completed_tasks": [1, 2],
   "strict_batch_order": [1, 2, 3, 4, 5, 6, 7],
   "active_write_owner": "controller",
   "active_owned_paths": [
