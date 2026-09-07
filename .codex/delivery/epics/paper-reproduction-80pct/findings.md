@@ -9,13 +9,13 @@
 
 | Field | Current value | Evidence | Status / limits |
 |---|---|---|---|
-| Artifact / version identity | integrated source `test@b5b945513acb4d3e48c401653198442654a387e9`; `main=stable=1c5675bbedf1dcbe5a4c1a91830cae528c780793` | 2026-09-07 Task6 four serial cherry-picks and fresh verification | coordination-only successor does not change tested source |
+| Artifact / version identity | integrated source `b5b945513acb4d3e48c401653198442654a387e9`; recovery-observed primary `test@f1daa125c9aec41fa741431200b9b07f3e250341`; `main=stable=1c5675bbedf1dcbe5a4c1a91830cae528c780793` | 2026-09-07 Task6 integration evidence and resumed local Git preflight | coordination-only successors do not change tested source; verify moving primary HEAD separately |
 | Active evidence instance | Task6 primary342 tests passed in34.53s; five GateA CPU/static passes, Gym/Lab dependency/runtime four blockers | `../task-6-integrated-gate-a.json`; progress.md and independent rereview | non-final integrated evidence; existing ignored inventory unchanged, not frozen empty-checkout evidence |
 | Declared configuration | 2026-09-07 evidence-corrected design and task briefs | scientific/checkpoint audit reports; original 252f3f85 design is historical | action-bound row blocks accepted paper_v1; upstream diagnostic repair proceeds |
 | Confirmed facts | remote snapshots are unrelated roots; only `main` is a complete tree; post-sample CBF and PPO smoothness state mutation are real regressions | Git object analysis and CPU/source comparison | confirmed |
 | Candidate hypothesis | repairing packaging/config/PPO/CBF/replay/runtime/checkpoint contracts will make Rungs 0–2 reliable; simulator viability remains unknown | approved spec and batch mappings | implementation pending |
 | Highest validation rung | Rung1 for Tasks1–6; non-final GateA passed_with_blockers | Task6 scoped Spec/Quality PASS and fresh primary full run | frozen final-candidate Rung2 still pending |
-| Unpublished/unverified work | Tasks1–6 integrated through b5b9455; Task7 active at detached BASE562d4ae0b56ca977ea433def6dbd05607284e38b, exact26 paths; final CBF P2 remains open | Fresh Task7 baseline342 passed33.94s, clean including ignored; Task6 source equals reviewed0efc193, accepted report/registration history retained | local only; no remote write; Task7 implementation/review, final frozen verification, runtime and accepted-paper blockers remain |
+| Unpublished/unverified work | Tasks1–6 integrated through b5b9455; Task7 sole writer active at detached BASE562d4ae0b56ca977ea433def6dbd05607284e38b, exact26 paths; independent core reviewer preparing contracts; final CBF P2 remains open | Resumed writer HEAD still562d4ae with two preserved registration diffs, new owned checkpoint tests/log; no fixed implementation slice yet | local only; no remote write; moving tests are not Task7 acceptance; frozen verification, runtime and accepted-paper blockers remain |
 
 ## Research Findings
 
@@ -55,6 +55,8 @@ The following baseline defects are historical findings; Tasks 1–3 now repair t
 2026-09-07 publication preflight confirms all three remote heads unchanged and no remote stable/archive tags. Local archive objects are exact; SSH authenticates TNHTH and only a no-op receive-pack dry-run was tested. No authenticated hosting API/browser administration path was found (nor a GitHub connector in current tool metadata); public empty rulesets are not proof of absent classic protection. Exact archive publication/transport authorization and stable protection remain separate final-transaction gates. See publication-preflight.md. These facts do not block serial local CPU repairs.
 
 ## Resources
+
+- `cbf-hotpath-followup-brief.md`: prepared narrow post-Task7 source/test candidate scope and real operator/PPO/export checks. It is not active ownership, a design exception or P2 closure. Task7 remains the only source writer; activate a later serial repair only after accepted integration.
 
 - `cbf-checked-path-probe.md`: complete independent in-memory CPU report read; aggregate validity retains one host decision while preserving tested output/gradient/error and TorchScript behavior (core/adapter/footprint B=2/2048: 5→1). Ordinary diagnostics remain unoptimized. A direct _assert_async substitution loses the check in this actual scripted save/load experiment and is not an acceptable CBF replacement. No source fix, performance-policy amendment, CUDA speedup or P2 closure is claimed; serial post-Task7 implementation/review still required.
 

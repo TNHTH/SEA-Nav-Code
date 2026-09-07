@@ -3,7 +3,7 @@
   "coord_rev": 8,
   "repository": "TNHTH/SEA-Nav-Code",
   "branch": "test",
-  "head": "562d4ae0b56ca977ea433def6dbd05607284e38b",
+  "head": "f1daa125c9aec41fa741431200b9b07f3e250341",
   "head_semantics": "last observed primary HEAD; a coordination-only successor may exist; verify git rev-parse HEAD on recovery",
   "phase": "serial_implementation",
   "next_action": "Task7 sole writer active at562d4ae; core checkpoint/runner boundary first, then all callers/converter/docs; independent fixed slice and whole review required; remote and CBF follow-up still separate",
