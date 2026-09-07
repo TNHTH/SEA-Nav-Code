@@ -56,6 +56,11 @@ class PPO:
                  device='cpu',
                  ):
 
+        if actor_critic.is_recurrent:
+            raise ValueError("PPO does not support recurrent actors")
+        if not callable(getattr(actor_critic, "action_mean_for", None)):
+            raise TypeError("PPO requires a pure actor action_mean_for(observations) method")
+
         self.device = device
 
         self.desired_kl = desired_kl
@@ -101,7 +106,7 @@ class PPO:
         loss_alpha = torch.mean(penalty ** 2)
         return loss_alpha
 
-    def compute_smoothness_loss(self, current_states, next_states):
+    def compute_smoothness_loss(self, current_states, next_states, *, orig_mu=None, orig_values=None):
         batch_size = current_states.size(0)
         _u = torch.rand(batch_size, 1, device=current_states.device)
         mix_weights = ((_u - 0.5) * 2.0)
@@ -110,15 +115,14 @@ class PPO:
         delta_states = next_states - current_states
         interp_states = current_states + mix_weights * delta_states
         
-        # with torch.no_grad():
-        self.actor_critic.act(current_states)
-        orig_actions = self.actor_critic.action_mean
-        self.actor_critic.act(interp_states)
-        interp_actions = self.actor_critic.action_mean
-        actor_smoothness = F.mse_loss(interp_actions, orig_actions)
+        # Pure queries retain the current minibatch's distribution and CBF fields.
+        if orig_mu is None:
+            orig_mu = self.actor_critic.action_mean_for(current_states)
+        interp_actions = self.actor_critic.action_mean_for(interp_states)
+        actor_smoothness = F.mse_loss(interp_actions, orig_mu)
         
-        # with torch.no_grad():
-        orig_values = self.actor_critic.evaluate(current_states)
+        if orig_values is None:
+            orig_values = self.actor_critic.evaluate(current_states)
         interp_values = self.actor_critic.evaluate(interp_states)
         critic_smoothness = F.mse_loss(interp_values, orig_values)
         
@@ -231,7 +235,8 @@ class PPO:
                 clip_maxs = torch.tensor([1.7,  0.8,  1.0], device=mu_batch.device)
                 range_loss = (torch.sum((mu_batch - torch.clip(mu_batch, min=clip_mins, max=clip_maxs))**2, dim=-1) * valid_mask).sum() / (valid_mask.sum() + 1e-8)
                 
-                smooth_loss = self.compute_smoothness_loss(obs_batch, next_obs_batch)
+                smooth_loss = self.compute_smoothness_loss(
+                    obs_batch, next_obs_batch, orig_mu=mu_batch, orig_values=value_batch)
                 regularization_loss = range_loss + 0.05 * smooth_loss
                 loss += 1.0 * regularization_loss
 

@@ -124,11 +124,8 @@ class DifferentiableSafeActorCritic(nn.Module):
         goals = obs_buf[:, -2:]
         return obs_buf, obs_hist, props, rays, goals
 
-    def forward(self, observations):
-        """
-        Directly return the safety mean used to build the distribution.
-        Following the original paper concept, CBF is the final layer of the network.
-        """
+    def _compute_safe_action_mean(self, observations):
+        """Return mean-stage CBF outputs without mutating active actor state."""
         obs_buf, obs_hist, props, rays, goals = self.extract(observations)
         
         latent = self.encoder(obs_hist)
@@ -144,16 +141,21 @@ class DifferentiableSafeActorCritic(nn.Module):
         # 3. Calculate adaptive parameter \alpha, using softplus to ensure \alpha > 0 mathematically
         rays_real = torch.exp2(rays) # 0.1~3.0
         alpha = F.softplus(alpha_raw)
-        self.alpha = alpha 
-        self.rays_real = rays_real
         
         # 4. Get u_s through differentiable safety layer
         u_s = self.cbf_layer(u_bar, rays_real, alpha)
         
-        # Save u_bar and u_s for calculating Intervention Loss
-        self.u_bar = u_bar
-        self.u_s = u_s
-        
+        return u_s, alpha, rays_real, u_bar
+
+    def forward(self, observations):
+        u_s, alpha, rays_real, u_bar = self._compute_safe_action_mean(observations)
+        self.alpha, self.rays_real = alpha, rays_real
+        self.u_bar, self.u_s = u_bar, u_s
+        return u_s
+
+    def action_mean_for(self, observations, **kwargs):
+        """Query a differentiable mean while preserving distribution and auxiliaries."""
+        u_s, _, _, _ = self._compute_safe_action_mean(observations)
         return u_s
     
     def update_distribution(self, observations):
@@ -163,10 +165,8 @@ class DifferentiableSafeActorCritic(nn.Module):
 
     def act(self, observations, **kwargs):
         self.update_distribution(observations)
-        actions = self.distribution.sample()
-        if self.enable_shield:
-            actions = self.cbf_layer(actions, self.rays_real, self.alpha)
-        return actions
+        # PPO stores and scores this exact Normal draw; CBF acts on the mean only.
+        return self.distribution.sample()
 
     def get_actions_log_prob(self, actions):
         return self.distribution.log_prob(actions).sum(dim=-1)

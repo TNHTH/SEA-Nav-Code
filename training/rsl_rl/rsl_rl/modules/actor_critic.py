@@ -161,12 +161,16 @@ class ActorCritic(nn.Module):
 
         return obs_buf, obs_hist, props, rays, goals
                     
-    def update_distribution(self, observations):
+    def action_mean_for(self, observations, **kwargs):
+        """Compute a differentiable mean without replacing active policy state."""
         obs_buf, obs_hist, props, rays, goals = self.extract(observations)
         latent = self.encoder(obs_hist)
         observations = torch.cat(
                             (obs_buf, latent), dim=-1)  # detach? 
-        mean = self.actor(observations)
+        return self.actor(observations)
+
+    def update_distribution(self, observations):
+        mean = self.action_mean_for(observations)
         self.distribution = Normal(mean, mean*0. + self.std)
         self.mean = mean
         

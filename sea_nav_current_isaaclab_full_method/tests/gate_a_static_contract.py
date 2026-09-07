@@ -449,46 +449,40 @@ def test_runtime_cbf_layer_rebuild_blocks_old_checkpoint_buffer_regression() -> 
     assert not torch.allclose(model.cbf_layer.ray_unit_vectors, legacy_180_layer.ray_unit_vectors)
 
 
-def test_actor_noise_std_and_post_sample_projection() -> None:
+def test_actor_noise_std_and_mean_stage_sampling() -> None:
+    torch.manual_seed(41)
     model = DifferentiableSafeActorCritic(
         num_actions=3,
         actor_hidden_dims=[16, 16],
         critic_hidden_dims=[16, 16],
         encoder_hidden_dims=[16],
         init_noise_std=0.37,
+        num_rays=5,
+        his_len=2,
     )
     assert torch.allclose(model.std.detach(), torch.full((3,), 0.37))
 
-    sample = torch.tensor([[1.0, 0.0, 0.0]])
-    rays = torch.ones(1, 41) * 3.0
-    rays[:, 20] = 0.05
-    alpha = torch.tensor([[3.0]])
-
-    class FixedDistribution:
-        def __init__(self, action: torch.Tensor):
-            self._action = action
-            self.mean = torch.zeros_like(action)
-            self.stddev = torch.ones_like(action)
-
-        def sample(self) -> torch.Tensor:
-            return self._action.clone()
-
-        def log_prob(self, actions: torch.Tensor) -> torch.Tensor:
-            return torch.zeros_like(actions)
-
-    def fixed_update_distribution(_observations: torch.Tensor) -> None:
-        model.rays_real = rays
-        model.alpha = alpha
-        model.distribution = FixedDistribution(sample)
-        model.mean = model.distribution.mean
-
-    model.update_distribution = fixed_update_distribution
-    observations = torch.zeros(1, model.num_obs_hist)
-    expected = model.cbf_layer(sample, rays, alpha)
-    action = model.act(observations)
-    assert torch.allclose(action, expected, atol=1.0e-6)
-    assert not torch.allclose(action, sample, atol=1.0e-4)
-    assert model.get_actions_log_prob(action).shape == (1,)
+    history = torch.zeros(2, 2, model.num_obs_one_step)
+    history[:, :, 12:17] = torch.log2(torch.tensor([1.0, 1.0, 0.1, 1.0, 1.0]))
+    history[1, :, :12] = 0.2
+    history[:, :, -2:] = torch.tensor([0.8, -0.2])
+    observations = history.flatten(1)
+    with torch.no_grad():
+        model.nav_head[-1].weight.mul_(0.02)
+        model.nav_head[-1].bias.copy_(torch.tensor([0.5, 0.1, 0.05]))
+        expected_mean = model.act_inference(observations)
+        assert (model.u_s - model.u_bar).square().sum() > 0
+        normal = torch.distributions.Normal(expected_mean, model.std)
+        torch.manual_seed(0)
+        expected_sample = normal.sample()
+        # The draw also activates the CBF, so a forbidden second pass is observable.
+        assert not torch.equal(model.cbf_layer(expected_sample, model.rays_real, model.alpha), expected_sample)
+        torch.manual_seed(0)
+        action = model.act(observations)
+        torch.testing.assert_close(action, expected_sample, rtol=0, atol=0)
+        torch.testing.assert_close(model.action_mean, expected_mean, rtol=0, atol=0)
+        torch.testing.assert_close(model.get_actions_log_prob(action), normal.log_prob(expected_sample).sum(-1),
+                                   rtol=0, atol=0)
 
 
 def test_trainer_surface_contract() -> None:
@@ -558,7 +552,7 @@ def main() -> None:
         test_cbf_defaults_are_240_degrees,
         test_runtime_checkpoint_load_rebuilds_cbf_layer_after_load,
         test_runtime_cbf_layer_rebuild_blocks_old_checkpoint_buffer_regression,
-        test_actor_noise_std_and_post_sample_projection,
+        test_actor_noise_std_and_mean_stage_sampling,
         test_trainer_surface_contract,
     ]
     passed = []
