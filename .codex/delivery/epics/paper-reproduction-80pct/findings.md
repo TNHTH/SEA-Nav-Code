@@ -15,7 +15,7 @@
 | Confirmed facts | remote snapshots are unrelated roots; only `main` is a complete tree; post-sample CBF and PPO smoothness state mutation are real regressions | Git object analysis and CPU/source comparison | confirmed |
 | Candidate hypothesis | repairing packaging/config/PPO/CBF/replay/runtime/checkpoint contracts will make Rungs 0–2 reliable; simulator viability remains unknown | approved spec and batch mappings | implementation pending |
 | Highest validation rung | Rung 1 for Tasks 1–5; non-final Gate A passed_with_blockers | independent Task 5 scoped review and fresh primary run | frozen final-candidate Rung 2 still pending |
-| Unpublished/unverified work | Tasks 1–5 integrated; primary HEAD `12e4fff0714f5753e30bf2575e740dc12a32c051`; Task 6 worker `7945a9e6037fee5045cbc12ac59a054ad958b43b` plus preserved uncommitted later slices resumed after interruption; Task 7 pending | Task 6 slice1 scoped fix review PASS/26 tests; later caller/receipt/startup full review not done; full Task 5 integrated tree remains verified | local only; no remote write; Task 6 not integrated; final whole-branch review/CBF P2 and runtime/accepted-paper blockers remain |
+| Unpublished/unverified work | Tasks 1–5 integrated; primary HEAD `4550639d7f8fb5e3c49b4127e818af5c8a5bf15e`; Task 6 reviewed `65dcbbc..844514929726a1cade3303867cc11702b710a04d`; original worker fix round 1/5; Task 7 pending | Independent full review Spec/Quality FAIL, one P1/four P2 despite 294 passed; exact evidence in task-6-review.md; fixed review tree clean | local only; no remote write; Task 6 not integrated; five fixes/scoped rereview, final whole-branch/CBF P2 and runtime/accepted-paper blockers remain |
 
 ## Research Findings
 
