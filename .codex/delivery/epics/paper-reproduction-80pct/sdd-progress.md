@@ -116,4 +116,6 @@ Task 6 narrow scope ruling: migrate only the inherited test_experiment_config.py
 
 Task 6 slice1 review: limited Spec/Quality NEEDS FIX, one P2 float32-clock cadence drift at fixed `6e097ac3d87554a8baf537aa733d72b3c7e70b33`. Same implementer fixes with meaningful long-horizon clock/reset RED→GREEN; no new owned source path. Original reviewer performs scoped re-review once fixed; later full Task 6 consumer review remains required.
 
+Task 6 slice1 fix round1: `6e097ac..7945a9e`, original P2 ADDRESSED, scoped Spec/Quality PASS, independently 26 passed and original clock reproduction 0/0 for float32/64. Subsequent source slices and full Task 6 application/startup/capability review remain active/pending; not integrated yet.
+
 Final-review open input CBF-HOTPATH (P2): independent bounded review established five batch-wide scalar extractions per ordinary forward and real PPO reachability, plus discarded diagnostic work. Preserve deterministic checked APIs and script behavior. Removing diagnostics alone or writing a budget exception does not establish closure; controller has not authorized unchecked dynamic inputs. Reconcile and repair/review serially after Task 7, without a concurrent core writer. See cbf-hotpath-review.md.

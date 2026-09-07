@@ -15,7 +15,7 @@
 | Confirmed facts | remote snapshots are unrelated roots; only `main` is a complete tree; post-sample CBF and PPO smoothness state mutation are real regressions | Git object analysis and CPU/source comparison | confirmed |
 | Candidate hypothesis | repairing packaging/config/PPO/CBF/replay/runtime/checkpoint contracts will make Rungs 0–2 reliable; simulator viability remains unknown | approved spec and batch mappings | implementation pending |
 | Highest validation rung | Rung 1 for Tasks 1–5; non-final Gate A passed_with_blockers | independent Task 5 scoped review and fresh primary run | frozen final-candidate Rung 2 still pending |
-| Unpublished/unverified work | Tasks 1–5 integrated; Task 6 registration/preparation and Task 7 pending; final whole-branch review still required | task-5-rereview-1.md closes the four initial P2; source/test tree equals reviewed worker, no baseline deletion | local only; no remote write; real runtime and accepted paper identity remain blocked |
+| Unpublished/unverified work | Tasks 1–5 integrated; primary HEAD `12e4fff0714f5753e30bf2575e740dc12a32c051`; Task 6 worker `7945a9e6037fee5045cbc12ac59a054ad958b43b` plus preserved uncommitted later slices resumed after interruption; Task 7 pending | Task 6 slice1 scoped fix review PASS/26 tests; later caller/receipt/startup full review not done; full Task 5 integrated tree remains verified | local only; no remote write; Task 6 not integrated; final whole-branch review/CBF P2 and runtime/accepted-paper blockers remain |
 
 ## Research Findings
 
@@ -55,6 +55,8 @@ The following baseline defects are historical findings; Tasks 1–3 now repair t
 2026-09-07 publication preflight confirms all three remote heads unchanged and no remote stable/archive tags. Local archive objects are exact; SSH authenticates TNHTH and only a no-op receive-pack dry-run was tested. No authenticated hosting API/browser administration path was found (nor a GitHub connector in current tool metadata); public empty rulesets are not proof of absent classic protection. Exact archive publication/transport authorization and stable protection remain separate final-transaction gates. See publication-preflight.md. These facts do not block serial local CPU repairs.
 
 ## Resources
+
+- Task 6 moving-tree output-edge self-review found candidate-path overwrites, profile stay-threshold drift, cleanup ordering and nested-manifest output defects. Sole implementer is addressing them; fixed-commit whole Task 6 review and full suite remain mandatory. The prior in-memory CBF fused-validation diagnostic produced an unusable tool result, so no improvement is established; a separate bounded read-only CPU probe is registered for preparation only.
 
 - `gym-import-order-boundary.md`: current in-progress shared preflight eagerly loads Torch before Gym. A public IsaacGymEnvs issue provides the known gymdeps import-order error and official train source imports Gym first. Task 6 must preserve early pure rejection without poisoning the Gym parent import order; fresh-process tests and runtime capability blockers are required, with no simulator claim. This warning was issued during implementation, not a final review verdict.
 
