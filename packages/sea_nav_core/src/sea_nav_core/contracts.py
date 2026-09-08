@@ -18,6 +18,22 @@ DASHGO_PLATFORM_PROVENANCE = (
     "workspaces/ros2_ws/src/dashgo_driver_ros2/config/dashgo_driver.yaml;"
     "workspaces/ros1_catkin_ws/src/dashgo_rl/urdf/dashgo_d1_sim.urdf.xacro"
 )
+DASHGO_REAL_LASERSCAN_RANGE_PROVENANCE = (
+    "TNHTH/dashgo-rl-navigation@10023c294f34dc32a97005103bc30e6aa0f09bf5:"
+    "src/dashgo_rl/dashgo_config.py#LIDAR_CONFIG,DashGoLidarSpecs"
+)
+DASHGO_SIM_CAMERA_RANGE_PROVENANCE = (
+    "TNHTH/dashgo-rl-navigation@10023c294f34dc32a97005103bc30e6aa0f09bf5:"
+    "src/dashgo_rl/dashgo_env_v2.py#camera_front_left,camera_front_right;"
+    "data_type=distance_to_image_plane;clipping_range"
+)
+ROS_LASERSCAN_RADIAL_RANGE = "ros_laserscan_radial_range"
+ISAACLAB_CAMERA_DISTANCE_TO_CAMERA = "isaaclab_camera_distance_to_camera"
+ISAACLAB_CAMERA_DISTANCE_TO_IMAGE_PLANE = "isaaclab_camera_distance_to_image_plane"
+DASHGO_FORWARD_SENSOR_ENVELOPE_PROVENANCE = (
+    "TNHTH/SEA-Nav-Code:dashgo_forward_sensor_experiment_v1;"
+    "front_180_sensor;effective_reverse_disabled"
+)
 
 
 def _number(name, value, *, minimum=None, strictly_positive=False):
@@ -37,6 +53,11 @@ def _integer(name, value):
 def _choice(name, value, expected):
     if type(value) is not str or value != expected:
         raise ValueError(name + " must be " + expected)
+
+
+def _one_of(name, value, expected):
+    if type(value) is not str or value not in expected:
+        raise ValueError(name + " must be one of " + ",".join(expected))
 
 
 def _nonempty_string(name, value):
@@ -128,6 +149,40 @@ class DifferentialDrivePlatformSpec(_ManifestSpec):
 
 
 @dataclass(frozen=True)
+class EffectiveCommandEnvelopeSpec(_ManifestSpec):
+    """Experiment/runtime command bounds, separate from plant capability."""
+
+    profile_id: str
+    min_linear_velocity_m_s: float
+    max_linear_velocity_m_s: float
+    max_abs_yaw_rate_rad_s: float
+    envelope_provenance: str
+    kind: ClassVar[str] = "effective_command_envelope_v1"
+
+    def __post_init__(self):
+        _nonempty_string("profile_id", self.profile_id)
+        _number("min_linear_velocity_m_s", self.min_linear_velocity_m_s)
+        _number(
+            "max_linear_velocity_m_s", self.max_linear_velocity_m_s,
+            strictly_positive=True,
+        )
+        _number(
+            "max_abs_yaw_rate_rad_s", self.max_abs_yaw_rate_rad_s,
+            strictly_positive=True,
+        )
+        if self.min_linear_velocity_m_s > self.max_linear_velocity_m_s:
+            raise ValueError(
+                "min_linear_velocity_m_s must not exceed max_linear_velocity_m_s"
+            )
+        for name in (
+            "min_linear_velocity_m_s", "max_linear_velocity_m_s",
+            "max_abs_yaw_rate_rad_s",
+        ):
+            object.__setattr__(self, name, float(getattr(self, name)))
+        _nonempty_string("envelope_provenance", self.envelope_provenance)
+
+
+@dataclass(frozen=True)
 class RawSafetyObservationSpec(_ManifestSpec):
     """Unnormalized metric LiDAR ABI used only by the safety layer.
 
@@ -140,8 +195,11 @@ class RawSafetyObservationSpec(_ManifestSpec):
     sensor_frame: str
     ray_angles_rad: tuple[float, ...]
     max_sensor_age_s: float
+    range_min_m: float
+    range_definition: str
+    range_parameter_provenance: str
     range_max_m: float = 12.0
-    contract_id: str = "dashgo_raw_metric_lidar_v1"
+    contract_id: str = "dashgo_raw_metric_range_v2"
     range_units: str = "m"
     angle_units: str = "rad"
     age_units: str = "s"
@@ -152,11 +210,11 @@ class RawSafetyObservationSpec(_ManifestSpec):
     ray_order: str = "manifest_ray_angles_index_order"
     angle_semantics: str = "sensor_frame:+x_zero,ccw_positive"
     validity_semantics: str = (
-        "true=finite_positive_metric_range_including_sensor_max_range_clear_return"
+        "true=finite_metric_range_within_inclusive_declared_min_max_including_max_clear_return"
     )
     age_semantics: str = "seconds_since_measurement_at_policy_evaluation"
     normalized: bool = False
-    kind: ClassVar[str] = "raw_safety_observation_v1"
+    kind: ClassVar[str] = "raw_safety_observation_v2"
 
     def __post_init__(self):
         _nonempty_string("sensor_frame", self.sensor_frame)
@@ -167,18 +225,25 @@ class RawSafetyObservationSpec(_ManifestSpec):
             _number("ray_angles_rad", angle)
             angles.append(float(angle))
         object.__setattr__(self, "ray_angles_rad", tuple(angles))
-        for name in ("max_sensor_age_s", "range_max_m"):
+        for name in ("max_sensor_age_s", "range_min_m", "range_max_m"):
             _number(name, getattr(self, name), strictly_positive=True)
             object.__setattr__(self, name, float(getattr(self, name)))
+        if self.range_min_m >= self.range_max_m:
+            raise ValueError("range_min_m must be less than range_max_m")
+        _one_of(
+            "range_definition", self.range_definition,
+            (ROS_LASERSCAN_RADIAL_RANGE, ISAACLAB_CAMERA_DISTANCE_TO_CAMERA),
+        )
+        _nonempty_string("range_parameter_provenance", self.range_parameter_provenance)
         expected = {
-            "contract_id": "dashgo_raw_metric_lidar_v1",
+            "contract_id": "dashgo_raw_metric_range_v2",
             "range_units": "m", "angle_units": "rad", "age_units": "s",
             "ranges_shape": "[B,N]", "angles_shape": "[N] or [B,N]",
             "validity_shape": "[B,N]", "sensor_age_shape": "[B,1]",
             "ray_order": "manifest_ray_angles_index_order",
             "angle_semantics": "sensor_frame:+x_zero,ccw_positive",
             "validity_semantics": (
-                "true=finite_positive_metric_range_including_sensor_max_range_clear_return"
+                "true=finite_metric_range_within_inclusive_declared_min_max_including_max_clear_return"
             ),
             "age_semantics": "seconds_since_measurement_at_policy_evaluation",
         }

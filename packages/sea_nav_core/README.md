@@ -21,8 +21,10 @@ material.
 ```python
 import torch
 from sea_nav_core import (
-    ActionSpec, DifferentialDrivePlatformSpec, ObservationSpec,
-    RawSafetyObservationSpec,
+    ActionSpec, DASHGO_FORWARD_SENSOR_ENVELOPE_PROVENANCE,
+    DASHGO_REAL_LASERSCAN_RANGE_PROVENANCE, DifferentialDrivePlatformSpec,
+    EffectiveCommandEnvelopeSpec, ObservationSpec, RawSafetyObservationSpec,
+    ROS_LASERSCAN_RADIAL_RANGE,
     UnicycleLookaheadLSECBFLayer, resolve_ablation_profile,
 )
 
@@ -36,11 +38,22 @@ raw_safety = RawSafetyObservationSpec(
     sensor_frame="front_lidar",
     ray_angles_rad=(-.4, 0.0, .4),
     max_sensor_age_s=0.1,
+    range_min_m=0.15,
+    range_max_m=12.0,
+    range_definition=ROS_LASERSCAN_RADIAL_RANGE,
+    range_parameter_provenance=DASHGO_REAL_LASERSCAN_RANGE_PROVENANCE,
+)
+command_envelope = EffectiveCommandEnvelopeSpec(
+    profile_id="dashgo_forward_sensor_experiment_v1",
+    min_linear_velocity_m_s=0.0,
+    max_linear_velocity_m_s=0.3,
+    max_abs_yaw_rate_rad_s=1.0,
+    envelope_provenance=DASHGO_FORWARD_SENSOR_ENVELOPE_PROVENANCE,
 )
 observation = ObservationSpec(last_action_stage="policy_action", normalizer_id="example-only")
 action = ActionSpec()
 profile = resolve_ablation_profile("full")
-layer = UnicycleLookaheadLSECBFLayer(platform, raw_safety)
+layer = UnicycleLookaheadLSECBFLayer(platform, raw_safety, command_envelope)
 twist, diagnostics = layer(
     torch.tensor([[0.3, 0.1]]),          # nominal mean [v m/s, omega rad/s]
     torch.tensor([[0.5, 1.0, 0.8]]),    # metric distances, NOT normalized policy rays
@@ -65,20 +78,32 @@ It must not pad Go2 proprioception or invent free space behind the front-facing
 sensor.
 
 `RawSafetyObservationSpec` is a different, unnormalized ABI. It records the
-actual ordered ray-angle tuple, ranges in metres, angles in radians, validity,
-sensor-frame name, age in seconds, maximum accepted age, and exact tensor shapes
-and semantics. Its hash is required on every CBF call; the layer also checks the
-angle tensor against the manifest geometry, valid ranges against the declared
-metric maximum, and per-row age. A normalized 246-dimensional policy vector,
+actual ordered ray-angle tuple, inclusive minimum and maximum ranges in metres,
+the range producer's definition and pinned parameter provenance, angles in
+radians, validity, sensor-frame name, age in seconds, maximum accepted age, and
+exact tensor shapes and semantics. Its hash is required on every CBF call; the
+layer also checks the angle tensor against the manifest geometry, valid ranges
+against the declared metric interval, and per-row age. A normalized
+246-dimensional policy vector,
 implicit FOV reconstruction, stale scan, different frame/unit/version, or
 different angle ordering is rejected. The contract still relies on the caller
 to report truthful metadata and timestamps; it cannot independently attest a
 sensor driver. A trusted no-hit/clear return is represented as the finite
-declared `range_max_m` with a true validity bit. In particular, a DashGo sensor
-consumer configured with `depth_clipping_behavior=max` may forward that finite
-max-range value as valid. The core never guesses that `Inf` means clear: NaN,
-Inf, non-positive or stale values cannot be valid, and a row with no valid ray
-is rejected rather than silently treated as free space.
+declared `range_max_m` with a true validity bit. The real LaserScan contract uses
+`ros_laserscan_radial_range`; an Isaac Lab camera must instead declare
+`isaaclab_camera_distance_to_camera` and bind its exact configuration or
+conversion provenance. `distance_to_image_plane` is deliberately rejected:
+its axial depth cannot be substituted for radial `r` in the core's
+`r*cos(theta), r*sin(theta)` geometry. The pinned DashGo simulator currently
+configures that incompatible image-plane type with a 0.1 m clip, while its
+declared real LiDAR minimum is 0.15 m; the adapter must select a radial camera
+output before constructing a valid manifest. A consumer configured
+with max clipping may forward that finite max-range value as valid. The core
+never guesses that `Inf` means clear: NaN, Inf, below-minimum, above-maximum or
+stale values cannot be valid, and a row with no valid ray is rejected rather
+than silently treated as free space. Camera depth is only compatible with the
+2-D CBF geometry when its rays/distances are horizontal planar ray lengths or
+the manifest provenance identifies the exact planar conversion.
 
 `ActionSpec` fixes normalized two-command tanh Gaussian semantics. Keep the
 sampled policy action and its Jacobian-corrected likelihood in PPO storage;
@@ -136,18 +161,34 @@ paths `src/dashgo_rl/dashgo_config.py`, `src/dashgo_rl/dashgo_env_v2.py`,
 `workspaces/ros1_catkin_ws/src/dashgo_rl/urdf/dashgo_d1_sim.urdf.xacro`.
 These are configuration provenance, not fresh physical calibration evidence.
 
+Plant capability and the effective experiment command set are separate
+manifests. `DifferentialDrivePlatformSpec.max_reverse_m_s=0.15` preserves the
+DashGo reverse capability. The formal front-180 sensor experiment must
+explicitly construct `EffectiveCommandEnvelopeSpec` with
+`min_linear_velocity_m_s=0`; another runtime may explicitly bind `-0.15` under
+a different profile/provenance. The layer has no hidden envelope default: it
+validates that the supplied envelope is a subset of plant capability and
+includes the complete envelope in its configuration receipt/hash. Both the
+previous command and final projected command must satisfy that effective set,
+so a caller must not add an unrecorded post-projection reverse clamp.
+
 `body_twist_to_wheel_angular_velocity()` uses
 `left=(v-omega*track/2)/radius`, `right=(v+omega*track/2)/radius`; the inverse is
 also exposed. `forward_with_platform_projection()` speed-clamps the CBF command,
 then rate-limits it from the previous observed executed command using an explicit
-positive `dt_s`, converts it to left/right wheel angular velocity, jointly scales
-the wheel-space increment from the previous feasible wheels toward that target
-when either target wheel exceeds `5.0 rad/s`, and converts the feasible wheel pair
-back to the final body command. The wheel box is convex, so this line-segment
-projection retains the preceding body-speed and per-axis acceleration bounds;
-scaling absolute target wheels toward zero would not retain acceleration bounds
-for a nonzero previous command. The module always recomputes
-`residual_platform_projected` from that final inverse-converted command. For example,
+positive `dt_s`. The rate step leaves two machine epsilons of inward room so the
+represented delta remains within the physical limit. It converts the target to
+left/right wheel angular velocity and derives one common scale from the previous
+feasible wheels toward that target. The same scale is applied in body space,
+then refined twice against forward-conversion roundoff at the `5.0 rad/s` wheel
+box. If a row still fails any exact represented body, acceleration or wheel
+bound, that row returns its already-validated previous point with scale zero.
+No final component is independently clamped. The wheel/body map and feasible
+sets are convex, so this common line segment retains every preceding constraint
+and is closed under feeding `platform_projected_command` unchanged into the next
+call. Scaling absolute target wheels toward zero would not retain acceleration
+bounds for a nonzero previous command. The module always recomputes
+`residual_platform_projected` from that recurrent final command. For example,
 a CBF command `v=0.1` with residual `-0.2`, previous `v=0.3`, `dt=.05 s` and the
 declared deceleration limit projects to `v=.25`; its separately recomputed
 residual is `-0.35`. `diagnose_executed_command()` is still required after a
@@ -157,13 +198,16 @@ are `nominal_body_twist`, `cbf_body_twist`, `platform_projected_command`, and
 
 ## Checked tensor contract
 
+- Construction explicitly requires platform, raw-safety and effective-command
+  envelope specs; no experiment/runtime profile is inferred.
 - `nominal_body_twist [B,2]`, manifest-sized `ranges_m [B,N]`, exact registered
   angles `[N]` or `[B,N]`, boolean `valid_mask [B,N]`, age `[B,1]`, positive
   alpha `[B,1]`, and the exact raw-safety manifest hash; B and N are nonzero.
 - Dense float32 or float64 tensors on the same device/dtype; mask shares device.
   No implicit conversion, broadcasting batch states or half-precision route.
-- Every row needs at least one finite positive valid ray, including a finite
-  sensor-declared max-range clear return. All-invalid rows reject the complete
+- Every row needs at least one finite valid ray inside the manifest's inclusive
+  `[range_min_m, range_max_m]`, including a finite sensor-declared max-range
+  clear return. All-invalid rows reject the complete
   call; consumers must map trusted no-hit values to `range_max_m` plus true, or
   explicitly handle missing perception. `Inf` is never implicitly free space.
 - Invalid ranges may carry NaN/Inf only under a false mask. Registered angles
@@ -247,10 +291,15 @@ environment lock, seeds/budget/evaluation set and trace artifact hashes/counts.
 Configuration identity and process completion do not prove physics acceptance.
 Training checkpoint and TorchScript deployment manifests are linked artifacts,
 not interchangeable file formats. The layer receipt covers the complete
-platform manifest, raw-safety manifest, `kappa`, fixed damping and stage names.
-Canonical receipt/hash, platform hash, raw-safety hash, numeric configuration
-and exact ray angles are persistent state buffers. Standard strict eager restore
-rejects a state from a different identity instead of overwriting these buffers.
+platform manifest, effective-command envelope, raw-safety manifest, `kappa`,
+fixed damping and stage names.
+Canonical receipt/hash, platform hash and raw-safety hash are persistent uint8
+state buffers and therefore do not change under `.float()`/`.double()`. Exact
+ray geometry is a separate nonpersistent operational float64 buffer cast to each
+checked input dtype; module conversion preserves its canonical values. Standard
+strict eager restore accepts the same manifest across supported dtype conversion
+orders and rejects a state from a different identity transactionally instead of
+overwriting the target receipt.
 Script/save/load preserve exported receipt/hash methods; consumers must call
 `assert_configuration_identity()` against the run/checkpoint expectation.
 
@@ -262,7 +311,8 @@ PYTHONDONTWRITEBYTECODE=1 python -m pytest -q
 
 Tests include hand-derived goldens, an independent Python scalar multi-ray
 oracle with extrinsics, shape/nonfinite/degenerate/all-invalid rejection,
-valid max-range clear returns, wheel-segment saturation and inverse-command residual,
+valid min/max range boundaries, max-range clear returns, recurrent wheel-segment
+closure and final-command residual,
 partial-mask/pruned equality, independent batching, input preservation,
 gradcheck, TorchScript save/load and pure loss checks. No simulator or hardware
 was started; CPU correctness does not establish real-time, driving or hard

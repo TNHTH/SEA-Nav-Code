@@ -19,6 +19,7 @@ from .contracts import (
     RESULT_CLASSIFICATION,
     SAFETY_SEMANTICS,
     DifferentialDrivePlatformSpec,
+    EffectiveCommandEnvelopeSpec,
     RawSafetyObservationSpec,
     _number,
 )
@@ -50,20 +51,25 @@ class UnicycleLookaheadLSECBFLayer(nn.Module):
         "sensor_yaw_rad", "kappa", "damping_factor", "wheel_radius_m",
         "track_width_m", "max_wheel_velocity_rad_s", "max_forward_m_s",
         "max_reverse_m_s", "max_yaw_rad_s",
+        "effective_min_linear_velocity_m_s", "effective_max_linear_velocity_m_s",
+        "effective_max_abs_yaw_rate_rad_s",
         "max_linear_acceleration_mps2", "max_angular_acceleration_radps2",
-        "range_max_m", "max_sensor_age_s", "num_rays",
+        "range_min_m", "range_max_m", "max_sensor_age_s", "num_rays",
         "_platform_manifest_sha256_value", "_safety_manifest_sha256_value",
         "_configuration_sha256_value", "_configuration_manifest_json_value",
     ]
 
     def __init__(self, platform: DifferentialDrivePlatformSpec,
                  safety_observation: RawSafetyObservationSpec,
+                 command_envelope: EffectiveCommandEnvelopeSpec,
                  kappa: float = 10.0, damping_factor: float = 1.0):
         super().__init__()
         if not isinstance(platform, DifferentialDrivePlatformSpec):
             raise ValueError("platform must be DifferentialDrivePlatformSpec")
         if not isinstance(safety_observation, RawSafetyObservationSpec):
             raise ValueError("safety_observation must be RawSafetyObservationSpec")
+        if not isinstance(command_envelope, EffectiveCommandEnvelopeSpec):
+            raise ValueError("command_envelope must be EffectiveCommandEnvelopeSpec")
         _number("kappa", kappa, strictly_positive=True)
         _number("damping_factor", damping_factor, strictly_positive=True)
         if damping_factor != 1.0:
@@ -89,6 +95,24 @@ class UnicycleLookaheadLSECBFLayer(nn.Module):
         self.max_yaw_rad_s = float(platform.max_yaw_rad_s)
         self.max_linear_acceleration_mps2 = float(platform.max_linear_acceleration_mps2)
         self.max_angular_acceleration_radps2 = float(platform.max_angular_acceleration_radps2)
+        self.effective_min_linear_velocity_m_s = float(
+            command_envelope.min_linear_velocity_m_s
+        )
+        self.effective_max_linear_velocity_m_s = float(
+            command_envelope.max_linear_velocity_m_s
+        )
+        self.effective_max_abs_yaw_rate_rad_s = float(
+            command_envelope.max_abs_yaw_rate_rad_s
+        )
+        if (
+            self.effective_min_linear_velocity_m_s < -self.max_reverse_m_s
+            or self.effective_max_linear_velocity_m_s > self.max_forward_m_s
+            or self.effective_max_abs_yaw_rate_rad_s > self.max_yaw_rad_s
+        ):
+            raise ValueError(
+                "effective command envelope must be within platform capability"
+            )
+        self.range_min_m = float(safety_observation.range_min_m)
         self.range_max_m = float(safety_observation.range_max_m)
         self.max_sensor_age_s = float(safety_observation.max_sensor_age_s)
         self.num_rays = int(safety_observation.num_rays)
@@ -107,14 +131,20 @@ class UnicycleLookaheadLSECBFLayer(nn.Module):
             "safety_semantics": SAFETY_SEMANTICS,
             "algorithm": algorithm,
             "platform_projection": {
-                "kind": "differential_drive_feasible_segment_v1",
+                "kind": "differential_drive_recurrent_feasible_segment_v2",
                 "order": [
                     "body_speed_clamp", "per_axis_acceleration_limit",
-                    "wheel_increment_segment_limit", "wheel_to_body_inverse",
+                    "dtype_inward_acceleration_margin",
+                    "wheel_increment_segment_limit",
+                    "shared_scale_body_reconstruction",
+                    "two_pass_wheel_roundoff_refinement",
+                    "rowwise_previous_fallback",
                 ],
-                "final_residual_source": "inverse_converted_platform_projected_command",
+                "roundoff_policy": "two_machine_eps_inward_then_exact_recurrence_closure",
+                "final_residual_source": "recurrent_platform_projected_command",
             },
             "platform": platform.to_manifest(),
+            "effective_command_envelope": command_envelope.to_manifest(),
             "raw_safety_observation": safety_observation.to_manifest(),
             "command_stages": [
                 "nominal_body_twist", "cbf_body_twist",
@@ -132,8 +162,9 @@ class UnicycleLookaheadLSECBFLayer(nn.Module):
         self._configuration_sha256_value = configuration_sha256
         self._configuration_manifest_json_value = receipt_json
 
-        # Persistent buffers make state_dict non-anonymous. The load hook below
-        # rejects mismatches instead of overwriting immutable configuration.
+        # Only dtype-invariant bytes own checkpoint identity. Floating runtime
+        # geometry is deliberately not an immutable state-dict receipt: normal
+        # module .float()/.double() conversion must not forge a new manifest.
         self.register_buffer(
             "_identity_configuration_sha256",
             _digest_tensor(self._configuration_sha256_value), persistent=True,
@@ -147,32 +178,41 @@ class UnicycleLookaheadLSECBFLayer(nn.Module):
             _digest_tensor(self._safety_manifest_sha256_value), persistent=True,
         )
         self.register_buffer("_identity_manifest_utf8", _utf8_tensor(receipt_json), persistent=True)
-        self.register_buffer(
-            "_identity_numeric_configuration",
-            torch.tensor([
-                self.lookahead_distance_m, self.envelope_radius_m, self.sensor_x_m,
-                self.sensor_y_m, self.sensor_yaw_rad, self.kappa, self.damping_factor,
-                self.wheel_radius_m, self.track_width_m, self.max_forward_m_s,
-                self.max_reverse_m_s, self.max_yaw_rad_s,
-                self.max_wheel_velocity_rad_s,
-                self.max_linear_acceleration_mps2,
-                self.max_angular_acceleration_radps2, self.range_max_m,
-                self.max_sensor_age_s,
-            ], dtype=torch.float64),
-            persistent=True,
+        # A scripted tensor attribute (not a state-dict buffer) supplies runtime
+        # geometry. The immutable UTF-8 receipt above remains its sole identity.
+        self._expected_ray_angles_rad = torch.tensor(
+            safety_observation.ray_angles_rad, dtype=torch.float64
         )
-        self.register_buffer(
-            "_expected_ray_angles_rad",
-            torch.tensor(safety_observation.ray_angles_rad, dtype=torch.float64),
-            persistent=True,
+
+    @torch.jit.unused
+    def _apply(self, fn, recurse=True):
+        """Move operational angles without rewriting their canonical values.
+
+        ``nn.Module.float()`` normally rewrites every floating buffer. Ray
+        geometry is instead kept as an exact float64 operational source and is
+        cast to the input dtype at the checked call boundary. The persistent
+        identity buffers are bytes and therefore remain dtype invariant.
+        """
+        expected_angles = self._expected_ray_angles_rad
+        try:
+            # Call the stable nn.Module implementation directly: after
+            # scripting, ``self`` is a RecursiveScriptModule proxy rather than
+            # a Python subclass accepted by zero-argument ``super()``.
+            result = nn.Module._apply(self, fn, recurse=recurse)
+        except Exception:
+            self._expected_ray_angles_rad = expected_angles
+            raise
+        identity_device = self._identity_configuration_sha256.device
+        self._expected_ray_angles_rad = expected_angles.to(
+            device=identity_device, dtype=torch.float64
         )
+        return result
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
         protected = (
             "_identity_configuration_sha256", "_identity_platform_sha256",
             "_identity_safety_sha256", "_identity_manifest_utf8",
-            "_identity_numeric_configuration", "_expected_ray_angles_rad",
         )
         for name in protected:
             key = prefix + name
@@ -299,13 +339,13 @@ class UnicycleLookaheadLSECBFLayer(nn.Module):
             and bool((sensor_age_s >= 0).all())
             and bool((sensor_age_s <= self.max_sensor_age_s).all())
             and bool(torch.isfinite(ray_angles_rad).all())
-            and bool(((torch.isfinite(ranges_m) & (ranges_m > 0)
+            and bool(((torch.isfinite(ranges_m) & (ranges_m >= self.range_min_m)
                        & (ranges_m <= self.range_max_m)) | ~valid_mask).all())
             and bool(valid_mask.any(dim=1).all())
         )
         if not valid:
             raise ValueError(
-                "positive alpha, fresh raw metric data and >=1 valid finite positive ray per row required"
+                "positive alpha, fresh raw metric data within declared range and >=1 valid finite positive ray per row required"
             )
 
     def _geometry(self, ranges_m: Tensor, ray_angles_rad: Tensor,
@@ -421,49 +461,9 @@ class UnicycleLookaheadLSECBFLayer(nn.Module):
             raise ValueError("body twist conversion arithmetic overflow")
         return body_twist
 
-    def _project_platform_command(self, cbf_body_twist: Tensor,
-                                  previous_executed_command: Tensor,
-                                  dt_s: float
-                                  ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
-        self._validate_matrix(cbf_body_twist, "cbf_body_twist", 2)
-        self._validate_matrix(previous_executed_command, "previous_executed_command", 2)
-        if (previous_executed_command.dtype != cbf_body_twist.dtype
-                or previous_executed_command.device != cbf_body_twist.device
-                or previous_executed_command.size(0) != cbf_body_twist.size(0)):
-            raise ValueError("command stages must share batch, dtype and device")
-        if not math.isfinite(dt_s) or dt_s <= 0:
-            raise ValueError("dt_s must be finite and positive seconds")
-        previous_wheel_rad_s = self.body_twist_to_wheel_angular_velocity(
-            previous_executed_command
-        )
-        previous_is_bounded = (
-            (previous_executed_command[:, 0] <= self.max_forward_m_s).all()
-            & (previous_executed_command[:, 0] >= -self.max_reverse_m_s).all()
-            & (previous_executed_command[:, 1].abs() <= self.max_yaw_rad_s).all()
-            & (previous_wheel_rad_s.abs() <= self.max_wheel_velocity_rad_s).all()
-        )
-        if not bool(previous_is_bounded):
-            raise ValueError("previous_executed_command is outside declared platform limits")
-
-        speed_limited = torch.stack(
-            (torch.clamp(cbf_body_twist[:, 0], -self.max_reverse_m_s, self.max_forward_m_s),
-             torch.clamp(cbf_body_twist[:, 1], -self.max_yaw_rad_s, self.max_yaw_rad_s)),
-            dim=1,
-        )
-        max_delta = torch.stack(
-            (torch.full_like(cbf_body_twist[:, 0], self.max_linear_acceleration_mps2 * dt_s),
-             torch.full_like(cbf_body_twist[:, 1], self.max_angular_acceleration_radps2 * dt_s)),
-            dim=1,
-        )
-        delta = torch.maximum(
-            torch.minimum(speed_limited - previous_executed_command, max_delta),
-            -max_delta,
-        )
-        acceleration_limited = previous_executed_command + delta
-        pre_wheel_limit_rad_s = self.body_twist_to_wheel_angular_velocity(
-            acceleration_limited
-        )
-        wheel_delta_rad_s = pre_wheel_limit_rad_s - previous_wheel_rad_s
+    def _wheel_segment_scale(self, previous_wheel_rad_s: Tensor,
+                             target_wheel_rad_s: Tensor) -> Tensor:
+        wheel_delta_rad_s = target_wheel_rad_s - previous_wheel_rad_s
         safe_wheel_delta_rad_s = torch.where(
             wheel_delta_rad_s != 0,
             wheel_delta_rad_s,
@@ -484,11 +484,108 @@ class UnicycleLookaheadLSECBFLayer(nn.Module):
                 torch.ones_like(wheel_delta_rad_s),
             ),
         )
-        wheel_limit_scale = torch.clamp(
+        return torch.clamp(
             per_wheel_scale.amin(dim=1, keepdim=True), min=0.0, max=1.0
         )
-        wheel_rad_s = previous_wheel_rad_s + wheel_limit_scale * wheel_delta_rad_s
-        projected = self.wheel_angular_velocity_to_body_twist(wheel_rad_s)
+
+    def _project_platform_command(self, cbf_body_twist: Tensor,
+                                  previous_executed_command: Tensor,
+                                  dt_s: float
+                                  ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
+        self._validate_matrix(cbf_body_twist, "cbf_body_twist", 2)
+        self._validate_matrix(previous_executed_command, "previous_executed_command", 2)
+        if (previous_executed_command.dtype != cbf_body_twist.dtype
+                or previous_executed_command.device != cbf_body_twist.device
+                or previous_executed_command.size(0) != cbf_body_twist.size(0)):
+            raise ValueError("command stages must share batch, dtype and device")
+        if not math.isfinite(dt_s) or dt_s <= 0:
+            raise ValueError("dt_s must be finite and positive seconds")
+        previous_wheel_rad_s = self.body_twist_to_wheel_angular_velocity(
+            previous_executed_command
+        )
+        previous_is_bounded = (
+            (previous_executed_command[:, 0] <= self.effective_max_linear_velocity_m_s).all()
+            & (previous_executed_command[:, 0] >= self.effective_min_linear_velocity_m_s).all()
+            & (previous_executed_command[:, 1].abs() <= self.effective_max_abs_yaw_rate_rad_s).all()
+            & (previous_wheel_rad_s.abs() <= self.max_wheel_velocity_rad_s).all()
+        )
+        if not bool(previous_is_bounded):
+            raise ValueError(
+                "previous_executed_command is outside declared effective command envelope"
+            )
+
+        speed_limited = torch.stack(
+            (torch.clamp(
+                cbf_body_twist[:, 0], self.effective_min_linear_velocity_m_s,
+                self.effective_max_linear_velocity_m_s,
+             ),
+             torch.clamp(
+                 cbf_body_twist[:, 1], -self.effective_max_abs_yaw_rate_rad_s,
+                 self.effective_max_abs_yaw_rate_rad_s,
+             )),
+            dim=1,
+        )
+        max_delta = torch.stack(
+            (torch.full_like(cbf_body_twist[:, 0], self.max_linear_acceleration_mps2 * dt_s),
+             torch.full_like(cbf_body_twist[:, 1], self.max_angular_acceleration_radps2 * dt_s)),
+            dim=1,
+        )
+        # Leave two machine epsilons of inward room before the addition. This
+        # makes the represented next-minus-previous value respect the declared
+        # physical delta too, rather than relying on an after-the-fact tolerance.
+        machine_epsilon = 1.1920928955078125e-7
+        if cbf_body_twist.dtype == torch.float64:
+            machine_epsilon = 2.220446049250313e-16
+        roundoff_margin = 2.0 * machine_epsilon * torch.maximum(
+            torch.ones_like(previous_executed_command),
+            previous_executed_command.abs(),
+        )
+        safe_max_delta = torch.clamp(max_delta - roundoff_margin, min=0.0)
+        delta = torch.maximum(
+            torch.minimum(speed_limited - previous_executed_command, safe_max_delta),
+            -safe_max_delta,
+        )
+        acceleration_limited = previous_executed_command + delta
+        pre_wheel_limit_rad_s = self.body_twist_to_wheel_angular_velocity(
+            acceleration_limited
+        )
+        wheel_limit_scale = self._wheel_segment_scale(
+            previous_wheel_rad_s, pre_wheel_limit_rad_s
+        )
+        body_delta = acceleration_limited - previous_executed_command
+
+        # The differential-drive map is linear, so applying the one common
+        # wheel-derived scale in body space is the same geometric segment while
+        # avoiding an inverse-conversion ULP outside a body bound. Two bounded
+        # refinements absorb forward-conversion roundoff at the wheel box.
+        for _ in range(2):
+            projected = previous_executed_command + wheel_limit_scale * body_delta
+            wheel_rad_s = self.body_twist_to_wheel_angular_velocity(projected)
+            wheel_limit_scale = wheel_limit_scale * self._wheel_segment_scale(
+                previous_wheel_rad_s, wheel_rad_s
+            )
+        projected = previous_executed_command + wheel_limit_scale * body_delta
+        wheel_rad_s = self.body_twist_to_wheel_angular_velocity(projected)
+
+        # Numerical closure is row-local. A row that still lands outside any
+        # exact represented bound returns its already-validated previous point;
+        # no independent v/omega clamp can invalidate the other constraints.
+        candidate_is_closed = (
+            (projected[:, 0] <= self.effective_max_linear_velocity_m_s)
+            & (projected[:, 0] >= self.effective_min_linear_velocity_m_s)
+            & (projected[:, 1].abs() <= self.effective_max_abs_yaw_rate_rad_s)
+            & (wheel_rad_s.abs() <= self.max_wheel_velocity_rad_s).all(dim=1)
+            & ((projected - previous_executed_command).abs() <= max_delta).all(dim=1)
+        )
+        projected = torch.where(
+            candidate_is_closed.unsqueeze(1), projected, previous_executed_command
+        )
+        wheel_limit_scale = torch.where(
+            candidate_is_closed.unsqueeze(1),
+            wheel_limit_scale,
+            torch.zeros_like(wheel_limit_scale),
+        )
+        wheel_rad_s = self.body_twist_to_wheel_angular_velocity(projected)
         return (
             projected, speed_limited, acceleration_limited,
             previous_wheel_rad_s, pre_wheel_limit_rad_s,

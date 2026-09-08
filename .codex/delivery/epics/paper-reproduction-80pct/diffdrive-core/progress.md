@@ -62,3 +62,78 @@
 - Fresh source snapshot `/tmp/sea-nav-core-feasible-final.SAeHP3/source` built wheel and sdist from sdist with the existing pinned task build tools. Isolated installed wheel metadata/import/TorchScript identity smoke passed; installed focused suite -> **246 passed in 1.57s**; extracted sdist full suite -> **249 passed in 2.54s**.
 - Final wheel SHA-256 `e7705c01f4728f0c26c46497ebf62b41b20d7a6e70364d008ac7380a8846690d`; final sdist SHA-256 `9b4f3c4403adcfa73c73f88b2cf3b185bbb80b9b003555fa6bb0c0231aa70498`. Artifact license/metadata inspection passed; installed receipt identity smoke returned `e8526e94a63c6bba3a5d3937bf127cf7e3aba6f891e553dd4852cbc97320fef0`. No package cache/build/egg-info remains.
 - Remaining: exact staged-path, whitespace/privacy and parent checks, then one detached scoped commit. No push, branch/ref update, simulator, ROS runtime or hardware action.
+
+## 2026-09-08 — fixed-commit rereview fix round 2 activation
+
+- Verified the exact detached worktree root and HEAD `70f2304e8c6c0acac1ba0ea943fedb76bada247c`; only the two inherited root registration files are modified.
+- Read complete repository rules, planning-with-files, git-guru, robotics-router and independent `diffdrive-core-rereview-1.md`. Robotics routing stopped before ROS 2 because this is a standalone pure-Torch contract/core fix, not ROS package work.
+- Existing root registration already assigns this worker `packages/sea_nav_core/**` and local diffdrive ledgers; preserved those root edits unstaged. No branch/ref/remote mutation.
+- A read-only helper delegation was attempted but the agent-thread limit was reached; continue locally.
+- Next evidence gate: reproduce all three review defects in package-owned tests before production edits.
+
+## Fix round 2 RED
+
+- Added package-owned regressions only; no production edit yet. Focused command selected raw-safety v2 identity/minimum enforcement, dtype-invariant restore/angle operation, four fixed float32 recurrence cases and an 8192-row deterministic two-step recurrence.
+- Result: **7 failed, 1 passed in 1.05s**, exit 1. Both new raw-safety tests fail because `range_min_m` is absent; same-manifest `.float()` restore fails on the two floating identity buffers; reverse/yaw/wheel fixed cases and the randomized second call fail because the first projected output is rejected as previous. The simple forward boundary is the one expected pass.
+- RED exactly reproduces all three independent-review findings. Next: minimal contract, identity-buffer and common-segment numerical repair.
+
+## Fix round 2 first GREEN
+
+- Raw safety is now a required v2 ABI: inclusive positive `range_min_m`, one of two explicit range definitions, and nonempty pinned parameter provenance all enter canonical manifest identity; the layer enforces the minimum only for true validity bits and still accepts finite `range_max_m` clear returns.
+- Checkpoint identity now consists only of four persistent uint8 digest/receipt buffers. Exact float64 ray angles are a nonpersistent operational buffer; an eager `_apply` preserves their canonical values across `.float()`/`.double()` while moving devices. Same-manifest cross-dtype strict restore passes; different manifests remain protected by the byte receipt.
+- Projection v2 leaves a two-epsilon inward acceleration margin, applies the common wheel-derived scale in body space, refines that common scale twice against forward-conversion roundoff, and falls back row-locally to the already-valid previous point only if exact represented closure still fails. It never independently clamps final v/omega.
+- Focused former RED: **8 passed in 0.88s**. Full package after compatibility adjustments: **263 passed in 2.44s**, zero skips/deselections.
+- Next: document the breaking v2/0.3 contract, strengthen scripted dtype/save-load and exact recurrence proofs, then combined and artifact gates.
+
+## Effective-command envelope interface gate
+
+- Parent added a required pre-commit gate: DashGo retains reverse plant
+  capability `0.15 m/s`, while the formal forward-sensor experiment must issue
+  no reverse command (`v_min=0`). A consumer-side clamp is rejected because it
+  would no longer match wheel feasibility, acceleration or the projected CBF
+  residual.
+- Decision: implement an independent immutable effective-envelope manifest,
+  validate it as a subset of platform capability, bind it into layer identity,
+  and use its lower/upper/yaw bounds inside the existing joint projection.
+  A forward default and an explicit reverse-capability profile prove both uses.
+- Next: focused RED for missing envelope type/identity and one-pass final
+  projection semantics, followed by implementation. Final commit remains paused.
+
+## Effective-envelope RED
+
+- Added one manifest/capability separation test and one actual joint-projection
+  test. The latter requires `v_min=0` to affect the final command, receipt/hash,
+  wheel/acceleration route and recomputed residual; it also requires a negative
+  previous command to reject under the forward experiment while a separate
+  reverse-enabled envelope reaches `-0.15 m/s`.
+- Focused result: **2 failed in 0.84s**, exit 1, both at the intentionally
+  missing `EffectiveCommandEnvelopeSpec`. This proves the current public core
+  cannot express the required effective lower bound in its joint projection.
+- No consumer/D7 edit is needed or permitted for this closure. Next: add the
+  immutable envelope contract and bind it into the existing projection/config.
+
+## Range-definition geometry correction
+
+- Pre-commit review correctly rejected accepting Isaac Lab
+  `distance_to_image_plane`: it is axial image-plane depth, while `_geometry`
+  consumes a radial ray length in `r*cos(theta), r*sin(theta)`.
+- Executable safety ABI is now closed to `ros_laserscan_radial_range` and
+  `isaaclab_camera_distance_to_camera`. The pinned current DashGo simulator
+  image-plane provenance constant remains only to make its incompatibility and
+  required migration explicit; a regression requires construction to reject it.
+
+## Fix round 2 final CPU gate — 2026-09-08
+
+- Strengthened focused contracts/CBF suite: **264 passed in 1.63s**, exit 0.
+- Full `packages/sea_nav_core` suite: **284 passed in 2.66s**, exit 0; zero
+  skips or deselections.
+- Combined repository CPU command with `tests`, `training/rsl_rl/tests`, the
+  IsaacLab static contract and `packages/sea_nav_core/tests`: **626 passed in
+  34.87s**, exit 0.
+- `git diff --check` passed. All constructor call sites explicitly supply the
+  effective command envelope. No simulator, CUDA, ROS runtime, formal metric or
+  hardware evidence is claimed.
+- Final artifact build/install validation is intentionally left for the
+  independent immutable-commit verifier so wheel/sdist hashes bind the exact
+  successor OID. This writer will create one detached scoped commit and will not
+  update branches, refs or remotes.
