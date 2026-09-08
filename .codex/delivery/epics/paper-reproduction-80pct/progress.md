@@ -1,5 +1,15 @@
 # Progress Log
 
+## Session: 2026-09-08
+
+- Re-read the real repository, author, worktree, branch, tag, and remote identities before mutation. The ordinary working tree was clean and `test@bf6e4ebea037f1cbd3ed3eac7e0b2c80fbb59f45` remained descended from `main@1c5675bbedf1dcbe5a4c1a91830cae528c780793` with no baseline deletions.
+- The fixed committed-tree filename-only secret scan reported no match for both `bf6e4eb…` and the retained unaccepted Task 7 reference `774027d…`.
+- HTTPS push failed before any write because no interactive username was available. The already authorized and read-only verified SSH destination `git@github.com:TNHTH/SEA-Nav-Code.git` was used explicitly without changing `origin` or credentials.
+- Published and read back the three `archive/pre-recovery-*` tags, `checkpoint/recovery-20260908-bf6e4ebe` (peeled to `bf6e4eb…`), and `checkpoint/task7-unaccepted-legacy-converter-20260908-774027d` (peeled to `774027d…`, explicitly not promotable).
+- Created remote `stable@1c5675b…`, updated only remote `test` from exact lease `92896ba…` to `bf6e4eb…`, verified the slow-branch archive tag, then deleted only `sea-nav-training-slow-steps0-15-20260602` using exact lease `b53d3fe…`.
+- Final remote ordinary heads were read back as exactly `main@1c5675b…`, `stable@1c5675b…`, and `test@bf6e4eb…`. `upstream/11chens-fbce672c` was not pushed. Stable is an unqualified bootstrap and remains frozen until simulator evidence exists.
+- User decisions incorporated: immutable checkpoint tags for incomplete work; DashGo formal matrix uses paper-v1 plus an explicitly named differential-drive adaptation; budgets are 100k smoke, 5M one-seed pilot, then seeds 42/43/44 at 20M frames and 100 episodes per difficulty; new original code uses MIT while third-party licenses remain separate.
+
 ## Session: 2026-09-07
 
 - Read complete original caller fix1 rereview: terrain P2 ADDRESSED, no new finding, bounded Spec/Quality PASS; independent119 passed/1 explicit deselection35.89s. Controller rechecked fixed774027d and empty ignored/untracked review inventory. This closes only the caller finding. Full core/converter review still has no complete verdict after the service restriction; implementation and review agents are idle, and safe in-scope local caller work is exhausted. Saved a precise external acceptance handoff and paused at that gate rather than retrying, bypassing or integrating from partial evidence. Task7 source/log remain committed in retained detached worktrees; two worker registration diffs are preserved unstaged. CBF final-review P2 and frozen/remote/runtime gates remain. No remote query or write occurred in this continuation.

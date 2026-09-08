@@ -1,10 +1,10 @@
 # Task Plan: SEA-Nav reproduction recovery
 
 ## Goal
-Complete Batches 1–7 on `test`, verify Rungs 0–2 from a frozen clean commit, and publish the authorized three-branch remote state safely.
+Complete Batches 1–7 on `test`, verify Rungs 0–2 from a frozen clean commit, publish the authorized three-branch remote state safely, and provide a separately packaged pure-Torch differential-drive SEA adaptation for the DashGo ablation consumer.
 
 ## Current Phase
-Phase 3 — strict serial implementation
+Phase 3 — Task 7 v2-only rebuild plus independent differential-drive package
 
 ## Acceptance Criteria
 - Local working branches remain exactly `main`, `stable`, and `test`; no temporary named branches are created.
@@ -35,8 +35,8 @@ Phase 3 — strict serial implementation
 - [x] Batch 4 — paper-damped CBF semantics, diagnostics, and golden vectors (`a660d74`, independent spec/quality PASS, 169 CPU tests).
 - [x] Batch 5 — replay ring/reservation/reset partition and CPU policy evidence (`97252ed`, `1ae9187`; scoped review PASS, fresh integrated 212 CPU tests).
 - [x] Batch 6 — scientific runtime consumers, checked startup/evidence, corrected filter and opt-in training trace (`dbc609d`, `b52808d`, `4183d2b`, `b5b9455`; scoped Spec/Quality PASS; fresh integrated342 CPU tests).
-- [ ] Batch 7 — checkpoint schema v2, safe loading, and explicit class registries.
-- **Status:** paused at Task 7 full independent review gate; ordinary caller fix1 accepted, core/converter review incomplete after service restriction. No further source work or integration until an authorized independent review route is supplied; see task-7-acceptance-handoff.md.
+- [ ] Batch 7 — checkpoint schema v2, safe loading, and explicit class registries. Rebuild from the accepted `test` baseline as one v2-only commit; do not import the deprecated arbitrary legacy checkpoint converter or its executable tests.
+- **Status:** active. The old `2387cf0→c7b9aa3→774027d` chain is retained only under an explicitly unaccepted checkpoint tag. A new single writer owns the 23 retained source/test/doc paths; independent review remains mandatory before integration.
 
 ### Phase 4: Frozen-candidate verification
 - [ ] Freeze one candidate OID and create a clean detached verification checkout.
@@ -47,14 +47,22 @@ Phase 3 — strict serial implementation
 - **Status:** pending
 
 ### Phase 5: Remote transaction and delivery
-- [ ] Fetch and re-check exact remote head leases and authenticated destination identity.
+- [x] Fetch and re-check exact remote head leases and authenticated destination identity.
 - [ ] Scan the frozen committed tree for credentials/secrets and record the candidate OID.
-- [ ] Push authorized recovery tags; read back exact objects before any branch deletion.
-- [ ] Create `stable@1c5675b` as unqualified bootstrap and attempt/read back protection separately.
-- [ ] Force-update only `origin/test` with its full expected-old SHA and read back.
-- [ ] Delete only the long historical branch with its full expected-old SHA after recovery refs are remote-visible.
-- [ ] Verify remote working branches are exactly `main`, `stable`, and `test`; report any stopped step without overstating completion.
-- **Status:** pending
+- [x] Push authorized recovery tags; read back exact objects before any branch deletion.
+- [x] Create `stable@1c5675b` as an unqualified bootstrap.
+- [x] Force-update only `origin/test` from exact old `92896ba…` to checkpoint `bf6e4eb…` and read back.
+- [x] Delete only the long historical branch with its full expected-old SHA after recovery refs are remote-visible.
+- [x] Verify remote working branches are exactly `main`, `stable`, and `test` at the published Tasks 1–6 checkpoint.
+- [ ] Fast-forward each subsequently accepted repair slice to `test`; do not advance `stable` without real Isaac smoke/short-train evidence.
+- **Status:** checkpoint publication complete; final repaired candidate publication remains pending
+
+### Phase 6: Differential-drive public core
+- [ ] Add a standalone `sea_nav_core` package with versioned platform/observation/action contracts and a pure-Torch unicycle-lookahead damped LSE-CBF.
+- [ ] Preserve the existing Go2 `ExactLSECBFLayer` behavior and label the new layer `cross_platform_method_adaptation`, never `paper-exact`.
+- [ ] Add golden output/gradient/invalid-input/TorchScript tests and an ablation profile resolver for `full`, `without_acsi`, `without_shield`, and `without_lreg`.
+- [ ] Publish the accepted package commit to `test`; DashGo pins that full commit and records both repository identities in every run manifest.
+- **Status:** registered for an independent detached writer; no source change yet
 
 ## Worktree Registration
 
@@ -72,6 +80,8 @@ Phase 3 — strict serial implementation
 | `work/SEA-Nav-Code-batch6-review-full` | detached `844514929726a1cade3303867cc11702b710a04d`; BASE `65dcbbc2b13c92af99a9e7d4cba4110880f9b509` | `/root/review_batch6_full` | only primary coordination task-6-review.md and scoped rereview reports; no source/ref writes | corrected Task 6 brief (29 paths plus two narrow extensions); full fixed diff and final worker report | whole Spec/Quality FAIL, 1 P1 and 4 P2; review tree retained clean; original writer fix round 1/5, no integration |
 | `work/SEA-Nav-Code-batch6-review-fix1` | detached `0efc1934cbefc1a9780baced7846484f29eb776e`; fix BASE `844514929726a1cade3303867cc11702b710a04d` | `/root/review_batch6_full` | only primary task-6-rereview-1.md; no source/ref writes | complete 11-file fix diff and worker postcommit addendum | complete, all5 findings closed; Spec/Quality PASS; clean and retained |
 | `work/SEA-Nav-Code-batch7` | detached `774027d1a975e318ad2f577b457951f51c82bfad`; BASE `562d4ae0b56ca977ea433def6dbd05607284e38b`; fix BASE c7b9aa3 | `/root/implement_batch7` | exact26 inventory; no further writes active; two local registration diffs retained | fixed postcommit433/GateA report read; caller P2 independently closed; full core/converter review incomplete | writer idle, source/log committed and retained, no integration |
+| `work/SEA-Nav-Code-batch7-v2` | detached from `test@bf6e4ebea037f1cbd3ed3eac7e0b2c80fbb59f45` | `/root/implement_batch7` | Task 7 retained v2 checkpoint/registry/runner/caller/tests/docs paths only; converter files absent | current accepted test baseline; old `774027d` is read-only semantic source | registered, pending creation |
+| `work/SEA-Nav-Code-diffdrive-core` | detached from `test@bf6e4ebea037f1cbd3ed3eac7e0b2c80fbb59f45` | `/root/review_batch7_callers` | new standalone `packages/sea_nav_core/**` plus its focused root integration test/docs only | versioned DashGo contracts and paper-v1 adaptation decision | registered, pending creation; no overlap with Task 7 |
 | `work/SEA-Nav-Code-batch7-review-callers-fix1` | detached `774027d1a975e318ad2f577b457951f51c82bfad`; fix BASE `c7b9aa371b8ab3800adea378a7024f043fb58580` | original `/root/review_batch7_callers` | completed primary task-7-callers-rereview-1.md only; no further writes | original terrain P2 ADDRESSED, bounded Spec/Quality PASS; independent119 passed/1 deselected35.89s | complete, retained clean including ignored; not full Task7 acceptance |
 | `work/SEA-Nav-Code-batch7-review-core` | detached `2387cf02d85a1a9a52b0e85da54c7ebad09b0cec`; BASE `562d4ae0b56ca977ea433def6dbd05607284e38b` | `/root/review_batch7_core`; controller owns only bounded functional continuation | controller may write primary task-7-core-functional-review.md and coordination failure record; no source/ref writes | fixed eight-file core snapshot and log; non-adversarial runner/persistence scope only | original reviewer errored at service safety boundary, no report/verdict; full review incomplete, no bypass or second writer |
 | `work/SEA-Nav-Code-batch7-review-callers` | detached `c7b9aa371b8ab3800adea378a7024f043fb58580`; BASE `562d4ae0b56ca977ea433def6dbd05607284e38b` | `/root/review_batch7_callers`; controller read-only ordinary core follow-through | only primary task-7-callers-review.md and controller functional-report addendum; no source/ref writes | fixed caller/README diff and final worker report when available | bounded ordinary caller/documentation review, explicitly excludes converter/security review; original complete core review remains incomplete |
@@ -106,6 +116,9 @@ Owner `/root/implement_batch7`; detached BASE will be the coordination-only succ
 | Serialize all seven implementation batches | PPO/CBF/runner and replay/runtime/checkpoint files overlap; path ownership cannot make stale-parent commits safe. |
 | Run CPU-only imports for `rsl_rl`; inspect `legged_gym` statically | `legged_gym` imports proprietary `isaacgym` at module load in this environment. |
 | Bind any force-push to a frozen candidate OID and explicit expected-old remote SHA | Prevents both local-moving-ref and remote-race ambiguity. |
+| Remove the arbitrary legacy checkpoint converter from the accepted Task 7 contract | The user selected native v2 checkpoints plus explicit old-format rejection; executable legacy pickle conversion is not required for reproduction. |
+| Package DashGo support outside vendored `rsl_rl` | Avoids a package-name/version collision with DashGo's RSL-RL 3.0.1 while keeping the algorithm dependency one-way. |
+| Use paper-v1 scientific losses with a named differential-drive adaptation | The user selected paper-v1 as the formal ablation basis; the kinematic change must remain explicit and cannot be relabeled as original Go2 reproduction. |
 
 ## Errors Encountered
 

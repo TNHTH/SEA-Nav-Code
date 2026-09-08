@@ -1,21 +1,21 @@
 {
   "schema_version": 1,
-  "coord_rev": 8,
+  "coord_rev": 9,
   "repository": "TNHTH/SEA-Nav-Code",
   "branch": "test",
-  "head": "8c00d0237409e14dff7357919a83b1b5f4239666",
-  "head_semantics": "last observed primary HEAD; a coordination-only successor may exist; verify git rev-parse HEAD on recovery",
-  "phase": "awaiting_external_review",
-  "next_action": "Task7 caller fix1 accepted at774027d; full core/converter review remains incomplete after service restriction. Request an authorized external independent review route/results per task-7-acceptance-handoff.md. No service retry, source integration, CBF follow-up, final freeze or remote write.",
+  "head": "bf6e4ebea037f1cbd3ed3eac7e0b2c80fbb59f45",
+  "head_semantics": "published Tasks 1-6 checkpoint; verify moving test and exact remote refs on recovery",
+  "phase": "task7_v2_only_rebuild_and_diffdrive_core",
+  "next_action": "Create the two registered detached worktrees. Rebuild Task 7 without the legacy converter and implement the non-overlapping standalone differential-drive core. Independently review each fixed commit before serial integration; then repair the CBF hotpath and freeze a clean candidate.",
   "active_implementation": {
     "task": 7,
     "agent": "/root/implement_batch7",
-    "worktree": "../SEA-Nav-Code-batch7",
-    "base": "562d4ae0b56ca977ea433def6dbd05607284e38b",
-    "head": "774027d1a975e318ad2f577b457951f51c82bfad",
-    "status": "idle_caller_fix1_accepted_full_core_review_blocked_external_input_required",
+    "worktree": "../SEA-Nav-Code-batch7-v2",
+    "base": "bf6e4ebea037f1cbd3ed3eac7e0b2c80fbb59f45",
+    "head": null,
+    "status": "registered_v2_only_rebuild",
     "scope_file": "task-7-brief.md",
-    "scope_count": 26,
+    "scope_count": 23,
     "baseline": "fresh342 passed in33.94s; empty ignored porcelain before/after"
   },
   "completed_tasks": [
@@ -47,10 +47,10 @@
   "highest_verified_rung": 1,
   "candidate_oid": null,
   "acceptance_blocker": {
-    "id": "task7_full_core_converter_independent_review",
-    "status": "incomplete_after_service_restriction",
+    "id": "task7_v2_only_independent_review",
+    "status": "pending_new_fixed_revision",
     "handoff": "task-7-acceptance-handoff.md",
-    "requires": "authorized external independent review route or complete fixed-revision review result; do not retry or bypass the restricted service"
+    "requires": "independent review of the new v2-only fixed revision; old caller review and worker self-review do not substitute"
   },
   "final_review_open_inputs": [
     {
@@ -60,7 +60,7 @@
       "status": "open; preserve checked input rejection; boundary decision and serial fix/review after Task 7"
     }
   ],
-  "remote_mutated": false,
+  "remote_mutated": true,
   "blocked": [
     "isaac_gym_preview4_runtime",
     "isaaclab_runtime",
