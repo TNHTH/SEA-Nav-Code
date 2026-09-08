@@ -4,8 +4,8 @@ The manifest is the publication commit point. Payload generations are immutable
 and retained, so readers of an older manifest keep a usable generation. Loads
 pin a no-follow input, then hash and deserialize the same kernel-sealed private
 snapshot descriptor, including protection from concurrent in-place writes.
-Model/optimizer continuation
-does not restore RNG, environment state or physical trajectories.
+Model/optimizer continuation does not restore producer RNG, environment state
+or physical trajectories. Applying a checkpoint preserves the caller's RNG.
 """
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ import stat
 from typing import Optional, Tuple
 
 import torch
+from torch.optim import optimizer as torch_optimizer
 
 
 class CheckpointError(ValueError):
@@ -354,20 +355,20 @@ def _model_for_target(model, state):
 
 
 def _adam_for_target(optimizer, state):
-    """Check actual parameter mapping and a disposable next Adam step.
+    """Validate native Adam structure against actual parameters, without a step.
 
-    The probe allocates independent parameters/state, uses zero gradients, and
-    never mutates live model/optimizer or RNG. It establishes supported target
-    execution, not future gradient finiteness or physical/RNG continuation.
+    No optimizer construction, load, gradient computation, or hooks belong in
+    this check. In particular eps=0 and beta=0 are legal: finite behavior of a
+    future update depends on its real gradients, not invented zero gradients.
     """
     if type(optimizer) is not torch.optim.Adam:
         raise CheckpointError("checkpoint resume supports an actual Adam target only")
     _adam(state)
     if len(state["param_groups"]) != len(optimizer.param_groups):
         raise CheckpointError("Adam target parameter group count mismatch")
-    probe_groups = []
     for source, target in zip(state["param_groups"], optimizer.param_groups):
-        if set(source) != set(target):
+        required_group = {"params", "lr", "betas", "eps", "weight_decay", "amsgrad"}
+        if not required_group <= set(source) or set(source) != set(target):
             raise CheckpointError("Adam target requires matching parameter group fields")
         if len(source["params"]) != len(target["params"]):
             raise CheckpointError("Adam target parameter count mismatch")
@@ -385,10 +386,32 @@ def _adam_for_target(optimizer, state):
         for field in ("foreach", "fused"):
             if field in source and source[field] is not None and type(source[field]) is not bool:
                 raise CheckpointError("invalid Adam " + field)
-        parameters = []
+        fused, foreach = source.get("fused"), source.get("foreach")
+        differentiable, capturable = source.get("differentiable"), source.get("capturable")
+        if fused and (foreach or differentiable):
+            raise CheckpointError("Adam fused is incompatible with foreach/differentiable")
+        if foreach and differentiable:
+            raise CheckpointError("Adam foreach does not support differentiable")
         for key, parameter in zip(source["params"], target["params"]):
-            if parameter.layout != torch.strided or parameter.is_quantized:
+            if (parameter.layout != torch.strided or parameter.is_quantized
+                    or not parameter.is_floating_point()):
                 raise CheckpointError("Adam requires a dense target parameter")
+            if fused:
+                # Native metadata-only check, not an optimizer or kernel probe.
+                check_fused = getattr(torch_optimizer, "_device_dtype_check_for_fused", None)
+                if check_fused is None:
+                    raise CheckpointError("Adam fused target validation unavailable")
+                try:
+                    check_fused(parameter)
+                except (RuntimeError, ValueError) as exc:
+                    raise CheckpointError("Adam fused target device/dtype unsupported") from exc
+            elif capturable:
+                devices = getattr(torch_optimizer, "_get_capturable_supported_devices", None)
+                supported = devices(supports_xla=not foreach) if devices else ("cuda",)
+                if parameter.device.type not in supported:
+                    raise CheckpointError("Adam capturable target device unsupported")
+            if differentiable and parameter.is_leaf and parameter.requires_grad:
+                raise CheckpointError("Adam differentiable cannot update a leaf target parameter")
             moments = state["state"].get(key)
             if moments is not None:
                 required = {"step", "exp_avg", "exp_avg_sq"}
@@ -396,6 +419,12 @@ def _adam_for_target(optimizer, state):
                     required.add("max_exp_avg_sq")
                 if set(moments) != required:
                     raise CheckpointError("Adam state fields do not match amsgrad mode")
+                step = moments["step"]
+                if isinstance(step, torch.Tensor) and (
+                        step.layout != torch.strided or step.is_quantized
+                        or step.dtype not in (torch.float32, torch.float64) or step.requires_grad
+                        or step.device.type == "meta"):
+                    raise CheckpointError("Adam step requires a plain floating scalar tensor")
                 for field in required - {"step"}:
                     moment = moments[field]
                     if (not isinstance(moment, torch.Tensor) or moment.shape != parameter.shape
@@ -404,57 +433,69 @@ def _adam_for_target(optimizer, state):
                         raise CheckpointError("Adam moment shape/dtype/device/layout differs from target")
                     if not torch.isfinite(moment).all() or (field != "exp_avg" and (moment < 0).any()):
                         raise CheckpointError("Adam moments must be finite with nonnegative squared moments")
-            parameters.append(parameter.detach().clone().requires_grad_(True))
-        probe_groups.append({"params": parameters})
-    prepared = copy.deepcopy(state)
-    try:
-        probe = torch.optim.Adam(probe_groups, **copy.deepcopy(optimizer.defaults))
-        probe.load_state_dict(copy.deepcopy(prepared))
-        for group in probe.param_groups:
-            for parameter in group["params"]:
-                parameter.grad = torch.zeros_like(parameter)
-        probe.step()
-        if any(not torch.isfinite(parameter).all() for group in probe.param_groups for parameter in group["params"]):
-            raise CheckpointError("Adam disposable next step produced nonfinite parameters")
-    except Exception as exc:
-        raise CheckpointError("Adam checkpoint is not executable on target: " + str(exc)) from exc
-    return prepared
+    return copy.deepcopy(state)
 
 
 def apply_checkpoint_state(model, model_state_dict, *, optimizer=None, optimizer_state_dict=None):
-    """Failure-atomic application for registered models and native Adam.
+    """Bounded failure-atomic application, preserving caller RNG and gradients.
 
-    Validate and allocate everything before live mutation. Rollback copies the
-    original tensors directly and restores optimizer containers without calling
-    user load hooks again, including a failure after a load hook partially ran.
-    Runner iteration and algorithm LR are changed only after this returns.
+    Roll back existing parameters/buffers, gradient presence/values, and supplied
+    optimizer state/groups/defaults without re-invoking load hooks. An optimizer
+    without optimizer_state_dict is snapshot-only (inference/warm start).
+    Arbitrary external hook side effects and replaced module structure are not
+    rollback-guaranteed. This does not restore producer RNG/physical trajectories.
     """
-    prepared_model = _model_for_target(model, model_state_dict)
-    if (optimizer is None) != (optimizer_state_dict is None):
-        raise CheckpointError("optimizer and optimizer_state_dict must be supplied together")
-    prepared_optimizer = None if optimizer is None else _adam_for_target(optimizer, optimizer_state_dict)
-    live_model = model.state_dict(keep_vars=True)
-    original_model = {name: tensor.detach().clone() for name, tensor in live_model.items()}
+    cpu_rng = torch.get_rng_state().clone()
+    # Do not initialize a CUDA context merely to load a CPU/model-only artifact.
+    cuda_rng = torch.cuda.get_rng_state_all() if torch.cuda.is_initialized() else None
+    try:
+        _apply_checkpoint_transaction(model, model_state_dict, optimizer, optimizer_state_dict)
+    finally:
+        torch.set_rng_state(cpu_rng)
+        if cuda_rng is not None:
+            torch.cuda.set_rng_state_all(cuda_rng)
+
+
+def _apply_checkpoint_transaction(model, model_state_dict, optimizer, optimizer_state_dict):
+    if optimizer is None and optimizer_state_dict is not None:
+        raise CheckpointError("optimizer_state_dict requires a target optimizer")
+    live_tensors = list(model.parameters()) + list(model.buffers())
+    original_model = [(tensor, tensor.detach().clone()) for tensor in live_tensors]
+    parameters = dict.fromkeys(model.parameters())
     if optimizer is not None:
+        for group in optimizer.param_groups:
+            parameters.update(dict.fromkeys(group["params"]))
         original_state = copy.copy(optimizer.state)
         for parameter, value in original_state.items():
             original_state[parameter] = copy.deepcopy(value)
         original_groups = [{key: list(value) if key == "params" else copy.deepcopy(value)
                             for key, value in group.items()} for group in optimizer.param_groups]
         original_defaults = copy.deepcopy(optimizer.defaults)
+    original_grads = [(parameter, parameter.grad, None if parameter.grad is None else parameter.grad.detach().clone())
+                      for parameter in parameters]
     try:
+        prepared_model = _model_for_target(model, model_state_dict)
+        prepared_optimizer = (None if optimizer_state_dict is None
+                              else _adam_for_target(optimizer, optimizer_state_dict))
         model.load_state_dict(prepared_model, strict=True)
-        if optimizer is not None:
+        if prepared_optimizer is not None:
             optimizer.load_state_dict(prepared_optimizer)
     except BaseException:
         with torch.no_grad():
-            for name, tensor in live_model.items():
-                tensor.copy_(original_model[name])
+            for tensor, original in original_model:
+                tensor.copy_(original)
         if optimizer is not None:
             optimizer.state = original_state
             optimizer.param_groups = original_groups
             optimizer.defaults = original_defaults
         raise
+    finally:
+        # Checkpoints carry no gradients, including on a successful load.
+        with torch.no_grad():
+            for parameter, grad, original in original_grads:
+                parameter.grad = grad
+                if grad is not None:
+                    grad.copy_(original)
 
 
 def _publication_boundary(name):

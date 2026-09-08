@@ -321,9 +321,17 @@ class OnPolicyRunner:
         elif mode == "warm_start":
             if self.current_learning_iteration != 0 or self.alg.optimizer.state:
                 raise CheckpointError("warm start requires a fresh runner")
-        apply_checkpoint_state(self.alg.actor_critic, loaded.model_state_dict,
-            optimizer=self.alg.optimizer if mode == "resume" else None,
-            optimizer_state_dict=loaded.optimizer_state_dict if mode == "resume" else None)
+        original_iteration = self.current_learning_iteration
+        original_learning_rate = self.alg.learning_rate
+        try:
+            apply_checkpoint_state(self.alg.actor_critic, loaded.model_state_dict,
+                optimizer=self.alg.optimizer,
+                optimizer_state_dict=loaded.optimizer_state_dict if mode == "resume" else None)
+        except BaseException:
+            # Legitimate load hooks can close over and mutate runner metadata.
+            self.current_learning_iteration = original_iteration
+            self.alg.learning_rate = original_learning_rate
+            raise
         if mode == "resume":
             self.alg.learning_rate = self.alg.optimizer.param_groups[0]["lr"]
             self.current_learning_iteration = loaded.iteration
