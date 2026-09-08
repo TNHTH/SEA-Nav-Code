@@ -9,7 +9,9 @@ It includes all components needed for sim-to-real transfer: actuator network, fr
 Project website: https://leggedrobotics.github.io/legged_gym/
 Paper: https://arxiv.org/abs/2109.11978
 
-### Installation ###
+### Historical upstream installation (not a current environment lock) ###
+
+The Preview 3 / Torch 1.10 notes below are inherited legged_gym documentation. The SEA-Nav reference stack is Preview 4; this checkout does not claim either simulator combination has been validated. Use the bundled `training/rsl_rl` snapshot for repaired SEA-Nav, not a newly cloned unrelated rsl_rl revision. Current startup and schema-v2 loading are described below.
 1. Create a new python virtual env with python 3.6, 3.7 or 3.8 (3.8 recommended)
 2. Install pytorch 1.10 with cuda-11.3:
     - `pip3 install torch==1.10.0+cu113 torchvision==0.11.1+cu113 torchaudio==0.10.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html`
@@ -31,7 +33,9 @@ Paper: https://arxiv.org/abs/2109.11978
 3. Each non-zero reward scale specified in `cfg` will add a function with a corresponding name to the list of elements which will be summed to get the total reward.  
 4. Tasks must be registered using `task_registry.register(name, EnvClass, EnvConfig, TrainConfig)`. This is done in `envs/__init__.py`, but can also be done from outside of this repository.  
 
-### Usage ###
+### Historical upstream usage (unsupported in repaired SEA-Nav) ###
+
+The following ANYmal examples, numeric/raw checkpoints and latest-run discovery are historical provenance only. The repaired entry points reject those loading flags; they must not be used to infer current behavior.
 1. Train:  
   ```python issacgym_anymal/scripts/train.py --task=anymal_c_flat```
     -  To run on CPU add following arguments: `--sim_device=cpu`, `--rl_device=cpu` (sim on CPU and rl on GPU is possible).
@@ -52,6 +56,24 @@ Paper: https://arxiv.org/abs/2109.11978
 ```python issacgym_anymal/scripts/play.py --task=anymal_c_flat```
     - By default the loaded policy is the last model of the last run of the experiment folder.
     - Other runs/model iteration can be selected by setting `load_run` and `checkpoint` in the train config.
+
+### Current SEA-Nav startup and checkpoint usage ###
+
+Run from the repository root with the explicit `SEA_NAV_*` variables defined in the root README. This checks the real parser and CPU consumers without starting Gym. `--rl_device` and `--sim_device` retain underscore spelling; the actual proprietary import still requires Gym-before-Torch ordering, preserved by the isolated CPU preflight.
+
+<!-- checkpoint-example: gym-warm-start -->
+```bash
+"$SEA_NAV_PYTHON" -B training/legged_gym/legged_gym/scripts/train.py \
+  --config sea_nav_current_isaaclab_full_method/configs/sea_nav_full_current.yaml \
+  --producer-commit "$SEA_NAV_COMMIT" --launcher "$SEA_NAV_LAUNCHER" \
+  --asset-root "$SEA_NAV_ASSET_ROOT" --run-root "$SEA_NAV_RUN_ROOT" \
+  --init-checkpoint-manifest "$SEA_NAV_ASSET_ROOT/init.manifest.json" \
+  --task go2_pos_rough --rl_device cpu --sim_device cpu --preflight-only
+```
+
+Use `--resume-checkpoint-manifest` with the exact saved manifest to continue model and Adam state at its completed-update count. Use play's `--checkpoint-manifest` for model inference. Initialization must be model-only at iteration zero. There is no default run search. Every save names its actual count (`model_N.manifest.json`) and retains immutable content-addressed payload generations; the final manifest is returned by `learn()`.
+
+The actual interpreter must pass explicit weights-only support, a v2 round trip and kernel-sealed-snapshot capability checks. CPU Torch 2.6 evidence does not validate old simulator Torch. Gym execution, controller provenance/interface and simulator continuation remain blocked; `--preflight-only` is not a simulator pass. Follow the [root README](../../README.md) for CPU initialization and checks.
 
 ### Adding a new environment ###
 The base environment `legged_robot` implements a rough terrain locomotion task. The corresponding cfg does not specify a robot asset (URDF/ MJCF) and no reward scales. 

@@ -37,10 +37,17 @@ from rsl_rl.env import VecEnv
 from rsl_rl.runners import OnPolicyRunner
 
 from legged_gym import LEGGED_GYM_ROOT_DIR, LEGGED_GYM_ENVS_DIR
-from .helpers import get_args, update_cfg_from_args, class_to_dict, get_load_path, set_seed, parse_sim_params
+from .helpers import get_args, update_cfg_from_args, class_to_dict, set_seed, parse_sim_params
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 from rsl_rl.environment_profile import materialize_config, apply_gym_environment, apply_algorithm_profile, reconcile_environment_receipt, runner_config_for_environment
+
+RUNNER_REGISTRY = {"OnPolicyRunner": OnPolicyRunner}
+
+def resolve_runner_class(name):
+    if type(name) is not str or name not in RUNNER_REGISTRY:
+        raise ValueError("unknown runner class: " + str(name))
+    return RUNNER_REGISTRY[name]
 
 class TaskRegistry():
     def __init__(self):
@@ -169,13 +176,18 @@ class TaskRegistry():
         if resolved_config is None:
             raise ValueError("resolved_config required before runner construction")
         if train_cfg.runner.resume:
-            raise ValueError("blocked: checkpoint loading requires Task 7 manifest loader")
+            raise ValueError("legacy runner.resume config is unsupported; use an explicit manifest flag")
         train_cfg_dict = runner_config_for_environment(class_to_dict(train_cfg), resolved_config, env)
         train_cfg.applied_shapes = train_cfg_dict["applied_shapes"]
 
-        runner_class = eval(train_cfg.runner_class_name)
+        runner_class = resolve_runner_class(train_cfg.runner_class_name)
 
-        runner = runner_class(env, train_cfg_dict, log_dir, args=args, device=args.rl_device)
+        request = args.runtime_request
+        runner = runner_class(env, train_cfg_dict, log_dir, args=args, device=args.rl_device,
+            producer_commit=request.arguments.producer_commit,
+            resolved_config_sha256=resolved_config.resolved_sha256)
+        from rsl_rl.runtime_preflight import apply_runner_checkpoint
+        apply_runner_checkpoint(request, runner)
         return runner, train_cfg
 
 # make global task registry
