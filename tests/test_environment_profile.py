@@ -147,7 +147,12 @@ def execute_actual_runner_caller(name,env):
         exec(compile(ast.Module(body=[helper],type_ignores=[]),str(helpers),'exec'),namespace)
         namespace.update(env=env,train_cfg=namespace['Go2PosRoughCfgPPO'](),resolved_config=resolved(),
                          apply_algorithm_profile=apply_algorithm_profile,OnPolicyRunner=OnPolicyRunner,
-                         args=NS(rl_device='cpu',wandb=False),log_dir=None)
+                         args=NS(rl_device='cpu',wandb=False,runtime_request=NS(
+                             arguments=NS(producer_commit='5'*40),paths=NS(checkpoint_manifest=None))),log_dir=None)
+        registry_nodes=[n for n in ast.parse(path.read_text()).body
+                        if (isinstance(n,ast.FunctionDef) and n.name=='resolve_runner_class')
+                        or (isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='RUNNER_REGISTRY' for t in n.targets))]
+        exec(compile(ast.Module(body=registry_nodes,type_ignores=[]),str(path),'exec'),namespace)
         from rsl_rl import environment_profile
         if hasattr(environment_profile,'runner_config_for_environment'):
             namespace['runner_config_for_environment']=environment_profile.runner_config_for_environment
@@ -161,7 +166,8 @@ def execute_actual_runner_caller(name,env):
         nodes=method.body[start:stop+1]
         config=resolved('isaaclab_adapter')
         args=NS(rollout_steps=4,init_std=.8,cbf_fov_deg=180.,ppo_learning_rate=.0003,
-                ppo_entropy_coef=.007,ppo_schedule='fixed',ppo_num_learning_epochs=1,ppo_num_mini_batches=1)
+                ppo_entropy_coef=.007,ppo_schedule='fixed',ppo_num_learning_epochs=1,ppo_num_mini_batches=1,
+                producer_commit='5'*40)
         namespace=dict(adapter_env=env,request=NS(resolved_config=config,
             environment={'constructor_settings':runtime_constructor_settings(config,vars(args))}),
             args=args,SimpleNamespace=NS,log_dir=None,OnPolicyRunner=OnPolicyRunner)

@@ -387,14 +387,16 @@ def test_cbf_defaults_are_240_degrees() -> None:
 
 
 def test_runtime_checkpoint_load_rebuilds_cbf_layer_after_load() -> None:
-    # Task6 now blocks all loading before startup. Task7 owns manifest migration;
+    # Task7 loads verified model state through the shared manifest boundary;
     # the independent stale-buffer numerical regression below remains unchanged.
     runtime_text = RUNTIME_SCRIPT.read_text(encoding="utf-8")
     assert "high_level.load_state_dict" not in runtime_text
     assert "high_level.cbf_layer =" not in runtime_text
     assert "build_actor_critic(request.resolved_config," in runtime_text
+    assert "apply_model_checkpoint(request, high_level, map_location=device)" in runtime_text
     preflight_text = (SEA_ROOT / "training/rsl_rl/rsl_rl/runtime_preflight.py").read_text()
-    assert "blocked: checkpoint loading modes require Task 7 manifest loader" in preflight_text
+    assert "checkpoint_preflight" in preflight_text
+    assert "expected_resolved_config_sha256" in preflight_text
 
 
 def test_runtime_cbf_layer_rebuild_blocks_old_checkpoint_buffer_regression() -> None:

@@ -102,28 +102,7 @@ def parse_sim_params(args, cfg):
     return sim_params
 
 def get_load_path(root, load_run=-1, checkpoint=-1):
-    try:
-        runs = os.listdir(root)
-        #TODO sort by date to handle change of month
-        runs.sort()
-        if 'exported' in runs: runs.remove('exported')
-        last_run = os.path.join(root, runs[-1])
-    except:
-        raise ValueError("No runs in this directory: " + root)
-    if load_run==-1:
-        load_run = last_run
-    else:
-        load_run = os.path.join(root, load_run)
-
-    if checkpoint==-1:
-        models = [file for file in os.listdir(load_run) if 'model' in file]
-        models.sort(key=lambda m: '{0:0>15}'.format(m))
-        model = models[-1]
-    else:
-        model = "model_{}.pt".format(checkpoint) 
-
-    load_path = os.path.join(load_run, model)
-    return load_path
+    raise ValueError("legacy numeric/latest-run checkpoint discovery is unsupported; use an explicit manifest")
 
 def update_cfg_from_args(env_cfg, cfg_train, args):
     # seed
@@ -139,27 +118,18 @@ def update_cfg_from_args(env_cfg, cfg_train, args):
         # alg runner parameters
         if args.max_iterations is not None:
             cfg_train.runner.max_iterations = args.max_iterations
-        if args.resume:
-            cfg_train.runner.resume = args.resume
         if args.experiment_name is not None:
             cfg_train.runner.experiment_name = args.experiment_name
         if args.run_name is not None:
             cfg_train.runner.run_name = args.run_name
-        if args.load_run is not None:
-            cfg_train.runner.load_run = args.load_run
-        if args.checkpoint is not None:
-            cfg_train.runner.checkpoint = args.checkpoint
 
     return env_cfg, cfg_train
 
 def get_args(argv=None):
     custom_parameters = [
         {"name": "--task", "type": str, "default": "go2_pos_rough", "help": "Resume training or start testing from a checkpoint. Overrides config file if provided."},
-        {"name": "--resume", "action": "store_true", "default": False,  "help": "Resume training from a checkpoint"},
         {"name": "--experiment_name", "type": str,  "help": "Name of the experiment to run or load. Overrides config file if provided."},
         {"name": "--run_name", "type": str,  "help": "Name of the run. Overrides config file if provided."},
-        {"name": "--load_run", "type": str,  "help": "Name of the run to load when resume=True. If -1: will load the last run. Overrides config file if provided."},
-        {"name": "--checkpoint", "type": int,  "help": "Saved model checkpoint number. If -1: will load the last checkpoint. Overrides config file if provided."},
         
         {"name": "--no_wandb", "action": "store_true", "default": True, "help": "Disable logging to Weights and Biases (wandb)"},
         {"name": "--test", "action": "store_true", "default": False, "help": "Run in test mode (overrides some parameters for testing)"},

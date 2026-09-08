@@ -32,6 +32,7 @@ import sys
 from pathlib import Path
 SEA_ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0,str(SEA_ROOT/"training/rsl_rl"))
+sys.path.insert(0,str(SEA_ROOT/"training/legged_gym"))
 from rsl_rl.runtime_preflight import preflight as shared_preflight
 
 def preflight(argv):
@@ -39,14 +40,39 @@ def preflight(argv):
 
 def main(argv=None):
     request=preflight(sys.argv[1:] if argv is None else argv)
-    # Inference remains blocked by preflight until the Task7 manifest loader.
-    import isaacgym
-    from legged_gym.utils import get_args
-    args=get_args(list(request.remaining_argv))
-    args.runtime_request=request
-    play(args,request)
+    if request.arguments.preflight_only:
+        return {"status":"preflight_passed","runtime_status":"not_executed"}
+    from rsl_rl.runtime_preflight import require_runtime_prerequisites, blocked_result, publish_runtime_result
+    resources=[]
+    errors=[]
+    try:
+        require_runtime_prerequisites(request)
+        import isaacgym
+        from legged_gym.utils import get_args
+        from rsl_rl.runtime_preflight import reconcile_gym_arguments
+        args=reconcile_gym_arguments(request,get_args(list(request.remaining_argv)))
+        args.runtime_request=request
+        output=play(args,request,resources)
+    except (ModuleNotFoundError,ImportError) as exc:
+        output=blocked_result("isaac_gym_preview4",exc,"install and lock Isaac Gym Preview 4",dependency_status="unavailable")
+    except Exception as exc:
+        output=blocked_result("isaac_gym_preview4",exc,"resolve runtime prerequisites")
+        if not str(exc).startswith("blocked:"):
+            output["status"]="failed"
+    finally:
+        for env in resources:
+            for name,resource in (("viewer",getattr(env,"viewer",None)),("sim",getattr(env,"sim",None))):
+                if resource is not None:
+                    try:
+                        getattr(env.gym,"destroy_"+name)(resource)
+                    except Exception as exc:
+                        errors.append(dict(resource=name,error=str(exc)))
+    if errors:
+        output.update(status="failed",close_errors=errors)
+    output["ok"]=False
+    return publish_runtime_result(output,request)
 
-def play(args, request):
+def play(args, request, resources):
     import sys
 
     from legged_gym import LEGGED_GYM_ROOT_DIR
@@ -78,7 +104,6 @@ def play(args, request):
         }
     
     if env_cfg.env.num_envs == 1:
-        env_cfg.terrain.num_rows = 1 # level  
         env_cfg.terrain.num_cols = 1 # type
         env_cfg.terrain.curriculum = True
         env_cfg.terrain.max_init_terrain_level = 3
@@ -96,16 +121,14 @@ def play(args, request):
 
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg, resolved_config=request.resolved_config)
+    resources.append(env)
     obs = env.get_observations()
 
     # load policy
-    train_cfg.runner.resume = True
-    train_cfg.runner.load_run = -1
-    train_cfg.runner.checkpoint = -1
-
-    ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg, resolved_config=request.resolved_config)
+    ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg,
+        log_root=None,resolved_config=request.resolved_config)
     policy = ppo_runner.get_inference_policy(device=env.device)
-    print('Loaded policy from: ', task_registry.loaded_policy_path)
+    print('Loaded policy manifest: ', request.paths.checkpoint_manifest)
 
     # ---------------------------
     # Camera Setup for Recording
@@ -179,7 +202,14 @@ def play(args, request):
                     video = None
                 RECORD_VIDEO = False
                 SAVE_IMAGES = False
+    from rsl_rl.runtime_preflight import blocked_result
+    output=blocked_result("isaac_gym_preview4","runtime acceptance not established",
+        "complete real controller/reset and lifecycle validation")
+    output["applied_shapes"]=train_cfg.applied_shapes
+    return output
 
 
 if __name__ == "__main__":
-    main()
+    output=main()
+    print(json.dumps(output,sort_keys=True))
+    raise SystemExit(0 if output["status"]=="preflight_passed" else 3)

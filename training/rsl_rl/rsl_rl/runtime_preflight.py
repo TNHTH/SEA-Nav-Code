@@ -113,6 +113,7 @@ class RuntimeRequest:
     arguments_json: str
     environment_json: str
     remaining_argv: tuple = ()
+    checkpoint_json: str = "null"
 
     @property
     def arguments(self):
@@ -120,6 +121,53 @@ class RuntimeRequest:
     @property
     def environment(self):
         return json.loads(self.environment_json)
+    @property
+    def checkpoint(self):
+        return json.loads(self.checkpoint_json)
+
+
+def checkpoint_preflight(manifest_path, artifact_root, config_hash, mode):
+    """Run in the actual runtime interpreter (Gym uses its isolated child)."""
+    if manifest_path is None:
+        return None
+    import tempfile
+    import torch
+    from rsl_rl.utils.checkpoint import load_checkpoint_v2, save_checkpoint_v2, require_weights_only, validate_checkpoint_mode
+    require_weights_only()
+    # A signature alone is insufficient: verify a benign real v2 round trip.
+    with tempfile.TemporaryDirectory(prefix="sea-nav-safe-checkpoint-") as directory:
+        path=Path(directory)/"capability.json"
+        save_checkpoint_v2(path,model_state_dict={"probe":torch.tensor([1.])},iteration=0,
+                           producer_commit="0"*40,resolved_config_sha256=config_hash)
+        probe=load_checkpoint_v2(path,artifact_root=Path(directory),map_location="cpu")
+        if not torch.equal(probe.model_state_dict["probe"],torch.tensor([1.])):
+            raise ValueError("blocked: safe checkpoint capability roundtrip failed")
+    loaded=validate_checkpoint_mode(load_checkpoint_v2(manifest_path,artifact_root=artifact_root,
+        map_location="cpu",expected_resolved_config_sha256=config_hash),mode)
+    return {"manifest":asdict(loaded.manifest),"manifest_sha256":loaded.manifest_sha256,
+            "mode":mode,"capability":{"torch":torch.__version__,"weights_only_roundtrip":True},
+            "continuation_scope":"model/optimizer/iteration only; no RNG or physical trajectory restoration"}
+
+
+def apply_runner_checkpoint(request, runner):
+    if request.paths.checkpoint_manifest is None:
+        return None
+    return runner.load(request.paths.checkpoint_manifest,artifact_root=request.paths.asset_root,
+        mode=request.arguments.checkpoint_mode,expected_manifest_sha256=request.checkpoint["manifest_sha256"])
+
+
+def apply_model_checkpoint(request, model, *, map_location):
+    if request.paths.checkpoint_manifest is None:
+        return None
+    if request.arguments.checkpoint_mode!="inference":
+        raise ValueError("model-only consumer requires inference mode")
+    from rsl_rl.utils.checkpoint import load_checkpoint_v2
+    loaded=load_checkpoint_v2(request.paths.checkpoint_manifest,artifact_root=request.paths.asset_root,
+        map_location=map_location,expected_resolved_config_sha256=request.resolved_config.resolved_sha256)
+    if loaded.manifest_sha256!=request.checkpoint["manifest_sha256"]:
+        raise ValueError("checkpoint changed since preflight")
+    model.load_state_dict(loaded.model_state_dict)
+    return loaded.manifest
 
 def _gym_arguments(argv, runtime_defaults):
     """Validate the native Gym CLI surface without importing gymutil/Torch."""
@@ -163,18 +211,41 @@ def reconcile_gym_arguments(request,actual):
     return actual
 
 def preflight(argv, *, runtime_stack, repo_root, build_parser=None, entrypoint="train"):
-    """Task7 seam: checkpoint_manifest and mode are parsed, all loading blocked now."""
+    """Bind explicit manifest modes before proprietary startup or output creation."""
     common=argparse.ArgumentParser(add_help=False,allow_abbrev=False)
     common.add_argument("--config",type=Path,required=True)
     common.add_argument("--launcher",type=Path,required=True)
     common.add_argument("--run-root",type=Path,required=True)
     common.add_argument("--asset-root",type=Path,required=True)
-    common.add_argument("--checkpoint-manifest",type=Path)
-    common.add_argument("--checkpoint-mode",choices=("fresh","resume","warm_start","inference"),default="fresh")
+    manifests=common.add_mutually_exclusive_group()
+    manifests.add_argument("--checkpoint-manifest",type=Path)
+    manifests.add_argument("--init-checkpoint-manifest",type=Path)
+    manifests.add_argument("--resume-checkpoint-manifest",type=Path)
+    common.add_argument("--checkpoint-mode",choices=("fresh","resume","warm_start","inference"))
+    common.add_argument("--producer-commit",required=True)
     common.add_argument("--algorithm-profile")
     common.add_argument("--implementation-delta",action="append")
     common.add_argument("--preflight-only",action="store_true")
     base,remaining=common.parse_known_args(argv)
+    import re
+    if not re.fullmatch(r"[0-9a-f]{40}",base.producer_commit):
+        raise ValueError("producer_commit must be an explicit full lowercase commit SHA")
+    mode="fresh"
+    manifest=base.checkpoint_manifest
+    if base.init_checkpoint_manifest is not None:
+        mode,manifest="warm_start",base.init_checkpoint_manifest
+    elif base.resume_checkpoint_manifest is not None:
+        mode,manifest="resume",base.resume_checkpoint_manifest
+    elif manifest is not None:
+        mode="inference"
+    if base.checkpoint_mode is not None and base.checkpoint_mode!=mode:
+        raise ValueError("blocked: checkpoint mode requires its matching explicit manifest flag")
+    if entrypoint in ("train","ppo","acsi") and mode=="inference":
+        raise ValueError("training requires init/resume manifest flags")
+    if entrypoint in ("play","smoke") and mode not in ("fresh","inference"):
+        raise ValueError("inference entrypoint requires --checkpoint-manifest")
+    if entrypoint=="play" and mode!="inference":
+        raise ValueError("play requires --checkpoint-manifest")
     config_path=_canonical(base.config)
     document=yaml.safe_load(config_path.read_text(encoding="utf-8"))
     if not isinstance(document,dict) or set(document)!={"schema_version","algorithm_profile","implementation_delta","runtime"} or type(document["schema_version"]) is not int or document["schema_version"]!=1:
@@ -184,11 +255,9 @@ def preflight(argv, *, runtime_stack, repo_root, build_parser=None, entrypoint="
     resolved=resolve_run_config(registry_path=Path(repo_root)/"configs/parity_registry.yaml",
         algorithm_profile=base.algorithm_profile or document["algorithm_profile"],runtime_stack=runtime_stack,
         implementation_delta=document["implementation_delta"] if base.implementation_delta is None else base.implementation_delta)
-    paths=validate_runtime_paths(RuntimePaths(base.launcher,base.run_root,base.asset_root,base.checkpoint_manifest))
-    if base.checkpoint_mode!="fresh" or base.checkpoint_manifest is not None or entrypoint=="play":
-        raise ValueError("blocked: checkpoint loading modes require Task 7 manifest loader")
+    paths=validate_runtime_paths(RuntimePaths(base.launcher,base.run_root,base.asset_root,manifest))
     if any(x.split("=")[0] in ("--checkpoint","--init-checkpoint","--resume","--load_run","--load-run") for x in remaining):
-        raise ValueError("blocked: raw checkpoint loading requires Task 7 manifest loader")
+        raise ValueError("blocked: legacy raw/numeric checkpoint flags are unsupported; use explicit manifest flags")
     settings_doc=document["runtime"]
     if not isinstance(settings_doc,dict):
         raise ValueError("runtime YAML must be a mapping")
@@ -271,21 +340,29 @@ def preflight(argv, *, runtime_stack, repo_root, build_parser=None, entrypoint="
         code = ("import sys,json; from pathlib import Path; sys.path.insert(0,sys.argv[1]); "
                 "from rsl_rl.experiment_config import resolve_run_config; "
                 "from rsl_rl.environment_profile import environment_settings,apply_algorithm_profile; "
+                "from rsl_rl.runtime_preflight import checkpoint_preflight; "
                 "r=json.loads(sys.argv[2]); c=resolve_run_config(**r); "
                 "apply_algorithm_profile({'policy':{},'algorithm':{}},c); "
-                "print(json.dumps(environment_settings(c,**json.loads(sys.argv[3]))))")
+                "assert c.resolved_sha256==sys.argv[4]; "
+                "print(json.dumps({'environment':environment_settings(c,**json.loads(sys.argv[3])), "
+                "'checkpoint':checkpoint_preflight(**json.loads(sys.argv[5]))}))")
         identity=dict(registry_path=str(Path(repo_root)/"configs/parity_registry.yaml"),
             algorithm_profile=resolved.identity.algorithm_profile,runtime_stack=runtime_stack,
             implementation_delta=list(resolved.identity.implementation_delta))
         child=subprocess.run([sys.executable,"-I","-B","-c",code,str(Path(repo_root)/"training/rsl_rl"),
-                              json.dumps(identity),json.dumps(env_options)],capture_output=True,text=True,timeout=30)
+                              json.dumps(identity),json.dumps(env_options),resolved.resolved_sha256,
+                              json.dumps(dict(manifest_path=str(paths.checkpoint_manifest) if manifest else None,
+                                  artifact_root=str(paths.asset_root),config_hash=resolved.resolved_sha256,mode=mode))],
+                              capture_output=True,text=True,timeout=30)
         if child.returncode:
             raise ValueError("isolated Gym consumer preflight rejected: " + child.stderr.strip())
-        env=json.loads(child.stdout)
+        child_result=json.loads(child.stdout)
+        env,checkpoint=child_result["environment"],child_result["checkpoint"]
     else:
         from rsl_rl.environment_profile import environment_settings, runtime_constructor_settings
         env=environment_settings(resolved,**env_options)
         env['constructor_settings']=runtime_constructor_settings(resolved,vars(parsed))
+        checkpoint=checkpoint_preflight(paths.checkpoint_manifest,paths.asset_root,resolved.resolved_sha256,mode)
     env["asset_prerequisites"] = asset_receipt(paths,runtime_stack)
     for key,name in (("result","result.json"),("manifest_out","manifest.json"),("log_dir","training")):
         value=getattr(parsed,key,"") or str(paths.run_root/name)
@@ -299,7 +376,10 @@ def preflight(argv, *, runtime_stack, repo_root, build_parser=None, entrypoint="
     parsed.trace_enabled=parsed.trace is not None
     validate_output_targets(paths,parsed,(config_path,paths.launcher))
     parsed.preflight_only=base.preflight_only
-    return RuntimeRequest(resolved,paths,json.dumps(vars(parsed),sort_keys=True),json.dumps(env,sort_keys=True),tuple(remaining))
+    parsed.checkpoint_mode=mode
+    parsed.producer_commit=base.producer_commit
+    return RuntimeRequest(resolved,paths,json.dumps(vars(parsed),sort_keys=True),json.dumps(env,sort_keys=True),
+                          tuple(remaining),json.dumps(checkpoint,sort_keys=True))
 
 def bind_runtime_result(result, resolved, paths, environment, trace=None, arguments=None):
     """Bind only current evidence; a dependency/projection is never a runtime pass."""
@@ -381,6 +461,7 @@ def publish_runtime_result(output,request,trace=None):
         reconcile_environment_receipt(output["effective_environment"],environment)
     bound=bind_runtime_result(output,request.resolved_config,request.paths,environment,trace,
                               arguments=vars(request.arguments))
+    bound["input_checkpoint"]=request.checkpoint
     encoded=json.dumps(bound,ensure_ascii=False,indent=2,allow_nan=False)+"\n"
     for name in ("result","manifest_out"):
         path=Path(getattr(request.arguments,name))

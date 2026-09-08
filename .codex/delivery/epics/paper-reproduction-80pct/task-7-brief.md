@@ -1,4 +1,67 @@
-## Binding execution corrections (2026-09-07)
+# Task 7 v2-only binding contract (2026-09-08)
+
+This section supersedes every legacy-conversion, old-worker, two-commit and
+baseline statement in the historical brief below. The controller explicitly
+authorized a native-v2-only rebuild; no arbitrary legacy checkpoint conversion
+is part of implementation or acceptance.
+
+- Sole writer: `/root/implement_batch7`; detached worktree `SEA-Nav-Code-batch7-v2`.
+- Exact BASE: `399ce2b08eac40865fd6496d19324f73a3e6cc7e`; shared/local sync9/9.
+- Read-only semantic reference: `774027d1a975e318ad2f577b457951f51c82bfad`.
+  None of2387cf0/c7b9aa3/774027d may be cherry-picked or become an ancestor of
+  the new candidate. Preserve those references and worktrees unchanged.
+- Retain native v2 schema/Adam grammar, immutable manifest-last publication,
+  no-follow containment, kernel-sealed same-byte hash/load snapshots, explicit
+  identity/registries, completed-update/LR continuation, all manifest callers,
+  CPU initializer, README parser contracts and the accepted play terrain fix.
+- Completely exclude `tools/convert_legacy_checkpoint.py` and
+  `tests/test_checkpoint_legacy_converter.py`; no converter API, hidden worker
+  CLI, unsafe-load fallback or replacement operator tool. Migrate only absence
+  and explicit old-format/old-flag rejection tests into existing owned tests.
+  Keep native v2 loader security tests and all independent Task6 assertions.
+- Exact23 source/test/document owned paths:
+
+```text
+training/rsl_rl/rsl_rl/utils/checkpoint.py
+training/rsl_rl/rsl_rl/utils/__init__.py
+training/rsl_rl/rsl_rl/runners/on_policy_runner.py
+training/rsl_rl/rsl_rl/runtime_preflight.py
+sea_nav_current_isaaclab_full_method/init_full_method_checkpoint.py
+sea_nav_current_isaaclab_full_method/full_method_runtime_smoke.py
+sea_nav_current_isaaclab_full_method/train_full_method_ppo.py
+sea_nav_current_isaaclab_full_method/train_full_method_acsi_replay_ppo.py
+sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py
+training/legged_gym/legged_gym/scripts/train.py
+training/legged_gym/legged_gym/scripts/play.py
+training/legged_gym/legged_gym/utils/helpers.py
+training/legged_gym/legged_gym/utils/task_registry.py
+tests/test_checkpoint_v2.py
+tests/test_checkpoint_security.py
+tests/test_runner_registry.py
+tests/test_runner_checkpoint.py
+tests/test_checkpoint_runtime_wiring.py
+tests/test_runtime_cli_contract.py
+tests/test_environment_profile.py
+README.md
+training/legged_gym/README.md
+sea_nav_current_isaaclab_full_method/README.md
+```
+
+- Coordination: update local task_plan/resume_state registration before edits;
+  keep registration unstaged. This binding brief and a new task-7-log.md record
+  current truth separately from old worker evidence. Preserve historical reports.
+- Verify fresh baseline before source edits; then test-first replay, focused
+  and complete CPU suites, GateA, Python3.8 grammar/in-memory compile, exact
+  path/no-baseline-deletion/no-output and ancestor checks. Use the dedicated
+  absolute CPU interpreter with bytecode/cache output disabled. Create one
+  focused detached feature commit, then fresh postcommit full/GateA evidence.
+- No CBF/PPO/replay-core, diffdrive/package, controller, terrain algorithm,
+  unrelated config, main/stable/remote or dependency edits. Real runtime,
+  controller/provenance, paper/metrics/rights/hardware blockers stay intact.
+- New fixed-range independent review is mandatory. Old caller PASS and worker
+  tests are historical/scoped evidence, never acceptance of this rebuilt range.
+
+## Historical binding execution corrections (2026-09-07)
 
 Read the updated design and the named audit report for this task. These corrections supersede conflicting earlier examples. Use the dedicated CPU interpreter at `../sea-nav-cpu-venv/bin/python`; system Torch 1.8 cannot validate these contracts. Keep training/shared code Python-3.8-compatible. No simulator stubs or claims above CPU/static Rung 2.
 

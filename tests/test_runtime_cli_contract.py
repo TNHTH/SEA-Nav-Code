@@ -13,7 +13,8 @@ def cli(tmp_path):
     launcher=tmp_path/"launcher"; launcher.write_text("#!/bin/sh\n"); launcher.chmod(0o700)
     assets=tmp_path/"assets"; assets.mkdir()
     return ["--config",str(ROOT/"sea_nav_current_isaaclab_full_method/configs/sea_nav_full_current.yaml"),
-            "--launcher",str(launcher),"--asset-root",str(assets),"--run-root",str(tmp_path/"output")]
+            "--launcher",str(launcher),"--asset-root",str(assets),"--run-root",str(tmp_path/"output"),
+            "--producer-commit","5"*40]
 
 @pytest.mark.parametrize("script",SCRIPTS)
 def test_entrypoint_has_guarded_real_preflight(script,tmp_path):
