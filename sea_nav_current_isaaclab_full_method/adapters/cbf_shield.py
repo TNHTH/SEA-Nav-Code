@@ -49,13 +49,22 @@ class FootprintAwareLSECBFLayer(ExactLSECBFLayer):
         self.footprint_radius_m = float(footprint_radius_m)
         self.min_effective_clearance_m = float(min_effective_clearance_m)
 
+    def _effective_rays(self, lidar_dists: torch.Tensor) -> torch.Tensor:
+        if self.footprint_radius_m > 0:
+            return (lidar_dists - self.footprint_radius_m).clamp_min(self.min_effective_clearance_m)
+        return lidar_dists
+
+    def forward(self, u_bar: torch.Tensor, lidar_dists: torch.Tensor,
+                alpha: torch.Tensor) -> torch.Tensor:
+        # Check raw rays before ablation clipping, on every ordinary actor call.
+        self._validate_inputs(u_bar, lidar_dists, alpha)
+        return self._compute_intermediates(u_bar, self._effective_rays(lidar_dists), alpha)[0]
+
     @torch.jit.export
     def forward_with_diagnostics(self, u_bar: torch.Tensor, lidar_dists: torch.Tensor,
                                  alpha: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         self._validate_inputs(u_bar, lidar_dists, alpha)
-        effective = lidar_dists
-        if self.footprint_radius_m > 0:
-            effective = (lidar_dists - self.footprint_radius_m).clamp_min(self.min_effective_clearance_m)
+        effective = self._effective_rays(lidar_dists)
         output, diag = self._compute(u_bar, effective, alpha)
         diag["ray_min_raw"] = lidar_dists.min(dim=1, keepdim=True).values
         diag["ray_min_effective"] = effective.min(dim=1, keepdim=True).values

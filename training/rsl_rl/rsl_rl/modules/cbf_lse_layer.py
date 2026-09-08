@@ -30,6 +30,18 @@ class ExactLSECBFLayer(nn.Module):
         angles = torch.linspace(-math.radians(fov_deg) / 2, math.radians(fov_deg) / 2, num_rays)
         self.register_buffer("ray_unit_vectors", torch.stack((torch.cos(angles), torch.sin(angles)), dim=1))
 
+    def _supports_aggregate_validation(self, value: Tensor) -> bool:
+        if value.layout != torch.strided or value.is_quantized or value.device.type == "meta":
+            return False
+        # An acceleration eligibility set, NOT a public input dtype ban.
+        # Complex/newer backend-limited dtypes (e.g. Float8) keep the original
+        # short-circuit checks even when they are dense and on one device.
+        return (value.dtype == torch.float16 or value.dtype == torch.float32
+                or value.dtype == torch.float64 or value.dtype == torch.bfloat16
+                or value.dtype == torch.uint8 or value.dtype == torch.int8
+                or value.dtype == torch.int16 or value.dtype == torch.int32
+                or value.dtype == torch.int64 or value.dtype == torch.bool)
+
     def _validate_inputs(self, u_bar: Tensor, lidar_dists: Tensor, alpha: Tensor) -> None:
         if u_bar.dim() != 2 or u_bar.size(1) != 3 or u_bar.size(0) == 0:
             raise ValueError("u_bar must be nonempty [B,3]")
@@ -37,6 +49,24 @@ class ExactLSECBFLayer(nn.Module):
             raise ValueError("lidar_dists must be [B,num_rays] with matching batch")
         if alpha.dim() != 2 or alpha.size(1) != 1 or alpha.size(0) != u_bar.size(0):
             raise ValueError("alpha must be [B,1] with matching batch")
+        # Metadata checks must precede aggregation: an unsupported later input
+        # must not mask the original short-circuit error from an earlier input.
+        if (not self._supports_aggregate_validation(u_bar)
+                or not self._supports_aggregate_validation(lidar_dists)
+                or not self._supports_aggregate_validation(alpha)
+                or u_bar.device != lidar_dists.device or u_bar.device != alpha.device):
+            self._validate_values(u_bar, lidar_dists, alpha)
+            return
+        # This remains a dynamic checked API, not a zero-sync/unchecked path.
+        # Valid dense input needs one host decision; invalid input reruns the
+        # original ordered checks below to retain precise exceptions/messages.
+        valid = (torch.isfinite(u_bar).all() & torch.isfinite(lidar_dists).all()
+                 & torch.isfinite(alpha).all() & ~(lidar_dists <= 0).any()
+                 & ~(alpha <= 0).any())
+        if not valid:
+            self._validate_values(u_bar, lidar_dists, alpha)
+
+    def _validate_values(self, u_bar: Tensor, lidar_dists: Tensor, alpha: Tensor) -> None:
         if not torch.isfinite(u_bar).all() or not torch.isfinite(lidar_dists).all() or not torch.isfinite(alpha).all():
             raise ValueError("CBF inputs must be finite")
         if (lidar_dists <= 0).any():
@@ -44,7 +74,8 @@ class ExactLSECBFLayer(nn.Module):
         if (alpha <= 0).any():
             raise ValueError("alpha must be already positive; transform raw logits once")
 
-    def _compute(self, u_bar: Tensor, lidar_dists: Tensor, alpha: Tensor) -> Tuple[Tensor, Dict[str, Tensor]]:
+    def _compute_intermediates(self, u_bar: Tensor, lidar_dists: Tensor, alpha: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
+        """Single Eq.4 implementation; no optional diagnostic reductions."""
         h_i = lidar_dists - self.d_safe
         h_comp = -torch.logsumexp(-self.kappa * h_i, dim=1, keepdim=True) / self.kappa
         weights = torch.softmax(-self.kappa * h_i, dim=1)
@@ -56,7 +87,11 @@ class ExactLSECBFLayer(nn.Module):
         correction = eta * lg_h
         xy = u_bar[:, :2] + correction
         output = torch.cat((xy, u_bar[:, 2:]), dim=1)
-        residual_after = torch.sum(lg_h * xy, dim=1, keepdim=True) + alpha * h_comp
+        return output, h_comp, lg_h, norm_sq, r, eta_raw, eta, correction
+
+    def _compute(self, u_bar: Tensor, lidar_dists: Tensor, alpha: Tensor) -> Tuple[Tensor, Dict[str, Tensor]]:
+        output, h_comp, lg_h, norm_sq, r, eta_raw, eta, correction = self._compute_intermediates(u_bar, lidar_dists, alpha)
+        residual_after = torch.sum(lg_h * output[:, :2], dim=1, keepdim=True) + alpha * h_comp
         return output, {
             "h_comp": h_comp, "Lg_h": lg_h, "Lg_norm_sq": norm_sq,
             "r": r, "eta_raw": eta_raw, "eta": eta,
@@ -71,4 +106,5 @@ class ExactLSECBFLayer(nn.Module):
         return self._compute(u_bar, lidar_dists, alpha)
 
     def forward(self, u_bar: Tensor, lidar_dists: Tensor, alpha: Tensor) -> Tensor:
-        return self.forward_with_diagnostics(u_bar, lidar_dists, alpha)[0]
+        self._validate_inputs(u_bar, lidar_dists, alpha)
+        return self._compute_intermediates(u_bar, lidar_dists, alpha)[0]
