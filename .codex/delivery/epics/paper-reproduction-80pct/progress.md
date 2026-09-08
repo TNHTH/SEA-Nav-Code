@@ -2,6 +2,7 @@
 
 ## Session: 2026-09-08
 
+- A controller attempt to create a second diffdrive fixer was refused because all four agent slots were already occupied; no task action ran. Readback showed the DashGo audit had already created `/root/dashgo_adapter_audit/diffdrive_core_fix` for the registered worktree, so ownership was corrected to that sole writer and the exact independent findings were forwarded without creating another branch or worktree.
 - The first filename-only staged secret-scan command did not execute because its shell regex quoting was invalid. Reissued it with a correctly quoted left-bounded `sk-` pattern; the committed-plus-staged tree scan completed with no matching file.
 - Verified a concurrent predecessor coordination transaction instead of overwriting it: local `test` and authoritative `origin/test` both read back at `371f354b425bc5037e5832002e68a02896837250`, a direct descendant of `399ce2b`. It contains only the five already-reviewed coordination files; current Task7/core review notes remain a separate unstaged diff.
 - Completed independent review of differential-drive candidate `bf409c65`: verdict FAIL despite a fresh independent **155 passed in 2.29s**. Four P2 contract gaps block integration: absent MIT license metadata/text, incomplete DashGo platform manifest, absent versioned raw safety observation contract, and loss of complete runtime identity in the CBF/module serialization boundary. Post-wheel/acceleration projection residual recomputation is also required. No source/ref was changed by the reviewer.

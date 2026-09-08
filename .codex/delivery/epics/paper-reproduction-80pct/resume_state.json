@@ -50,6 +50,7 @@
     "repository": "TNHTH/SEA-Nav-Code",
     "base": "399ce2b08eac40865fd6496d19324f73a3e6cc7e",
     "head": "bf409c65ac2d6dc43bfacfd8f99c31cfe5537eb9",
+    "agent": "/root/dashgo_adapter_audit/diffdrive_core_fix",
     "status": "independent_review_failed_fix_round_registered"
   },
   "dashgo_consumer": {
