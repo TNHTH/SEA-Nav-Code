@@ -161,12 +161,12 @@ def apply_model_checkpoint(request, model, *, map_location):
         return None
     if request.arguments.checkpoint_mode!="inference":
         raise ValueError("model-only consumer requires inference mode")
-    from rsl_rl.utils.checkpoint import load_checkpoint_v2
+    from rsl_rl.utils.checkpoint import load_checkpoint_v2, apply_checkpoint_state
     loaded=load_checkpoint_v2(request.paths.checkpoint_manifest,artifact_root=request.paths.asset_root,
         map_location=map_location,expected_resolved_config_sha256=request.resolved_config.resolved_sha256)
     if loaded.manifest_sha256!=request.checkpoint["manifest_sha256"]:
         raise ValueError("checkpoint changed since preflight")
-    model.load_state_dict(loaded.model_state_dict)
+    apply_checkpoint_state(model, loaded.model_state_dict)
     return loaded.manifest
 
 def _gym_arguments(argv, runtime_defaults):

@@ -10,6 +10,7 @@ does not restore RNG, environment state or physical trajectories.
 from __future__ import annotations
 
 from contextlib import contextmanager
+import copy
 from dataclasses import asdict, dataclass
 import hashlib
 import inspect
@@ -327,6 +328,133 @@ def validate_checkpoint_mode(loaded, mode):
     elif mode != "inference":
         raise CheckpointError("unknown checkpoint mode: " + str(mode))
     return loaded
+
+
+def _model_for_target(model, state):
+    """Reject before copy_: strict=True alone can partially apply bad state."""
+    target = model.state_dict()
+    if not isinstance(state, dict) or set(state) != set(target):
+        raise CheckpointError("checkpoint model keys must exactly match target")
+    buffers = dict(model.named_buffers())
+    prepared = {}
+    for name, reference in target.items():
+        value = state[name]
+        if not isinstance(value, torch.Tensor) or not isinstance(reference, torch.Tensor):
+            raise CheckpointError("checkpoint target supports tensor model state only: " + name)
+        if (value.shape != reference.shape or value.dtype != reference.dtype
+                or value.layout != reference.layout or value.layout != torch.strided
+                or value.is_quantized or reference.is_quantized):
+            raise CheckpointError("checkpoint model shape/dtype/layout mismatch: " + name)
+        value = value.detach().to(device=reference.device).clone()
+        if name in buffers and name.rsplit(".", 1)[-1] == "ray_unit_vectors":
+            if not torch.equal(value, reference):
+                raise CheckpointError("checkpoint fixed CBF geometry differs from resolved target: " + name)
+        prepared[name] = value
+    return prepared
+
+
+def _adam_for_target(optimizer, state):
+    """Check actual parameter mapping and a disposable next Adam step.
+
+    The probe allocates independent parameters/state, uses zero gradients, and
+    never mutates live model/optimizer or RNG. It establishes supported target
+    execution, not future gradient finiteness or physical/RNG continuation.
+    """
+    if type(optimizer) is not torch.optim.Adam:
+        raise CheckpointError("checkpoint resume supports an actual Adam target only")
+    _adam(state)
+    if len(state["param_groups"]) != len(optimizer.param_groups):
+        raise CheckpointError("Adam target parameter group count mismatch")
+    probe_groups = []
+    for source, target in zip(state["param_groups"], optimizer.param_groups):
+        if set(source) != set(target):
+            raise CheckpointError("Adam target requires matching parameter group fields")
+        if len(source["params"]) != len(target["params"]):
+            raise CheckpointError("Adam target parameter count mismatch")
+        for field in ("eps", "weight_decay"):
+            value = source.get(field)
+            if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
+                raise CheckpointError("invalid Adam " + field)
+        betas = source.get("betas")
+        if type(betas) not in (tuple, list) or len(betas) != 2 or any(
+                type(beta) not in (int, float) or not math.isfinite(beta) or not 0 <= beta < 1 for beta in betas):
+            raise CheckpointError("invalid Adam betas")
+        for field in ("amsgrad", "maximize", "capturable", "differentiable"):
+            if field in source and type(source[field]) is not bool:
+                raise CheckpointError("invalid Adam " + field)
+        for field in ("foreach", "fused"):
+            if field in source and source[field] is not None and type(source[field]) is not bool:
+                raise CheckpointError("invalid Adam " + field)
+        parameters = []
+        for key, parameter in zip(source["params"], target["params"]):
+            if parameter.layout != torch.strided or parameter.is_quantized:
+                raise CheckpointError("Adam requires a dense target parameter")
+            moments = state["state"].get(key)
+            if moments is not None:
+                required = {"step", "exp_avg", "exp_avg_sq"}
+                if source["amsgrad"]:
+                    required.add("max_exp_avg_sq")
+                if set(moments) != required:
+                    raise CheckpointError("Adam state fields do not match amsgrad mode")
+                for field in required - {"step"}:
+                    moment = moments[field]
+                    if (not isinstance(moment, torch.Tensor) or moment.shape != parameter.shape
+                            or moment.dtype != parameter.dtype or moment.device != parameter.device
+                            or moment.layout != parameter.layout or moment.is_quantized):
+                        raise CheckpointError("Adam moment shape/dtype/device/layout differs from target")
+                    if not torch.isfinite(moment).all() or (field != "exp_avg" and (moment < 0).any()):
+                        raise CheckpointError("Adam moments must be finite with nonnegative squared moments")
+            parameters.append(parameter.detach().clone().requires_grad_(True))
+        probe_groups.append({"params": parameters})
+    prepared = copy.deepcopy(state)
+    try:
+        probe = torch.optim.Adam(probe_groups, **copy.deepcopy(optimizer.defaults))
+        probe.load_state_dict(copy.deepcopy(prepared))
+        for group in probe.param_groups:
+            for parameter in group["params"]:
+                parameter.grad = torch.zeros_like(parameter)
+        probe.step()
+        if any(not torch.isfinite(parameter).all() for group in probe.param_groups for parameter in group["params"]):
+            raise CheckpointError("Adam disposable next step produced nonfinite parameters")
+    except Exception as exc:
+        raise CheckpointError("Adam checkpoint is not executable on target: " + str(exc)) from exc
+    return prepared
+
+
+def apply_checkpoint_state(model, model_state_dict, *, optimizer=None, optimizer_state_dict=None):
+    """Failure-atomic application for registered models and native Adam.
+
+    Validate and allocate everything before live mutation. Rollback copies the
+    original tensors directly and restores optimizer containers without calling
+    user load hooks again, including a failure after a load hook partially ran.
+    Runner iteration and algorithm LR are changed only after this returns.
+    """
+    prepared_model = _model_for_target(model, model_state_dict)
+    if (optimizer is None) != (optimizer_state_dict is None):
+        raise CheckpointError("optimizer and optimizer_state_dict must be supplied together")
+    prepared_optimizer = None if optimizer is None else _adam_for_target(optimizer, optimizer_state_dict)
+    live_model = model.state_dict(keep_vars=True)
+    original_model = {name: tensor.detach().clone() for name, tensor in live_model.items()}
+    if optimizer is not None:
+        original_state = copy.copy(optimizer.state)
+        for parameter, value in original_state.items():
+            original_state[parameter] = copy.deepcopy(value)
+        original_groups = [{key: list(value) if key == "params" else copy.deepcopy(value)
+                            for key, value in group.items()} for group in optimizer.param_groups]
+        original_defaults = copy.deepcopy(optimizer.defaults)
+    try:
+        model.load_state_dict(prepared_model, strict=True)
+        if optimizer is not None:
+            optimizer.load_state_dict(prepared_optimizer)
+    except BaseException:
+        with torch.no_grad():
+            for name, tensor in live_model.items():
+                tensor.copy_(original_model[name])
+        if optimizer is not None:
+            optimizer.state = original_state
+            optimizer.param_groups = original_groups
+            optimizer.defaults = original_defaults
+        raise
 
 
 def _publication_boundary(name):
