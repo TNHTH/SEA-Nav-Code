@@ -1,22 +1,22 @@
 {
   "schema_version": 1,
-  "coord_rev": 9,
+  "coord_rev": 10,
   "repository": "TNHTH/SEA-Nav-Code",
   "branch": "test",
-  "head": "bf6e4ebea037f1cbd3ed3eac7e0b2c80fbb59f45",
-  "head_semantics": "published Tasks 1-6 checkpoint; verify moving test and exact remote refs on recovery",
-  "phase": "task7_v2_only_rebuild_and_diffdrive_core",
-  "next_action": "Create the two registered detached worktrees. Rebuild Task 7 without the legacy converter and implement the non-overlapping standalone differential-drive core. Independently review each fixed commit before serial integration; then repair the CBF hotpath and freeze a clean candidate.",
+  "head": "399ce2b08eac40865fd6496d19324f73a3e6cc7e",
+  "head_semantics": "published coordination successor after Tasks 1-6; Task7 and differential-drive work remain detached candidates",
+  "phase": "review_integrate_task7_and_diffdrive_then_dashgo_consumer",
+  "next_action": "Finish independent review of Task7 candidate 92ab65d and differential-drive candidate bf409c65. Integrate, verify, scan, push, and read back each accepted checkpoint serially; then move the clean DashGo adapter worktree to DashGo test@10023c2 and implement the registered consumer DAG.",
   "active_implementation": {
     "task": 7,
     "agent": "/root/implement_batch7",
     "worktree": "../SEA-Nav-Code-batch7-v2",
-    "base": "bf6e4ebea037f1cbd3ed3eac7e0b2c80fbb59f45",
-    "head": null,
-    "status": "registered_v2_only_rebuild",
+    "base": "399ce2b08eac40865fd6496d19324f73a3e6cc7e",
+    "head": "92ab65d23590256f3165d8cad6e64698cf11bfe8",
+    "status": "candidate_committed_independent_review_active",
     "scope_file": "task-7-brief.md",
     "scope_count": 23,
-    "baseline": "fresh342 passed in33.94s; empty ignored porcelain before/after"
+    "baseline": "writer verification recorded; independent whole review pending"
   },
   "completed_tasks": [
     1,
@@ -46,6 +46,18 @@
   ],
   "highest_verified_rung": 1,
   "candidate_oid": null,
+  "differential_drive_candidate": {
+    "repository": "TNHTH/SEA-Nav-Code",
+    "base": "399ce2b08eac40865fd6496d19324f73a3e6cc7e",
+    "head": "bf409c65ac2d6dc43bfacfd8f99c31cfe5537eb9",
+    "status": "candidate_committed_independent_review_pending"
+  },
+  "dashgo_consumer": {
+    "repository": "TNHTH/dashgo-rl-navigation",
+    "primary_head": "10023c294f34dc32a97005103bc30e6aa0f09bf5",
+    "status": "audit_active_no_source_adapter_integrated",
+    "target_runtime": "Isaac Lab v2.0.2 + RSL-RL v3.0.1; ROS2 Humble deployment boundary"
+  },
   "acceptance_blocker": {
     "id": "task7_v2_only_independent_review",
     "status": "pending_new_fixed_revision",

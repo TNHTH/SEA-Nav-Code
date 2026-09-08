@@ -129,3 +129,109 @@ Python3.8 grammar plus in-memory compile and bash -n passed both precommit and f
 ### Remaining acceptance boundaries
 
 This addendum hands the fixed range to the original caller reviewer for a bounded rereview; no rereview verdict is presumed. The separate full core/converter review remains **INCOMPLETE**, not PASS. The rejected first-observation and None-return conjectures were excluded from this fix. Original runtime/controller/provenance, accepted paper_v1, formal metrics, rights and hardware blockers remain unchanged; the CBF hotpath P2 remains separate and untouched. No integration, named-branch/ref/config change, remote publication, simulator acceptance or final-project completion was performed or authorized by these ordinary results.
+
+## Native-v2-only rebuild addendum — 2026-09-08
+
+Current candidate: `92ab65d23590256f3165d8cad6e64698cf11bfe8`, a single detached feature commit with sole parent `399ce2b08eac40865fd6496d19324f73a3e6cc7e`. This addendum is worker/self-verification evidence, **not independent acceptance**. New fixed-range review of `399ce2b08eac40865fd6496d19324f73a3e6cc7e..92ab65d23590256f3165d8cad6e64698cf11bfe8` remains required. All earlier candidate, converter and 431/433-test claims above are preserved as historical evidence only; they do not describe or accept this new native-v2-only distribution.
+
+### Fixed identity, scope and retained history
+
+- Sole writer: `/root/implement_batch7`; detached worker `/home/twyc/Documents/Codex/2026-09-04/https-github-com-tnhth-sea-nav-2/work/SEA-Nav-Code-batch7-v2`; coordination/sync revision 9/9.
+- Commit subject: `feat: add native v2 checkpoints and explicit manifest callers`. Existing approved author/committer remains `TNHTH <174231229+TNHTH@users.noreply.github.com>`; no identity/configuration change.
+- Fresh baseline was exact `399ce2b`, with empty index and complete ignored/untracked porcelain. The old final `774027d1a975e318ad2f577b457951f51c82bfad` was read-only semantic reference; source replay used `apply_patch`, not cherry-pick, history import or `git apply`.
+- Each old commit `2387cf02d85a1a9a52b0e85da54c7ebad09b0cec`, `c7b9aa371b8ab3800adea378a7024f043fb58580`, and `774027d1a975e318ad2f577b457951f51c82bfad` is not an ancestor of the new candidate (three actual `git merge-base --is-ancestor OLD HEAD` checks returned 1). Old commits, refs and worktrees are retained unchanged by this worker.
+- Exact committed inventory is 25 paths: the current binding brief's 23 retained source/test/document paths plus that brief and the new worker log. `tests/test_runtime_manifest_contract.py` remains unchanged and was executed. No baseline file was deleted. No CBF/PPO/actor/replay core, adapter-shield, differential-drive package, controller asset or unrelated configuration was modified.
+- The current binding section explicitly supersedes historical converter and two-commit clauses. The two excluded converter files were never copied to the new worker and are absent both on disk and in the committed tree. No replacement converter/API, hidden worker CLI or unsafe-load fallback was added.
+
+Exact changed paths, relative to this fixed candidate's repository root:
+
+```text
+.codex/delivery/epics/paper-reproduction-80pct/task-7-brief.md
+.codex/delivery/epics/paper-reproduction-80pct/task-7-log.md
+README.md
+sea_nav_current_isaaclab_full_method/README.md
+sea_nav_current_isaaclab_full_method/full_method_runtime_smoke.py
+sea_nav_current_isaaclab_full_method/init_full_method_checkpoint.py
+sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py
+sea_nav_current_isaaclab_full_method/train_full_method_acsi_replay_ppo.py
+sea_nav_current_isaaclab_full_method/train_full_method_ppo.py
+tests/test_checkpoint_runtime_wiring.py
+tests/test_checkpoint_security.py
+tests/test_checkpoint_v2.py
+tests/test_environment_profile.py
+tests/test_runner_checkpoint.py
+tests/test_runner_registry.py
+tests/test_runtime_cli_contract.py
+training/legged_gym/README.md
+training/legged_gym/legged_gym/scripts/play.py
+training/legged_gym/legged_gym/scripts/train.py
+training/legged_gym/legged_gym/utils/helpers.py
+training/legged_gym/legged_gym/utils/task_registry.py
+training/rsl_rl/rsl_rl/runners/on_policy_runner.py
+training/rsl_rl/rsl_rl/runtime_preflight.py
+training/rsl_rl/rsl_rl/utils/__init__.py
+training/rsl_rl/rsl_rl/utils/checkpoint.py
+```
+
+### Native behavior and new regressions
+
+All 13 retained production-code paths, all retained native checkpoint/security/runner tests, the environment/CLI test migrations and Gym README are blob-identical to old `774027d`: 20 paths checked against both worktree bytes and committed blob IDs. Within the 23 source/test/document paths, the only differences from that old final semantic source are two README conversion promises replaced by explicit native-v2-only guidance and 58 added lines in `tests/test_checkpoint_runtime_wiring.py` (11 cases). This preserves sealed same-byte verification, immutable manifest-last publication, exact native schema/Adam state, explicit registries/producer/config identity, real completed-update/LR continuation, all manifest callers and the accepted play terrain-row correction.
+
+The new distribution test checks absence of `tools/convert_legacy_checkpoint.py` and `tests/test_checkpoint_legacy_converter.py`; absence of `convert_legacy_checkpoint_once` from checkpoint/public utility APIs and production function definitions; no exact hidden converter flag constants; no current README tool/receipt/operator promise; and explicit literal `weights_only=True` at every statically identified production Torch load call, including import aliases. This is a known-call-site AST regression, not a whole-program proof against arbitrary dynamic reflection. The native loader security regressions, including benign raw-format rejection and duplicate-key validation, are retained and executed; no converter executable test is part of the new suite.
+
+Ten parametrized cases exercise actual shared Gym train preflight with split/equal forms of `--checkpoint`, `--init-checkpoint`, `--resume`, `--load_run`, and `--load-run`. Every case receives the exact `legacy raw/numeric checkpoint flags are unsupported` rejection before run-root creation. The readonly helper supported test construction only, not independent acceptance; a later optional final-check helper call was refused by agent capacity and did not run or supply evidence.
+
+### Fresh executed verification
+
+The new worker's invocation numbering starts at 1. Earlier old-worker invocations 1–23 remain historical and are not reused. Every actual pytest command used the dedicated absolute CPU interpreter, `PYTHONDONTWRITEBYTECODE=1`, `PYTHONPATH="$PWD/training/rsl_rl"`, and `-m pytest -q -p no:cacheprovider` from the new worker.
+
+| New invocation | Selection / revision | Actual result |
+|---|---|---|
+| 1 | Full suite on clean exact `399ce2b`, before source edits | 342 passed in 34.53s; exit 0 |
+| 2 | Five replayed native files: checkpoint_v2, checkpoint_security, runner_registry, runner_checkpoint, checkpoint_runtime_wiring; production APIs not yet replayed | 5 collection errors in 0.94s; exit 2, genuine missing-checkpoint/resolver RED |
+| 3 | checkpoint_runtime_wiring `-k native_v2`, after production replay but before README corrections | 1 failed, 10 passed, 30 deselected in 1.55s; exit 1 at obsolete README conversion promise |
+| 4 | Five native files plus environment_profile, runtime_cli_contract and runtime_manifest_contract | 180 passed in 39.25s; exit 0 |
+| 5 | Complete precommit source | 432 passed in 52.49s; exit 0 |
+| 6 | Fresh complete postcommit source at exact `92ab65d23590256f3165d8cad6e64698cf11bfe8` | 432 passed in 52.85s; exit 0 |
+
+Full command for invocations 1, 5 and 6:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD/training/rsl_rl" \
+  /home/twyc/Documents/Codex/2026-09-04/https-github-com-tnhth-sea-nav-2/work/sea-nav-cpu-venv/bin/python \
+  -m pytest -q -p no:cacheprovider tests training/rsl_rl/tests \
+  sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py
+```
+
+Source/test/config files did not change between the final precommit and postcommit runs. The committed worker log records invocations 1–5; this authorized primary addendum records actual postcommit invocation 6 without creating a second feature commit. Two pre-action orchestration JavaScript syntax failures executed no tool or pytest action and were retried successfully; their records remain in the worker log. No separate raw pytest log is claimed; actual stdout is retained in tool outputs.
+
+Fresh precommit and postcommit Gate A commands both exited 0 with `passed_with_blockers`; both physical external JSON reports were read back completely:
+
+- `/home/twyc/Documents/Codex/2026-09-04/https-github-com-tnhth-sea-nav-2/work/task-7-v2-worker-gate-a-precommit.json`
+- `/home/twyc/Documents/Codex/2026-09-04/https-github-com-tnhth-sea-nav-2/work/task-7-v2-worker-gate-a-92ab65d23590256f3165d8cad6e64698cf11bfe8.json`
+
+Postcommit command:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD/training/rsl_rl" \
+  /home/twyc/Documents/Codex/2026-09-04/https-github-com-tnhth-sea-nav-2/work/sea-nav-cpu-venv/bin/python \
+  tools/gate_a.py --repo-root "$PWD" \
+  --report /home/twyc/Documents/Codex/2026-09-04/https-github-com-tnhth-sea-nav-2/work/task-7-v2-worker-gate-a-92ab65d23590256f3165d8cad6e64698cf11bfe8.json
+```
+
+Both reports contain five CPU/static passes: 89 tracked Python files compiled without output, 65 complete baseline files, 20 Gym package files parsed with 9 static-only, 7 CPU-safe package imports, and real actor/value/PPO/storage CPU smoke. Four separate blockers remain: missing isaacgym, unexecuted real Gym runtime, missing isaaclab, and unexecuted real Lab runtime. Report schema has no commit field; the exact postcommit invocation, full-SHA filename and this record bind that evidence. External local reports are not committed or remotely visible artifacts.
+
+Separate precommit and fresh postcommit `ast.parse(feature_version=(3,8))` plus in-memory `compile()` passed for 89 tracked Python files, with `bash -n` passing for the one shell file. Postcommit fixed HEAD/sole-parent readback, exact 25-path inventory, full-range `git diff --check`, no baseline deletions, old-three non-ancestry, disk/tree converter absence, no protected-core/package diff, and empty index all passed. Each staged path was checked as not ignored before commit. Named branches remain exactly `main`, `stable`, and `test`; this detached worker changed no named branch, recovery ref, remote ref or dependency environment.
+
+### Handoff state and remaining blockers
+
+Worker source/log are committed at the exact candidate above. Full ignored/untracked porcelain contains only these two intentionally unstaged local registration files, with no ignored caches or generated output:
+
+```text
+.codex/delivery/epics/paper-reproduction-80pct/task_plan.md
+.codex/delivery/epics/paper-reproduction-80pct/resume_state.json
+```
+
+This appended primary `task-7-report.md` is an authorized **uncommitted coordination change**, not a worker feature-commit path and not a source mutation. Old report evidence is preserved. New independent whole fixed-range review, controller serial integration and frozen-candidate verification remain pending; old caller PASS and this worker's self-checks cannot substitute.
+
+Gym/Lab execution, simulator optimizer continuation, controller interface/provenance, physical replay/reset, accepted `paper_v1`, formal metrics, public redistribution rights and real hardware remain blocked/deferred. Continuation does not restore RNG or exact physical trajectories, and `runtime_ready=False` remains. The separate CBF hotpath P2 is untouched. No integration, push, stable promotion, simulator acceptance or final-project completion is claimed. Source work stops at this fixed boundary pending controller/reviewer direction.

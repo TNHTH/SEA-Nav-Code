@@ -4,7 +4,7 @@
 Complete Batches 1–7 on `test`, verify Rungs 0–2 from a frozen clean commit, publish the authorized three-branch remote state safely, and provide a separately packaged pure-Torch differential-drive SEA adaptation for the DashGo ablation consumer.
 
 ## Current Phase
-Phase 3 — Task 7 v2-only rebuild plus independent differential-drive package
+Phase 3/6/7 — review and integrate Task 7, review and integrate the differential-drive core, then implement the DashGo consumer serially
 
 ## Acceptance Criteria
 - Local working branches remain exactly `main`, `stable`, and `test`; no temporary named branches are created.
@@ -12,6 +12,9 @@ Phase 3 — Task 7 v2-only rebuild plus independent differential-drive package
 - `test` remains descended from `main@1c5675b` and retains the complete baseline tree.
 - Rungs 0–2 pass from a clean detached checkout of the frozen candidate OID; Isaac Gym and IsaacLab remain explicit `blocked` results when absent.
 - Remote writes use the exact leases recorded in the approved spec, are read back after every mutation, and never push `upstream/11chens-fbce672c`.
+- Every locally accepted checkpoint is committed and pushed to `origin/test` after a committed-tree secret scan; `main` and `stable` remain unchanged without the simulator/deployment evidence required for promotion.
+- DashGo integration keeps `algorithm_profile` and `runtime_stack` independent, preserves the 246-D policy-observation contract, supplies a separate metric `safety` observation group, and records the pinned SEA-Nav core commit in every run/export manifest.
+- Ablations are configuration-only variants of one implementation: `full`, `without_acsi`, `without_shield`, and `without_lreg`; no profile may silently change observation/action geometry, normalization, seeds, episode budgets, or evaluation rules.
 
 ## Phases
 
@@ -58,11 +61,21 @@ Phase 3 — Task 7 v2-only rebuild plus independent differential-drive package
 - **Status:** checkpoint publication complete; final repaired candidate publication remains pending
 
 ### Phase 6: Differential-drive public core
-- [ ] Add a standalone `sea_nav_core` package with versioned platform/observation/action contracts and a pure-Torch unicycle-lookahead damped LSE-CBF.
+- [x] Build a standalone `sea_nav_core` candidate with versioned platform/observation/action contracts and a pure-Torch unicycle-lookahead damped LSE-CBF (`bf409c65`; detached candidate only).
 - [ ] Preserve the existing Go2 `ExactLSECBFLayer` behavior and label the new layer `cross_platform_method_adaptation`, never `paper-exact`.
 - [ ] Add golden output/gradient/invalid-input/TorchScript tests and an ablation profile resolver for `full`, `without_acsi`, `without_shield`, and `without_lreg`.
 - [ ] Publish the accepted package commit to `test`; DashGo pins that full commit and records both repository identities in every run manifest.
-- **Status:** registered for an independent detached writer; no source change yet
+- **Status:** candidate committed and locally tested by its writer; independent review, primary integration, frozen verification, and publication pending
+
+### Phase 7: DashGo differential-drive consumer
+- [ ] Adapt the fixed Isaac Lab v2.0.2 wrapper contract to the pinned RSL-RL v3.0.1 TensorDict API without importing Isaac in CPU tests.
+- [ ] Add pure-query bounded-policy/CBF interfaces, next-observation storage, terminal masks, and normalization that leaves the metric safety group raw.
+- [ ] Add the 72-range/angle/validity/age safety group and replay-aware environment reset transaction, including scan-cache invalidation.
+- [ ] Inject the four named ablation profiles into train/play/export/evaluation, bind manifests to both repository commits, and prohibit replay during formal evaluation.
+- [ ] Repair terminal-state evaluation snapshots and scale the formal matrix to seeds 42/43/44 with 100 episodes per difficulty after the 100k/5M gates.
+- [ ] Keep ROS 2 Humble and real-robot `/cmd_vel` paths unchanged until the simulation/export contract is accepted; then add only offline/launch/config validation with hardware execution explicitly blocked.
+- [ ] Commit, review, test, and push each accepted thin slice on DashGo `test`; do not advance DashGo `main` or `stable` without their own promotion evidence.
+- **Status:** exact implementation mapping under independent read-only audit; no DashGo source adaptation integrated yet
 
 ## Worktree Registration
 
@@ -80,8 +93,10 @@ Phase 3 — Task 7 v2-only rebuild plus independent differential-drive package
 | `work/SEA-Nav-Code-batch6-review-full` | detached `844514929726a1cade3303867cc11702b710a04d`; BASE `65dcbbc2b13c92af99a9e7d4cba4110880f9b509` | `/root/review_batch6_full` | only primary coordination task-6-review.md and scoped rereview reports; no source/ref writes | corrected Task 6 brief (29 paths plus two narrow extensions); full fixed diff and final worker report | whole Spec/Quality FAIL, 1 P1 and 4 P2; review tree retained clean; original writer fix round 1/5, no integration |
 | `work/SEA-Nav-Code-batch6-review-fix1` | detached `0efc1934cbefc1a9780baced7846484f29eb776e`; fix BASE `844514929726a1cade3303867cc11702b710a04d` | `/root/review_batch6_full` | only primary task-6-rereview-1.md; no source/ref writes | complete 11-file fix diff and worker postcommit addendum | complete, all5 findings closed; Spec/Quality PASS; clean and retained |
 | `work/SEA-Nav-Code-batch7` | detached `774027d1a975e318ad2f577b457951f51c82bfad`; BASE `562d4ae0b56ca977ea433def6dbd05607284e38b`; fix BASE c7b9aa3 | `/root/implement_batch7` | exact26 inventory; no further writes active; two local registration diffs retained | fixed postcommit433/GateA report read; caller P2 independently closed; full core/converter review incomplete | writer idle, source/log committed and retained, no integration |
-| `work/SEA-Nav-Code-batch7-v2` | detached from `test@bf6e4ebea037f1cbd3ed3eac7e0b2c80fbb59f45` | `/root/implement_batch7` | Task 7 retained v2 checkpoint/registry/runner/caller/tests/docs paths only; converter files absent | current accepted test baseline; old `774027d` is read-only semantic source | registered, pending creation |
-| `work/SEA-Nav-Code-diffdrive-core` | detached from `test@bf6e4ebea037f1cbd3ed3eac7e0b2c80fbb59f45` | `/root/review_batch7_callers` | new standalone `packages/sea_nav_core/**` plus its focused root integration test/docs only | versioned DashGo contracts and paper-v1 adaptation decision | registered, pending creation; no overlap with Task 7 |
+| `work/SEA-Nav-Code-batch7-v2` | detached `92ab65d23590256f3165d8cad6e64698cf11bfe8`; BASE `399ce2b08eac40865fd6496d19324f73a3e6cc7e` | `/root/implement_batch7` | Task 7 retained v2 checkpoint/registry/runner/caller/tests/docs paths only; converter files absent | current accepted test baseline; old `774027d` is read-only semantic source | candidate committed; independent whole review active; not integrated |
+| `work/SEA-Nav-Code-diffdrive-core` | detached `bf409c65ac2d6dc43bfacfd8f99c31cfe5537eb9`; BASE `399ce2b08eac40865fd6496d19324f73a3e6cc7e` | `/root/review_batch7_callers` | new standalone `packages/sea_nav_core/**` plus focused integration tests/docs only | versioned DashGo contracts and paper-v1 adaptation decision | candidate committed; writer verification complete; independent review pending; no overlap with Task 7 |
+| `work/dashgo-rl-navigation` | `test@10023c294f34dc32a97005103bc30e6aa0f09bf5` | controller | coordination/docs and serial integration only | accepted SEA-Nav differential-drive core commit | clean and synchronized with `origin/test`; contract docs only |
+| `work/dashgo-rl-navigation-sea-adapter` | detached `d93a2baae8d851f42d1dd2e684d61cd0c71f9972` before rebase-to-current-base | future sole DashGo adapter writer | `src/dashgo_rl/sea_nav/**`, focused env/train/eval/export/config/test callers; ROS 2 source excluded initially | DashGo `test@10023c2`, accepted SEA-Nav core OID, completed audit mapping | clean; must move to exact current DashGo base before edits |
 | `work/SEA-Nav-Code-batch7-review-callers-fix1` | detached `774027d1a975e318ad2f577b457951f51c82bfad`; fix BASE `c7b9aa371b8ab3800adea378a7024f043fb58580` | original `/root/review_batch7_callers` | completed primary task-7-callers-rereview-1.md only; no further writes | original terrain P2 ADDRESSED, bounded Spec/Quality PASS; independent119 passed/1 deselected35.89s | complete, retained clean including ignored; not full Task7 acceptance |
 | `work/SEA-Nav-Code-batch7-review-core` | detached `2387cf02d85a1a9a52b0e85da54c7ebad09b0cec`; BASE `562d4ae0b56ca977ea433def6dbd05607284e38b` | `/root/review_batch7_core`; controller owns only bounded functional continuation | controller may write primary task-7-core-functional-review.md and coordination failure record; no source/ref writes | fixed eight-file core snapshot and log; non-adversarial runner/persistence scope only | original reviewer errored at service safety boundary, no report/verdict; full review incomplete, no bypass or second writer |
 | `work/SEA-Nav-Code-batch7-review-callers` | detached `c7b9aa371b8ab3800adea378a7024f043fb58580`; BASE `562d4ae0b56ca977ea433def6dbd05607284e38b` | `/root/review_batch7_callers`; controller read-only ordinary core follow-through | only primary task-7-callers-review.md and controller functional-report addendum; no source/ref writes | fixed caller/README diff and final worker report when available | bounded ordinary caller/documentation review, explicitly excludes converter/security review; original complete core review remains incomplete |

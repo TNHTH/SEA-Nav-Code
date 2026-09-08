@@ -2,6 +2,11 @@
 
 ## Session: 2026-09-08
 
+- Resumed the expanded user-authorized task and re-ran Git preflight. SEA primary and remote are `test@399ce2b`; Task7 v2-only is a detached `92ab65d` candidate; the standalone differential-drive package is a detached `bf409c65` candidate; DashGo primary and remote are `test@10023c2`. No candidate has been relabeled accepted or published.
+- Read `git-guru`, `code-review`, `planning-with-files`, `robotics-router`, the routed ROS2 skill, and the relevant ROS2 workspace/software/QoS/launch/tf2/control/debug references. Target ROS distribution is repository-proven Humble; real hardware control remains excluded until simulation/export and explicit safety gates pass.
+- Queried the official OpenAI curated/experimental skill indexes. No reinforcement-learning or robotics-reproduction skill was available, so no unrelated skill was installed. Downloaded only fixed authoritative reference clones: `leggedrobotics/rsl_rl@v3.0.1` (`2fc1f78…`) and sparse `isaac-sim/IsaacLab@v2.0.2` (`b5fa0eb…`); both are clean and outside delivery repositories.
+- Registered the serial completion path: independently review/integrate/push Task7, independently review/integrate/push `sea_nav_core`, then implement/review/push the DashGo consumer in thin slices. Checkpoint pushes do not advance `main` or `stable` and do not upgrade unavailable simulator/hardware claims.
+
 - Re-read the real repository, author, worktree, branch, tag, and remote identities before mutation. The ordinary working tree was clean and `test@bf6e4ebea037f1cbd3ed3eac7e0b2c80fbb59f45` remained descended from `main@1c5675bbedf1dcbe5a4c1a91830cae528c780793` with no baseline deletions.
 - The fixed committed-tree filename-only secret scan reported no match for both `bf6e4eb…` and the retained unaccepted Task 7 reference `774027d…`.
 - HTTPS push failed before any write because no interactive username was available. The already authorized and read-only verified SSH destination `git@github.com:TNHTH/SEA-Nav-Code.git` was used explicitly without changing `origin` or credentials.
