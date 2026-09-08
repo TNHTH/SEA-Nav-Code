@@ -48,7 +48,8 @@ from rsl_rl.algorithms.ppo import PPO
 from rsl_rl.modules.actor_critic import ActorCritic
 from rsl_rl.modules.cbf_actor_critic import DifferentiableSafeActorCritic
 from rsl_rl.utils.checkpoint import (CheckpointError, load_checkpoint_v2,
-                                    save_checkpoint_v2, validate_checkpoint_mode)
+                                    save_checkpoint_v2, validate_checkpoint_mode,
+                                    apply_checkpoint_state)
 
 
 POLICY_REGISTRY = {"ActorCritic": ActorCritic,
@@ -127,6 +128,7 @@ class OnPolicyRunner:
         self.tot_timesteps = 0
         self.tot_time = 0
         self.current_learning_iteration = 0
+        self.last_checkpoint_manifest = None
 
         _, _ = self.env.reset()
     
@@ -298,11 +300,13 @@ class OnPolicyRunner:
         print(log_string)
 
     def save(self, path):
-        return save_checkpoint_v2(path, model_state_dict=self.alg.actor_critic.state_dict(),
+        manifest = save_checkpoint_v2(path, model_state_dict=self.alg.actor_critic.state_dict(),
                                   optimizer_state_dict=self.alg.optimizer.state_dict(),
                                   iteration=self.current_learning_iteration,
                                   producer_commit=self.producer_commit,
                                   resolved_config_sha256=self.resolved_config_sha256)
+        self.last_checkpoint_manifest = manifest
+        return manifest
 
     def load(self, path, *, artifact_root, mode="resume", expected_manifest_sha256=None):
         loaded = validate_checkpoint_mode(load_checkpoint_v2(
@@ -317,9 +321,10 @@ class OnPolicyRunner:
         elif mode == "warm_start":
             if self.current_learning_iteration != 0 or self.alg.optimizer.state:
                 raise CheckpointError("warm start requires a fresh runner")
-        self.alg.actor_critic.load_state_dict(loaded.model_state_dict)
+        apply_checkpoint_state(self.alg.actor_critic, loaded.model_state_dict,
+            optimizer=self.alg.optimizer if mode == "resume" else None,
+            optimizer_state_dict=loaded.optimizer_state_dict if mode == "resume" else None)
         if mode == "resume":
-            self.alg.optimizer.load_state_dict(loaded.optimizer_state_dict)
             self.alg.learning_rate = self.alg.optimizer.param_groups[0]["lr"]
             self.current_learning_iteration = loaded.iteration
         elif mode == "warm_start":

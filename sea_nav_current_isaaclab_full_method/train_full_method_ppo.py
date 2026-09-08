@@ -692,7 +692,7 @@ def main(request):
         },
         "history_bootstrap_matches_original": True,
         "final_checkpoint_manifest": final_checkpoint,
-        "checkpoint_bytes": Path(final_checkpoint).stat().st_size if final_checkpoint else 0,
+        "checkpoint_bytes": runner.last_checkpoint_manifest.byte_size if final_checkpoint else 0,
         "hard_room_mesh_collision_api": collision_api_applied,
         "sea_obs_shape": list(adapter_env.obs_buf.shape),
         "rays_shape": list(adapter_env.rays.shape),
