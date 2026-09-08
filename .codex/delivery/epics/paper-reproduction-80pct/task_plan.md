@@ -4,7 +4,7 @@
 Complete Batches 1–7 on `test`, verify Rungs 0–2 from a frozen clean commit, publish the authorized three-branch remote state safely, and provide a separately packaged pure-Torch differential-drive SEA adaptation for the DashGo ablation consumer.
 
 ## Current Phase
-Phase 3/6/7 — review and integrate Task 7, review and integrate the differential-drive core, then implement the DashGo consumer serially
+Phase 7 — implement and publish the DashGo consumer serially; higher SEA simulator/hardware gates remain pending or blocked
 
 ## Acceptance Criteria
 - Local working branches remain exactly `main`, `stable`, and `test`; no temporary named branches are created.
@@ -57,15 +57,16 @@ Phase 3/6/7 — review and integrate Task 7, review and integrate the differenti
 - [x] Force-update only `origin/test` from exact old `92896ba…` to checkpoint `bf6e4eb…` and read back.
 - [x] Delete only the long historical branch with its full expected-old SHA after recovery refs are remote-visible.
 - [x] Verify remote working branches are exactly `main`, `stable`, and `test` at the published Tasks 1–6 checkpoint.
-- [ ] Fast-forward each subsequently accepted repair slice to `test`; do not advance `stable` without real Isaac smoke/short-train evidence.
-- **Status:** checkpoint publication complete; final repaired candidate publication remains pending
+- [x] Fast-forward each currently accepted repair slice to `test`; do not advance `stable` without real Isaac smoke/short-train evidence.
+- **Status:** all accepted D0 repair slices are published; `main` and `stable` remain frozen while higher runtime evidence is unavailable
 
 ### Phase 6: Differential-drive public core
 - [x] Build a standalone `sea_nav_core` candidate with versioned platform/observation/action contracts and a pure-Torch unicycle-lookahead damped LSE-CBF (`bf409c65`; detached candidate only).
 - [x] Preserve the existing Go2 `ExactLSECBFLayer` behavior and label the new layer `cross_platform_method_adaptation`, never `paper-exact`.
 - [x] Add golden output/gradient/invalid-input/TorchScript tests and an ablation profile resolver for `full`, `without_acsi`, `without_shield`, and `without_lreg`.
-- [ ] Publish the accepted package commit to `test`; DashGo pins that full commit and records both repository identities in every run manifest.
-- **Status:** fixed candidate `2cd8105` passed independent source/CPU and artifact review; primary ordered integration and publication are pending
+- [x] Publish the accepted package commit to SEA `test`.
+- [ ] Pin that full SEA commit in DashGo and record both repository identities in every run/export manifest.
+- **Status:** D0 accepted and published on `test@83041a34a8efe1f824f0421fe2dc4845930d6900`; higher runtime claims remain excluded
 
 ### Phase 7: DashGo differential-drive consumer
 - [ ] Adapt the fixed Isaac Lab v2.0.2 wrapper contract to the pinned RSL-RL v3.0.1 TensorDict API without importing Isaac in CPU tests.
@@ -81,7 +82,7 @@ Phase 3/6/7 — review and integrate Task 7, review and integrate the differenti
 
 | Worktree | Branch/commit | Owner | Owned paths | Dependencies | Status |
 |---|---|---|---|---|---|
-| `work/SEA-Nav-Code` | `test@169aa1f7448ae3900a0dbcd3eb99595177d6003e` plus current coordination diff | controller | plan/coordination now; differential-drive commits integrated serially | approved spec and two independent D0 reviews | active, Tasks1–7 integrated; primary/remote read back at same commit before D0 integration |
+| `work/SEA-Nav-Code` | `test@83041a34a8efe1f824f0421fe2dc4845930d6900` plus current D0 receipt | controller | D0 receipt/coordination now; later integration remains serial | approved spec and two independent D0 reviews | differential-drive core integrated, tested, scanned, pushed, and read back; receipt tracked here |
 | `work/SEA-Nav-Code-latest-review` | detached `b53d3fe` | read-only source audit | none | none | clean/read-only |
 | `work/SEA-Nav-Code-batch1` | detached `4dec41b` | task1 implementer | Task 1 exact paths | reviewed and integrated as `a58ad21`, `eac2657`, `484f682` | finished, clean and retained; historical worker registration preserved in task-1-registration-history.md |
 | `work/SEA-Nav-Code-batch2` | detached `3359215` | `/root/implement_batch2` | Task 2 exact paths | reviewed and integrated as `ed8e7e7`, `6f5e544` | finished, clean and retained; local registration preserved in task-2-registration-history.md |
@@ -94,7 +95,7 @@ Phase 3/6/7 — review and integrate Task 7, review and integrate the differenti
 | `work/SEA-Nav-Code-batch6-review-fix1` | detached `0efc1934cbefc1a9780baced7846484f29eb776e`; fix BASE `844514929726a1cade3303867cc11702b710a04d` | `/root/review_batch6_full` | only primary task-6-rereview-1.md; no source/ref writes | complete 11-file fix diff and worker postcommit addendum | complete, all5 findings closed; Spec/Quality PASS; clean and retained |
 | `work/SEA-Nav-Code-batch7` | detached `774027d1a975e318ad2f577b457951f51c82bfad`; BASE `562d4ae0b56ca977ea433def6dbd05607284e38b`; fix BASE c7b9aa3 | `/root/implement_batch7` | exact26 inventory; no further writes active; two local registration diffs retained | fixed postcommit433/GateA report read; caller P2 independently closed; full core/converter review incomplete | writer idle, source/log committed and retained, no integration |
 | `work/SEA-Nav-Code-batch7-v2` | detached `64e270628eb290e27b94167c5b34e538003be03d`; BASE candidate `92ab65d`, fix1 `3b6e97d`, project BASE `399ce2b` | `/root/review_batch7_callers` fix2 writer | Task7 application/checkpoint tests and local fix ledgers only; two worker registration diffs retained | fix2 independently read and retested by controller | complete and integrated through `test@406a6ec`; unreviewed fix1 tag retained only as recovery evidence |
-| `work/SEA-Nav-Code-diffdrive-core` | detached `2cd810569008fa923bda088f0f0988292e0c809c`; BASE `399ce2b08eac40865fd6496d19324f73a3e6cc7e` | `/root/dashgo_adapter_audit/diffdrive_core_fix` | only `packages/sea_nav_core/**` and its existing focused tests/docs; retain two local registration diffs outside the functional commit | independent source/CPU PASS in `diffdrive-core-rereview-2.md`; artifact PASS in `diffdrive-core-artifact-review-2.md` | accepted candidate tagged; no overlap with Task 7, awaiting ordered `test` integration |
+| `work/SEA-Nav-Code-diffdrive-core` | detached `2cd810569008fa923bda088f0f0988292e0c809c`; BASE `399ce2b08eac40865fd6496d19324f73a3e6cc7e` | `/root/dashgo_adapter_audit/diffdrive_core_fix` | only `packages/sea_nav_core/**` and its existing focused tests/docs; retain two local registration diffs outside the functional commit | independent source/CPU PASS in `diffdrive-core-rereview-2.md`; artifact PASS in `diffdrive-core-artifact-review-2.md` | historical accepted candidate retained; integrated and published through SEA `test@83041a3` |
 | `work/dashgo-rl-navigation` | `test@53bd0f0ab0100e295aed1f726c2c3c9f4ffb3b06` | controller | coordination/docs and serial integration only | accepted SEA-Nav differential-drive core commit | clean and synchronized with `origin/test`; D1 preflight published |
 | `work/dashgo-rl-navigation-sea-adapter` | detached `78023cb41984a6af98b9b31b383aed2609beb47e` | future sole DashGo adapter writer | `src/dashgo_rl/sea_nav/**`, focused env/train/eval/export/config/test callers; ROS 2 source excluded initially | current DashGo `test`, accepted integrated SEA-Nav core OID, completed audit mapping | retained for the next thin implementation slice; exact base/status must be rechecked before edits |
 | `work/SEA-Nav-Code-batch7-review-callers-fix1` | detached `774027d1a975e318ad2f577b457951f51c82bfad`; fix BASE `c7b9aa371b8ab3800adea378a7024f043fb58580` | original `/root/review_batch7_callers` | completed primary task-7-callers-rereview-1.md only; no further writes | original terrain P2 ADDRESSED, bounded Spec/Quality PASS; independent119 passed/1 deselected35.89s | complete, retained clean including ignored; not full Task7 acceptance |
