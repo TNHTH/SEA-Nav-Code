@@ -1,14 +1,21 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "sea-nav-core"
-version = "0.1.0"
+version = "0.2.0"
 description = "Pure Torch contracts and damped differential-drive SEA-Nav adaptation"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["torch>=2.1"]
+authors = [{name = "TNHTH", email = "174231229+TNHTH@users.noreply.github.com"}]
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

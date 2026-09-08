@@ -1,7 +1,15 @@
 import pytest
 import torch
 
-from sea_nav_core import paper_v1_lreg_loss, paper_v1_shield_loss
+from sea_nav_core import (
+    PAPER_V1_ALPHA_MIN,
+    PAPER_V1_LAMBDA_PI,
+    PAPER_V1_LAMBDA_REG,
+    PAPER_V1_LAMBDA_SHIELD,
+    PAPER_V1_LAMBDA_V,
+    paper_v1_lreg_loss,
+    paper_v1_shield_loss,
+)
 
 
 def test_shield_golden_both_terms_have_point_one_coefficient():
@@ -10,6 +18,17 @@ def test_shield_golden_both_terms_have_point_one_coefficient():
     alpha = torch.tensor([[0.05], [0.2]], dtype=torch.float64)
     # Mean per-row squared norm is 15; mean squared alpha deficit is .00125.
     assert paper_v1_shield_loss(nominal, biased, alpha).item() == pytest.approx(1.500125)
+    assert (PAPER_V1_LAMBDA_SHIELD, PAPER_V1_ALPHA_MIN) == (0.1, 0.1)
+
+
+def test_loss_helpers_exclusively_own_fixed_paper_coefficients():
+    nominal = torch.zeros((1, 2))
+    with pytest.raises(ValueError, match="exclusively owns lambda_shield"):
+        paper_v1_shield_loss(nominal, nominal, torch.ones((1, 1)), 1.0)
+    args = lreg_inputs()
+    assert (PAPER_V1_LAMBDA_REG, PAPER_V1_LAMBDA_PI, PAPER_V1_LAMBDA_V) == (1.0, 0.05, 0.005)
+    with pytest.raises(ValueError, match="exclusively owns"):
+        paper_v1_lreg_loss(*args, lambda_pi=0.1)
 
 
 def lreg_inputs():

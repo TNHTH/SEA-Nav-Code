@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Small immutable contracts: exact manifests, units and one explicit adaptation."""
 
 from dataclasses import asdict, dataclass, fields
@@ -9,6 +10,14 @@ from typing import ClassVar, Mapping
 ADAPTATION_ID = "dashgo_diffdrive_transfer_v1"
 RESULT_CLASSIFICATION = "cross_platform_method_adaptation"
 SAFETY_SEMANTICS = "differentiable_safety_bias"
+DASHGO_PLATFORM_PROVENANCE = (
+    "TNHTH/dashgo-rl-navigation@10023c294f34dc32a97005103bc30e6aa0f09bf5:"
+    "src/dashgo_rl/dashgo_config.py;src/dashgo_rl/dashgo_env_v2.py;"
+    "src/dashgo_rl/control/differential_drive.py;"
+    "configs/robot/dashgo.urdf;drivers/EAI_DRIVER/src/config/my_dashgo_params.yaml;"
+    "workspaces/ros2_ws/src/dashgo_driver_ros2/config/dashgo_driver.yaml;"
+    "workspaces/ros1_catkin_ws/src/dashgo_rl/urdf/dashgo_d1_sim.urdf.xacro"
+)
 
 
 def _number(name, value, *, minimum=None, strictly_positive=False):
@@ -28,6 +37,11 @@ def _integer(name, value):
 def _choice(name, value, expected):
     if type(value) is not str or value != expected:
         raise ValueError(name + " must be " + expected)
+
+
+def _nonempty_string(name, value):
+    if type(value) is not str or not value.strip() or value != value.strip():
+        raise ValueError(name + " must be a nonempty stripped string")
 
 
 class _ManifestSpec:
@@ -86,22 +100,100 @@ class DifferentialDrivePlatformSpec(_ManifestSpec):
     max_reverse_m_s: float = 0.15
     max_yaw_rad_s: float = 1.0
     policy_dt_s: float = 0.05
+    wheel_radius_m: float = 0.0632
+    track_width_m: float = 0.342
+    max_wheel_velocity_rad_s: float = 5.0
+    max_linear_acceleration_mps2: float = 1.0
+    max_angular_acceleration_radps2: float = 0.6
     base_frame: str = "base_link"
-    kind: ClassVar[str] = "differential_drive_platform_v1"
+    plant_parameter_provenance: str = DASHGO_PLATFORM_PROVENANCE
+    kind: ClassVar[str] = "differential_drive_platform_v2"
 
     def __post_init__(self):
         for name in ("footprint_radius_m", "lookahead_distance_m", "max_forward_m_s",
-                     "max_reverse_m_s", "max_yaw_rad_s", "policy_dt_s"):
+                     "max_reverse_m_s", "max_yaw_rad_s", "policy_dt_s",
+                     "wheel_radius_m", "track_width_m", "max_wheel_velocity_rad_s",
+                     "max_linear_acceleration_mps2",
+                     "max_angular_acceleration_radps2"):
             _number(name, getattr(self, name), strictly_positive=True)
         _number("safety_margin_m", self.safety_margin_m, minimum=0)
         for name in ("sensor_x_m", "sensor_y_m", "sensor_yaw_rad"):
             _number(name, getattr(self, name))
         # Canonicalize equal integer/float inputs to the same manifest identity.
         for field in fields(self):
-            if field.name != "base_frame":
+            if field.name not in ("base_frame", "plant_parameter_provenance"):
                 object.__setattr__(self, field.name, float(getattr(self, field.name)))
-        if type(self.base_frame) is not str or not self.base_frame.strip() or self.base_frame != self.base_frame.strip():
-            raise ValueError("base_frame must be a nonempty stripped string")
+        _nonempty_string("base_frame", self.base_frame)
+        _nonempty_string("plant_parameter_provenance", self.plant_parameter_provenance)
+
+
+@dataclass(frozen=True)
+class RawSafetyObservationSpec(_ManifestSpec):
+    """Unnormalized metric LiDAR ABI used only by the safety layer.
+
+    ``ray_angles_rad`` is the actual index-ordered sensor geometry, not an FOV
+    from which a consumer may synthesize rays. The manifest hash is a required
+    argument to the CBF call so this contract cannot be silently replaced by
+    the normalized policy observation.
+    """
+
+    sensor_frame: str
+    ray_angles_rad: tuple[float, ...]
+    max_sensor_age_s: float
+    range_max_m: float = 12.0
+    contract_id: str = "dashgo_raw_metric_lidar_v1"
+    range_units: str = "m"
+    angle_units: str = "rad"
+    age_units: str = "s"
+    ranges_shape: str = "[B,N]"
+    angles_shape: str = "[N] or [B,N]"
+    validity_shape: str = "[B,N]"
+    sensor_age_shape: str = "[B,1]"
+    ray_order: str = "manifest_ray_angles_index_order"
+    angle_semantics: str = "sensor_frame:+x_zero,ccw_positive"
+    validity_semantics: str = (
+        "true=finite_positive_metric_range_including_sensor_max_range_clear_return"
+    )
+    age_semantics: str = "seconds_since_measurement_at_policy_evaluation"
+    normalized: bool = False
+    kind: ClassVar[str] = "raw_safety_observation_v1"
+
+    def __post_init__(self):
+        _nonempty_string("sensor_frame", self.sensor_frame)
+        if not isinstance(self.ray_angles_rad, (tuple, list)) or not self.ray_angles_rad:
+            raise ValueError("ray_angles_rad must be a nonempty ordered sequence")
+        angles = []
+        for angle in self.ray_angles_rad:
+            _number("ray_angles_rad", angle)
+            angles.append(float(angle))
+        object.__setattr__(self, "ray_angles_rad", tuple(angles))
+        for name in ("max_sensor_age_s", "range_max_m"):
+            _number(name, getattr(self, name), strictly_positive=True)
+            object.__setattr__(self, name, float(getattr(self, name)))
+        expected = {
+            "contract_id": "dashgo_raw_metric_lidar_v1",
+            "range_units": "m", "angle_units": "rad", "age_units": "s",
+            "ranges_shape": "[B,N]", "angles_shape": "[N] or [B,N]",
+            "validity_shape": "[B,N]", "sensor_age_shape": "[B,1]",
+            "ray_order": "manifest_ray_angles_index_order",
+            "angle_semantics": "sensor_frame:+x_zero,ccw_positive",
+            "validity_semantics": (
+                "true=finite_positive_metric_range_including_sensor_max_range_clear_return"
+            ),
+            "age_semantics": "seconds_since_measurement_at_policy_evaluation",
+        }
+        for name, value in expected.items():
+            _choice(name, getattr(self, name), value)
+        if type(self.normalized) is not bool or self.normalized:
+            raise ValueError("raw safety ranges must be explicitly unnormalized")
+
+    @property
+    def num_rays(self):
+        return len(self.ray_angles_rad)
+
+    @property
+    def flattened_dim(self):
+        return 3 * self.num_rays + 1
 
 
 @dataclass(frozen=True)

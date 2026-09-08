@@ -11,8 +11,10 @@ Every manifest carries:
 - `safety_semantics = differentiable_safety_bias`
 
 This is a new differential-drive adaptation, not the original Go2 paper
-reproduction. Source availability does not establish redistribution rights for
-the containing repository or assets; this package does not invent a license.
+reproduction. The included MIT license applies only to this original
+`packages/sea_nav_core` distribution. It does not relicense the containing
+SEA-Nav repository, Isaac Lab, RSL-RL, Go2 assets, NeuPAN, or other upstream
+material.
 
 ## Minimal consumption
 
@@ -20,6 +22,7 @@ the containing repository or assets; this package does not invent a license.
 import torch
 from sea_nav_core import (
     ActionSpec, DifferentialDrivePlatformSpec, ObservationSpec,
+    RawSafetyObservationSpec,
     UnicycleLookaheadLSECBFLayer, resolve_ablation_profile,
 )
 
@@ -29,19 +32,27 @@ platform = DifferentialDrivePlatformSpec(
     footprint_radius_m=0.203, lookahead_distance_m=0.2,
     sensor_x_m=0.0, sensor_y_m=0.0, sensor_yaw_rad=0.0,
 )
+raw_safety = RawSafetyObservationSpec(
+    sensor_frame="front_lidar",
+    ray_angles_rad=(-.4, 0.0, .4),
+    max_sensor_age_s=0.1,
+)
 observation = ObservationSpec(last_action_stage="policy_action", normalizer_id="example-only")
 action = ActionSpec()
 profile = resolve_ablation_profile("full")
-layer = UnicycleLookaheadLSECBFLayer(platform)
+layer = UnicycleLookaheadLSECBFLayer(platform, raw_safety)
 twist, diagnostics = layer(
     torch.tensor([[0.3, 0.1]]),          # nominal mean [v m/s, omega rad/s]
     torch.tensor([[0.5, 1.0, 0.8]]),    # metric distances, NOT normalized policy rays
     torch.tensor([-.4, 0.0, .4]),       # explicit sensor-frame angles in radians
     torch.tensor([[True, True, True]]),
+    torch.tensor([[0.02]]),              # seconds since this scan was measured
     torch.tensor([[0.5]]),              # positive alpha [1/s], transformed once
+    raw_safety.manifest_sha256,          # mandatory metadata identity token
 )
 manifest = platform.to_manifest()
 assert DifferentialDrivePlatformSpec.from_manifest(manifest) == platform
+assert layer.bind_runtime_safety_spec(raw_safety) == raw_safety.manifest_sha256
 scripted = torch.jit.script(layer)      # same checked API, no unchecked export path
 ```
 
@@ -49,9 +60,25 @@ scripted = torch.jit.script(layer)      # same checked API, no unchecked export 
 ABI: 72 rays, 180 degrees, range 12 m, three term-major frames, dimension 246.
 Terms are lidar72, waypoint3, goal3, forward_velocity1, yaw_rate1, last_action2.
 The consumer must name the actual last-action producer and normalizer artifact.
-It owns sensor preprocessing, validity/freshness, history, units, timestamps and
-reset. A spec is not evidence that the consumer applied it. It must not pad Go2
-proprioception or invent free space behind the front-facing sensor.
+It owns history and reset. A spec is not evidence that the consumer applied it.
+It must not pad Go2 proprioception or invent free space behind the front-facing
+sensor.
+
+`RawSafetyObservationSpec` is a different, unnormalized ABI. It records the
+actual ordered ray-angle tuple, ranges in metres, angles in radians, validity,
+sensor-frame name, age in seconds, maximum accepted age, and exact tensor shapes
+and semantics. Its hash is required on every CBF call; the layer also checks the
+angle tensor against the manifest geometry, valid ranges against the declared
+metric maximum, and per-row age. A normalized 246-dimensional policy vector,
+implicit FOV reconstruction, stale scan, different frame/unit/version, or
+different angle ordering is rejected. The contract still relies on the caller
+to report truthful metadata and timestamps; it cannot independently attest a
+sensor driver. A trusted no-hit/clear return is represented as the finite
+declared `range_max_m` with a true validity bit. In particular, a DashGo sensor
+consumer configured with `depth_clipping_behavior=max` may forward that finite
+max-range value as valid. The core never guesses that `Inf` means clear: NaN,
+Inf, non-positive or stale values cannot be valid, and a row with no valid ray
+is rejected rather than silently treated as free space.
 
 `ActionSpec` fixes normalized two-command tanh Gaussian semantics. Keep the
 sampled policy action and its Jacobian-corrected likelihood in PPO storage;
@@ -94,20 +121,54 @@ For an active constraint, `r_after = r_before/(||Lg_h||^2+1)` remains negative.
 The damping is fixed at 1.0; this is NOT a hard CBF projection. Static observed
 point assumptions, lookahead model, discretization, range coverage and footprint
 approximation limit the claim. Dynamic obstacles, delay, wheel acceleration,
-slip, command saturation and exploration noise are not handled by this layer.
-No output speed clamp is hidden here: the consumer owns wheel/velocity/accel
-projection and must recompute/record the final-command residual separately.
+slip and exploration noise are not handled by the mean-stage CBF transform.
+
+The same module provides an explicit DashGo projection boundary. The platform
+manifest defaults to repository-declared wheel radius `0.0632 m`, track width
+`0.342 m`, maximum wheel angular velocity `5.0 rad/s`, maximum linear
+acceleration `1.0 m/s^2`, maximum angular acceleration `0.6 rad/s^2`,
+forward/reverse/yaw limits, and a pinned source-provenance string.
+The pinned sources are `TNHTH/dashgo-rl-navigation@10023c294f34dc32a97005103bc30e6aa0f09bf5`
+paths `src/dashgo_rl/dashgo_config.py`, `src/dashgo_rl/dashgo_env_v2.py`,
+`src/dashgo_rl/control/differential_drive.py`, `configs/robot/dashgo.urdf`,
+`drivers/EAI_DRIVER/src/config/my_dashgo_params.yaml`,
+`workspaces/ros2_ws/src/dashgo_driver_ros2/config/dashgo_driver.yaml`, and
+`workspaces/ros1_catkin_ws/src/dashgo_rl/urdf/dashgo_d1_sim.urdf.xacro`.
+These are configuration provenance, not fresh physical calibration evidence.
+
+`body_twist_to_wheel_angular_velocity()` uses
+`left=(v-omega*track/2)/radius`, `right=(v+omega*track/2)/radius`; the inverse is
+also exposed. `forward_with_platform_projection()` speed-clamps the CBF command,
+then rate-limits it from the previous observed executed command using an explicit
+positive `dt_s`, converts it to left/right wheel angular velocity, jointly scales
+the wheel-space increment from the previous feasible wheels toward that target
+when either target wheel exceeds `5.0 rad/s`, and converts the feasible wheel pair
+back to the final body command. The wheel box is convex, so this line-segment
+projection retains the preceding body-speed and per-axis acceleration bounds;
+scaling absolute target wheels toward zero would not retain acceleration bounds
+for a nonzero previous command. The module always recomputes
+`residual_platform_projected` from that final inverse-converted command. For example,
+a CBF command `v=0.1` with residual `-0.2`, previous `v=0.3`, `dt=.05 s` and the
+declared deceleration limit projects to `v=.25`; its separately recomputed
+residual is `-0.35`. `diagnose_executed_command()` is still required after a
+driver/controller changes or acknowledges the command. The four trace stages
+are `nominal_body_twist`, `cbf_body_twist`, `platform_projected_command`, and
+`executed_command`. None is a hard-safety certificate.
 
 ## Checked tensor contract
 
-- `nominal_twist [B,2]`, `ranges_m [B,N]`, angles `[N]` or `[B,N]`, boolean
-  `valid_mask [B,N]`, positive alpha `[B,1]`; B and N must be nonzero.
+- `nominal_body_twist [B,2]`, manifest-sized `ranges_m [B,N]`, exact registered
+  angles `[N]` or `[B,N]`, boolean `valid_mask [B,N]`, age `[B,1]`, positive
+  alpha `[B,1]`, and the exact raw-safety manifest hash; B and N are nonzero.
 - Dense float32 or float64 tensors on the same device/dtype; mask shares device.
   No implicit conversion, broadcasting batch states or half-precision route.
-- Every row needs at least one finite positive valid ray. All-invalid rows
-  reject the complete call; consumer must explicitly handle missing perception.
-- Invalid rays/angles may carry NaN/Inf only under a false mask. They are
-  sanitized before trig/norm, excluded from reduction and have zero gradient.
+- Every row needs at least one finite positive valid ray, including a finite
+  sensor-declared max-range clear return. All-invalid rows reject the complete
+  call; consumers must map trusted no-hit values to `range_max_m` plus true, or
+  explicitly handle missing perception. `Inf` is never implicitly free space.
+- Invalid ranges may carry NaN/Inf only under a false mask. Registered angles
+  remain finite and exact even for invalid measurements. Masked ranges are
+  sanitized before geometry, excluded from reduction and have zero gradient.
 - Valid obstacle points coinciding with the lookahead point are rejected
   because the distance gradient is undefined. Arithmetic overflow rejects.
 - Outputs and diagnostics remain differentiable; functions do not mutate inputs.
@@ -115,7 +176,10 @@ projection and must recompute/record the final-command residual separately.
   not hidden or presented as validated real-time performance.
 
 Diagnostics include barrier, q-space gradient/norm, nominal/biased q, correction,
-before/after residual, eta, active-constraint/intervention flags and valid count.
+explicit nominal/CBF residuals, sensor age, eta, active-constraint/intervention
+flags and valid count. Projection adds the speed-limited and acceleration-limited
+body commands, previous and pre-limit wheels, the common feasible line-segment
+scale, final wheel speeds, `dt`, final delta and newly computed projected residual.
 An active residual with a zero composite gradient can leave the action unchanged;
 the two flags deliberately distinguish those cases. They prove only
 this computed stage, not the later sampled, clipped or applied robot command.
@@ -148,8 +212,12 @@ Evaluation disables training replay for every profile.
 ```
 
 Both terms receive `lambda_shield=.1`, unlike the upstream effective alpha
-coefficient of one. q-space avoids mixing m/s and rad/s in the intervention
-norm; this metric selection is part of the adaptation, not paper identity.
+coefficient of one. The helper is the sole coefficient owner and rejects any
+override other than `.1`; profiles contain only mechanism inclusion flags and a
+declared helper-owner identity. Callers include the returned scalar once and do
+not multiply it by a profile coefficient. q-space avoids mixing m/s and rad/s in
+the intervention norm; this metric selection is part of the adaptation, not
+paper identity.
 
 `paper_v1_lreg_loss(policy_mean, lower, upper, perturbed_policy_mean, value,
 perturbed_value)` returns:
@@ -160,8 +228,8 @@ perturbed_value)` returns:
        + .005*mean_all((V_perturbed-V)^2))
 ```
 
-These helpers return already weighted scalar losses; never multiply the
-profile lambda again. Flags govern inclusion. The caller owns explicit
+These helpers return already weighted scalar losses; flags govern inclusion.
+The caller owns explicit
 policy-parameter space, perturbation sampling and eligible transition selection;
 the helpers never call a policy, mutate a distribution, draw RNG or detach inputs.
 Critic matrices are `[B,1]`, policy matrices `[B,2]`, bounds `[2]` in the same
@@ -178,7 +246,13 @@ map/sensor hashes, distribution and normalizer/export lineage, clocks and delays
 environment lock, seeds/budget/evaluation set and trace artifact hashes/counts.
 Configuration identity and process completion do not prove physics acceptance.
 Training checkpoint and TorchScript deployment manifests are linked artifacts,
-not interchangeable file formats.
+not interchangeable file formats. The layer receipt covers the complete
+platform manifest, raw-safety manifest, `kappa`, fixed damping and stage names.
+Canonical receipt/hash, platform hash, raw-safety hash, numeric configuration
+and exact ray angles are persistent state buffers. Standard strict eager restore
+rejects a state from a different identity instead of overwriting these buffers.
+Script/save/load preserve exported receipt/hash methods; consumers must call
+`assert_configuration_identity()` against the run/checkpoint expectation.
 
 CPU tests (from this package directory, with Torch and pytest available):
 
@@ -188,6 +262,7 @@ PYTHONDONTWRITEBYTECODE=1 python -m pytest -q
 
 Tests include hand-derived goldens, an independent Python scalar multi-ray
 oracle with extrinsics, shape/nonfinite/degenerate/all-invalid rejection,
+valid max-range clear returns, wheel-segment saturation and inverse-command residual,
 partial-mask/pruned equality, independent batching, input preservation,
 gradcheck, TorchScript save/load and pure loss checks. No simulator or hardware
 was started; CPU correctness does not establish real-time, driving or hard
