@@ -26,3 +26,36 @@
 - Final temporary artifacts: `/tmp/sea-nav-core-feasible-final.SAeHP3/dist/`; wheel SHA-256 `e7705c01f4728f0c26c46497ebf62b41b20d7a6e70364d008ac7380a8846690d`, sdist SHA-256 `9b4f3c4403adcfa73c73f88b2cf3b185bbb80b9b003555fa6bb0c0231aa70498`. Both contain `LICENSE`; wheel metadata reports `sea-nav-core==0.2.0`, `License-Expression: MIT`, `License-File: LICENSE`, noreply author identity and `torch>=2.1`. Installed configuration receipt SHA-256 is `e8526e94a63c6bba3a5d3937bf127cf7e3aba6f891e553dd4852cbc97320fef0` for the smoke-test inputs.
 - Ruff was not installed in the task CPU environment, so its optional lint command was unavailable. `git diff --check`, Python imports, exhaustive package tests and the combined CPU suite are the enforced static/behavioral gates.
 - Remaining/unverified: independent re-review and primary integration; Isaac Gym/Lab runtime, simulation physics, formal ablation metrics, ROS deployment, real-time budget and hardware. No simulator or robot was started.
+
+## Fix round 2 current truth — 2026-09-08
+
+| Field | Current value | Evidence / limit |
+|---|---|---|
+| Artifact identity | Detached `70f2304e8c6c0acac1ba0ea943fedb76bada247c` | Independent rereview 1; no ordinary branch/tag ownership |
+| Active evidence | Rereview FAIL with one P1 and two P2 findings | Prior 249/591 and artifacts remain positive but do not close these cases |
+| Confirmed P1 | Float32 inverse wheel conversion can return a body component one ULP beyond a bound and the next call rejects it | Fixed review input plus seed 8062026 recurrence sample |
+| Confirmed identity defect | Floating identity/angle buffers are rewritten by module dtype conversion while immutable manifest text/hash is not | Same-config `.float()` strict restore fails |
+| Confirmed ABI defect | Raw safety identity has only `range_max_m`; valid values below the actual sensor minimum pass | DashGo real LaserScan 0.15 m versus simulated camera clipping 0.1 m |
+| Confirmed interface gap | Plant capability allows `v>=-0.15`, but the formal forward-sensor experiment requires effective `v>=0`; a later clamp would invalidate wheel/acceleration/residual identity | Controller pre-commit interface gate |
+| Candidate direction | Implemented projection v2 common-scale numerical closure; canonical byte receipt owns identity; angles are operational only; safety ABI v2 binds min/definition/provenance | Focused 8 and package 263 GREEN; artifact review pending |
+| Highest validation | Full source-package CPU suite on uncommitted fix2 | No installed artifact, CUDA, Isaac, ROS runtime, simulator or hardware evidence yet |
+| Unpublished work | Contracts/CBF/version/tests/docs and local ledgers | Effective-envelope RED/GREEN, script-conversion expansion, artifacts and fixed commit pending |
+
+## Fix round 2 final state — 2026-09-08
+
+- The effective command envelope is an explicit independent manifest and part
+  of checkpoint identity; the formal forward profile uses `v_min=0`, while a
+  separately declared reverse profile can use the platform capability down to
+  `-0.15 m/s`.
+- Float32 projection is recursively closed under exact represented body,
+  acceleration and wheel bounds across fixed boundaries and a deterministic
+  8192-row two-step test.
+- Checkpoint identity consists only of canonical byte receipts; operational ray
+  angles remain canonical float64 across eager/scripted `.float()` and
+  `.double()` conversions and save/load.
+- Raw safety v2 binds inclusive `range_min_m`, radial range definition and
+  parameter provenance. IsaacLab image-plane depth is deliberately rejected
+  because the implemented geometry consumes radial distance.
+- Highest writer validation is package **284 passed** and combined CPU **626
+  passed**. Isaac/ROS runtime, simulation, real robot and formal experimental
+  validation remain unverified rather than inferred.

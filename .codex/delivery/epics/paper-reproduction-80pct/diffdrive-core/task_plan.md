@@ -33,3 +33,35 @@ Paper Eq.4 denominator uses damping 1.0; no hard-safety or exact-paper-reproduct
 7. Complete: package **249 passed**, combined **591 passed**, zero-previous 256-case parity with the pinned DashGo projection plus nonzero-previous acceleration preservation, final sdist/wheel build, artifact inspection, isolated wheel import/metadata/TorchScript smoke, installed-package **246 passed**, and extracted-sdist **249 passed**.
 
 Fix implementation is complete in one pending scoped commit on the detached worktree. Independent re-review and primary integration remain outside this writer's authority. Isaac/robotics runtime, formal experiments, and hardware remain blocked/unverified.
+
+## Fixed-commit re-review fix round 2 — 2026-09-08
+
+Owner `/root/dashgo_adapter_audit/diffdrive_core_fix`; detached parent candidate
+`70f2304e8c6c0acac1ba0ea943fedb76bada247c`. Write scope remains only
+`packages/sea_nav_core/**` plus these local `diffdrive-core` ledgers. Preserve
+the two existing root registration edits unstaged; do not modify ordinary
+branches, refs or remotes.
+
+1. Complete: add RED regressions for float32 projection recurrence at fixed
+   forward/reverse/yaw boundaries and deterministic two-step random traces.
+2. Complete: make final differential-drive projection closed under its own
+   previous-command precondition without independently clamping body outputs;
+   retain body-speed, acceleration and wheel-speed guarantees.
+3. Complete: separate immutable canonical configuration identity from mutable
+   operational dtype/device angle buffers; permit same-manifest strict restore
+   after `.float()`/`.double()` while transactionally rejecting a different
+   manifest.
+4. Complete: version and enforce `range_min_m`, range definition and sensor
+   provenance in `RawSafetyObservationSpec`; distinguish simulated
+   `distance_to_camera` from real `sensor_origin_to_return` LaserScan while
+   keeping finite `range_max_m` clear returns valid.
+5. Complete: add a separately manifestable effective command envelope.
+   The forward-sensor experiment defaults to `v_min=0`; platform reverse
+   capability stays `0.15 m/s` and a reverse-enabled runtime profile remains
+   expressible. Enforce the selected envelope in the same body/acceleration/
+   wheel projection and recompute its residual there.
+6. Complete: run package and combined CPU plus strengthened TorchScript
+   conversion/roundtrip gates; exact-stage owned paths, privacy-check and create
+   one detached fix2 commit. Artifact rebuilding is delegated to independent
+   fixed-commit verification so hashes bind the immutable successor, not an
+   uncommitted tree. No push or integration.

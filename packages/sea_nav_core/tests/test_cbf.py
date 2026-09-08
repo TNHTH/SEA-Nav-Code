@@ -6,29 +6,56 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+import sea_nav_core
 import torch
 
 from sea_nav_core import (
+    DASHGO_FORWARD_SENSOR_ENVELOPE_PROVENANCE,
+    DASHGO_REAL_LASERSCAN_RANGE_PROVENANCE,
+    ROS_LASERSCAN_RADIAL_RANGE,
     DifferentialDrivePlatformSpec,
+    EffectiveCommandEnvelopeSpec,
     ObservationSpec,
     RawSafetyObservationSpec,
     UnicycleLookaheadLSECBFLayer,
 )
 
 
-def safety_spec(rays=3, angles=None, *, sensor_frame="front_lidar", max_age=0.1):
+def command_envelope(*, minimum=-0.15, profile_id="dashgo_reverse_capability_runtime_v1"):
+    provenance = "declared reverse-capability runtime profile"
+    if minimum == 0.0:
+        profile_id = "dashgo_forward_sensor_experiment_v1"
+        provenance = DASHGO_FORWARD_SENSOR_ENVELOPE_PROVENANCE
+    return EffectiveCommandEnvelopeSpec(
+        profile_id=profile_id,
+        min_linear_velocity_m_s=minimum,
+        max_linear_velocity_m_s=0.3,
+        max_abs_yaw_rate_rad_s=1.0,
+        envelope_provenance=provenance,
+    )
+
+
+def safety_spec(rays=3, angles=None, *, sensor_frame="front_lidar", max_age=0.1,
+                range_min=0.15, range_definition=ROS_LASERSCAN_RADIAL_RANGE,
+                range_provenance=DASHGO_REAL_LASERSCAN_RANGE_PROVENANCE):
     if angles is None:
         angles = torch.linspace(-0.4, 0.5, rays, dtype=torch.float64).tolist()
     return RawSafetyObservationSpec(
         sensor_frame=sensor_frame,
         ray_angles_rad=tuple(angles),
         max_sensor_age_s=max_age,
+        range_min_m=range_min,
+        range_definition=range_definition,
+        range_parameter_provenance=range_provenance,
     )
 
 
-def layer(*, rays=3, angles=None, safety=None, kappa=10.0, **kwargs):
+def layer(*, rays=3, angles=None, safety=None, kappa=10.0,
+          command=None, **kwargs):
     if safety is None:
         safety = safety_spec(rays, angles)
+    if command is None:
+        command = command_envelope()
     return UnicycleLookaheadLSECBFLayer(
         DifferentialDrivePlatformSpec(
             footprint_radius_m=0.2,
@@ -37,6 +64,7 @@ def layer(*, rays=3, angles=None, safety=None, kappa=10.0, **kwargs):
             **kwargs,
         ),
         safety,
+        command,
         kappa=kappa,
     )
 
@@ -84,7 +112,8 @@ def test_hand_golden_vectors_and_negative_active_residual():
     for case in fixture["cases"]:
         raw_spec = safety_spec(rays=1, angles=[case["angle"]])
         module = UnicycleLookaheadLSECBFLayer(
-            DifferentialDrivePlatformSpec(**fixture["platform"]), raw_spec
+            DifferentialDrivePlatformSpec(**fixture["platform"]), raw_spec,
+            command_envelope(),
         )
         args = (torch.tensor([case["twist"]], dtype=torch.float64),
                 torch.tensor([[case["range"]]], dtype=torch.float64),
@@ -106,7 +135,7 @@ def test_scalar_oracle_extrinsics_batch_and_angle_broadcast(dtype):
     platform = DifferentialDrivePlatformSpec(0.2, 0.2, 0.1, sensor_x_m=0.08,
                                             sensor_y_m=-0.1, sensor_yaw_rad=0.3)
     raw_spec = safety_spec()
-    module = UnicycleLookaheadLSECBFLayer(platform, raw_spec)
+    module = UnicycleLookaheadLSECBFLayer(platform, raw_spec, command_envelope())
     twist, ranges, angles, mask, age, alpha, token = inputs(dtype=dtype)
     ranges[1] = ranges.new_tensor([0.7, 0.4, 1.0])
     out, diag = module(twist, ranges, angles, mask, age, alpha, token)
@@ -269,7 +298,7 @@ def test_checked_constructor_fixed_damping():
     for kwargs in ({"kappa": 0}, {"kappa": True}, {"kappa": float("nan")},
                    {"damping_factor": 0}, {"damping_factor": 0.5}, {"damping_factor": True}):
         with pytest.raises(ValueError):
-            UnicycleLookaheadLSECBFLayer(spec, raw_spec, **kwargs)
+            UnicycleLookaheadLSECBFLayer(spec, raw_spec, command_envelope(), **kwargs)
 
 
 def test_no_mutation_repeatability_and_gradcheck():
@@ -344,10 +373,11 @@ def test_large_batch_matches_small_batches():
 def test_symmetric_zero_gradient_can_be_active_without_any_intervention():
     raw_spec = safety_spec(rays=2, angles=[0.0, 0.0])
     module = UnicycleLookaheadLSECBFLayer(
-        DifferentialDrivePlatformSpec(0.25, 0.25, 0.0), raw_spec
+        DifferentialDrivePlatformSpec(0.25, 0.25, 0.0), raw_spec,
+        command_envelope(),
     )
     twist = torch.tensor([[0.3, 0.1]], dtype=torch.float64, requires_grad=True)
-    out, diag = module(twist, torch.tensor([[0.125, 0.375]], dtype=torch.float64),
+    out, diag = module(twist, torch.tensor([[0.15, 0.35]], dtype=torch.float64),
                        torch.zeros(2, dtype=torch.float64), torch.ones(1, 2, dtype=torch.bool),
                        torch.zeros(1, 1, dtype=torch.float64),
                        torch.ones(1, 1, dtype=torch.float64), raw_spec.manifest_sha256)
@@ -371,9 +401,12 @@ def test_inactive_path_is_bitwise_equal_to_nominal_twist():
 def test_complete_configuration_receipt_and_persistent_identity_buffers():
     platform = DifferentialDrivePlatformSpec(0.2, 0.2, safety_margin_m=0.1)
     raw_spec = safety_spec()
-    module = UnicycleLookaheadLSECBFLayer(platform, raw_spec, kappa=7.5)
+    module = UnicycleLookaheadLSECBFLayer(
+        platform, raw_spec, command_envelope(), kappa=7.5
+    )
     receipt = module.manifest_receipt()
     assert receipt["platform"] == platform.to_manifest()
+    assert receipt["effective_command_envelope"] == command_envelope().to_manifest()
     assert receipt["raw_safety_observation"] == json.loads(
         json.dumps(raw_spec.to_manifest())
     )
@@ -384,12 +417,17 @@ def test_complete_configuration_receipt_and_persistent_identity_buffers():
         "damping_semantics": "paper_eq4_epsilon_d_fixed_one",
     }
     assert receipt["platform_projection"] == {
-        "kind": "differential_drive_feasible_segment_v1",
+        "kind": "differential_drive_recurrent_feasible_segment_v2",
         "order": [
             "body_speed_clamp", "per_axis_acceleration_limit",
-            "wheel_increment_segment_limit", "wheel_to_body_inverse",
+            "dtype_inward_acceleration_margin",
+            "wheel_increment_segment_limit",
+            "shared_scale_body_reconstruction",
+            "two_pass_wheel_roundoff_refinement",
+            "rowwise_previous_fallback",
         ],
-        "final_residual_source": "inverse_converted_platform_projected_command",
+        "roundoff_policy": "two_machine_eps_inward_then_exact_recurrence_closure",
+        "final_residual_source": "recurrent_platform_projected_command",
     }
     assert receipt["command_stages"] == [
         "nominal_body_twist", "cbf_body_twist",
@@ -407,7 +445,6 @@ def test_complete_configuration_receipt_and_persistent_identity_buffers():
     assert set(module.state_dict()) == {
         "_identity_configuration_sha256", "_identity_platform_sha256",
         "_identity_safety_sha256", "_identity_manifest_utf8",
-        "_identity_numeric_configuration", "_expected_ray_angles_rad",
     }
     module.assert_configuration_identity(expected_sha)
     with pytest.raises(ValueError, match="configuration identity mismatch"):
@@ -467,11 +504,13 @@ def test_sensor_declared_max_range_clear_returns_are_valid_observations():
 @pytest.mark.parametrize("mismatch", [
     "wheel_radius", "track_width", "wheel_velocity", "linear_acceleration",
     "angular_acceleration", "kappa", "raw_frame", "raw_angles", "raw_age",
+    "raw_min", "raw_definition", "raw_provenance", "effective_min",
 ])
 def test_strict_state_restore_rejects_every_physical_identity_mismatch_transactionally(mismatch):
     source = layer()
     target_platform_kwargs = {}
     target_safety = safety_spec()
+    target_command = command_envelope()
     target_kappa = 10.0
     if mismatch == "wheel_radius":
         target_platform_kwargs["wheel_radius_m"] = 0.07
@@ -489,9 +528,22 @@ def test_strict_state_restore_rejects_every_physical_identity_mismatch_transacti
         target_safety = safety_spec(sensor_frame="rear_lidar")
     elif mismatch == "raw_angles":
         target_safety = safety_spec(angles=(-0.4, 0.1, 0.5))
-    else:
+    elif mismatch == "raw_age":
         target_safety = safety_spec(max_age=0.2)
-    target = layer(safety=target_safety, kappa=target_kappa, **target_platform_kwargs)
+    elif mismatch == "raw_min":
+        target_safety = safety_spec(range_min=0.1)
+    elif mismatch == "raw_definition":
+        target_safety = safety_spec(
+            range_definition="isaaclab_camera_distance_to_camera"
+        )
+    elif mismatch == "raw_provenance":
+        target_safety = safety_spec(range_provenance="another-pinned-source")
+    else:
+        target_command = command_envelope(minimum=0.0)
+    target = layer(
+        safety=target_safety, command=target_command,
+        kappa=target_kappa, **target_platform_kwargs
+    )
     before_identity = target.configuration_sha256()
     before_state = {name: value.clone() for name, value in target.state_dict().items()}
     with pytest.raises(RuntimeError, match="incompatible immutable SEA-Nav CBF identity"):
@@ -501,7 +553,7 @@ def test_strict_state_restore_rejects_every_physical_identity_mismatch_transacti
         torch.testing.assert_close(target.state_dict()[name], expected, atol=0, rtol=0)
 
 
-def test_same_identity_eager_save_load_succeeds_and_corrupt_geometry_buffer_rejects():
+def test_same_identity_eager_save_load_succeeds_and_corrupt_receipt_rejects():
     source = layer()
     stream = io.BytesIO()
     torch.save(source.state_dict(), stream)
@@ -512,8 +564,8 @@ def test_same_identity_eager_save_load_succeeds_and_corrupt_geometry_buffer_reje
     assert target.configuration_sha256() == source.configuration_sha256()
 
     corrupt = source.state_dict()
-    corrupt["_expected_ray_angles_rad"] = corrupt["_expected_ray_angles_rad"].clone()
-    corrupt["_expected_ray_angles_rad"][0] += 0.01
+    corrupt["_identity_manifest_utf8"] = corrupt["_identity_manifest_utf8"].clone()
+    corrupt["_identity_manifest_utf8"][0] ^= 1
     with pytest.raises(RuntimeError, match="incompatible immutable SEA-Nav CBF identity"):
         target.load_state_dict(corrupt, strict=True)
 
@@ -781,3 +833,202 @@ def test_projection_and_wheel_diagnostics_reject_arithmetic_overflow():
         module.diagnose_executed_command(
             args[0], args[1], args[2], args[3], args[4], args[5], args[6],
         )
+
+
+def test_raw_safety_minimum_range_is_enforced_but_max_clear_return_stays_valid():
+    spec = RawSafetyObservationSpec(
+        sensor_frame="front_lidar",
+        ray_angles_rad=(0.0,),
+        max_sensor_age_s=0.1,
+        range_min_m=0.15,
+        range_max_m=12.0,
+        range_definition=ROS_LASERSCAN_RADIAL_RANGE,
+        range_parameter_provenance=DASHGO_REAL_LASERSCAN_RANGE_PROVENANCE,
+    )
+    module = layer(rays=1, angles=[0.0], safety=spec)
+    args = list(inputs(batch=1, rays=1, angles=[0.0]))
+    args[6] = spec.manifest_sha256
+    args[1].fill_(0.149)
+    with pytest.raises(ValueError, match="fresh raw metric"):
+        module(*args)
+    args[1].fill_(0.15)
+    assert torch.isfinite(module(*args)[0]).all()
+    args[1].fill_(12.0)
+    assert torch.isfinite(module(*args)[0]).all()
+
+
+def test_same_manifest_identity_restore_survives_dtype_conversion_and_keeps_exact_angles():
+    source = layer().float()
+    source_identity = source.configuration_sha256()
+    target = layer().double()
+    target.load_state_dict(source.state_dict(), strict=True)
+    assert target.configuration_sha256() == source_identity
+
+    # A round trip through float32 must not rewrite the immutable manifest's
+    # exact float64 geometry when the module returns to float64 operation.
+    converted = layer().float().double()
+    args64 = inputs(dtype=torch.float64)
+    output, diagnostics = converted(*args64)
+    assert torch.isfinite(output).all() and torch.isfinite(diagnostics["h_comp"]).all()
+    assert converted.configuration_sha256() == source_identity
+
+    target_float = layer().float()
+    target_float.load_state_dict(layer().double().state_dict(), strict=True)
+    args32 = inputs(dtype=torch.float32)
+    assert torch.isfinite(target_float(*args32)[0]).all()
+
+
+@pytest.mark.parametrize("conversion", [
+    "eager_float_then_script", "script_then_float", "script_float_then_double",
+])
+def test_script_dtype_conversion_save_load_keeps_receipt_and_operational_angles(conversion):
+    eager = layer()
+    if conversion == "eager_float_then_script":
+        candidate = torch.jit.script(eager.float())
+        dtype = torch.float32
+    else:
+        candidate = torch.jit.script(eager)
+        if conversion == "script_then_float":
+            candidate = candidate.float()
+            dtype = torch.float32
+        else:
+            candidate = candidate.float().double()
+            dtype = torch.float64
+    stream = io.BytesIO()
+    torch.jit.save(candidate, stream)
+    stream.seek(0)
+    loaded = torch.jit.load(stream)
+    args = inputs(dtype=dtype)
+    for module in (candidate, loaded):
+        assert module.configuration_sha256() == eager.configuration_sha256()
+        assert module._expected_ray_angles_rad.dtype == torch.float64
+        assert set(module.state_dict()) == {
+            "_identity_configuration_sha256", "_identity_platform_sha256",
+            "_identity_safety_sha256", "_identity_manifest_utf8",
+        }
+        output, diagnostics = module(*args)
+        assert torch.isfinite(output).all()
+        assert torch.isfinite(diagnostics["h_comp"]).all()
+
+
+@pytest.mark.parametrize("name,previous,target", [
+    ("forward", [0.25, 0.0], [1.0, 0.0]),
+    ("reverse", [-0.14847615361213684, 0.7431957721710205],
+     [-1.3809571266174316, -0.614619255065918]),
+    ("yaw", [-0.032079633325338364, -0.9844386577606201],
+     [-1.52433180809021, -1.2457118034362793]),
+    ("wheel", [0.2511979043483734, 0.18111717700958252],
+     [0.925694465637207, -1.5597116947174072]),
+])
+def test_float32_projected_command_is_accepted_unchanged_on_next_step(
+        name, previous, target):
+    del name
+    module = layer(rays=1, angles=[0.0])
+    previous_tensor = torch.tensor([previous], dtype=torch.float32)
+    target_tensor = torch.tensor([target], dtype=torch.float32)
+    first = module._project_platform_command(target_tensor, previous_tensor, 0.05)[0]
+    second = module._project_platform_command(target_tensor, first, 0.05)[0]
+    assert torch.isfinite(first).all() and torch.isfinite(second).all()
+    for projected, prior in ((first, previous_tensor), (second, first)):
+        assert (projected[:, 0] >= -0.15).all()
+        assert (projected[:, 0] <= 0.3).all()
+        assert (projected[:, 1].abs() <= 1.0).all()
+        assert (
+            module.body_twist_to_wheel_angular_velocity(projected).abs() <= 5.0
+        ).all()
+        assert ((projected - prior).abs() <= projected.new_tensor([0.05, 0.03])).all()
+
+
+def test_float32_two_step_random_projection_recurrence_and_constraint_envelope():
+    module = layer(rays=1, angles=[0.0])
+    generator = torch.Generator().manual_seed(8062026)
+    candidates = torch.empty((16384, 2), dtype=torch.float32)
+    candidates[:, 0].uniform_(-0.15, 0.3, generator=generator)
+    candidates[:, 1].uniform_(-1.0, 1.0, generator=generator)
+    candidate_wheels = module.body_twist_to_wheel_angular_velocity(candidates)
+    previous = candidates[(candidate_wheels.abs() <= 5.0).all(dim=1)][:8192]
+    targets = torch.empty(previous.shape, dtype=torch.float32).uniform_(
+        -2.0, 2.0, generator=generator
+    )
+    first, _, _, _, _, _, first_wheels = module._project_platform_command(
+        targets, previous, 0.05
+    )
+    second_targets = torch.empty(previous.shape, dtype=torch.float32).uniform_(
+        -2.0, 2.0, generator=generator
+    )
+    second, _, _, _, _, _, second_wheels = module._project_platform_command(
+        second_targets, first, 0.05
+    )
+
+    for projected, wheels, prior in (
+        (first, first_wheels, previous), (second, second_wheels, first),
+    ):
+        assert (projected[:, 0] >= -0.15).all()
+        assert (projected[:, 0] <= 0.3).all()
+        assert (projected[:, 1].abs() <= 1.0).all()
+        assert (wheels.abs() <= 5.0).all()
+        max_delta = projected.new_tensor([0.05, 0.03])
+        assert ((projected - prior).abs() <= max_delta).all()
+
+
+def test_effective_forward_envelope_is_part_of_the_joint_final_projection():
+    envelope_type = getattr(sea_nav_core, "EffectiveCommandEnvelopeSpec")
+    forward_envelope = command_envelope(minimum=0.0)
+    reverse_envelope = envelope_type(
+        profile_id="dashgo_reverse_capability_runtime_v1",
+        min_linear_velocity_m_s=-0.15,
+        max_linear_velocity_m_s=0.3,
+        max_abs_yaw_rate_rad_s=1.0,
+        envelope_provenance="declared reverse-capability runtime profile",
+    )
+    spec = safety_spec(rays=1, angles=[0.0])
+    platform = DifferentialDrivePlatformSpec(0.2, 0.2, 0.1)
+    forward_module = UnicycleLookaheadLSECBFLayer(
+        platform, spec, command_envelope=forward_envelope
+    )
+    reverse_module = UnicycleLookaheadLSECBFLayer(
+        platform, spec, command_envelope=reverse_envelope
+    )
+    target = torch.tensor([[-0.5, 0.0]], dtype=torch.float64)
+    previous = torch.zeros_like(target)
+    ranges = torch.tensor([[0.5]], dtype=torch.float64)
+    angles = torch.tensor([0.0], dtype=torch.float64)
+    valid = torch.ones((1, 1), dtype=torch.bool)
+    age = torch.zeros((1, 1), dtype=torch.float64)
+    alpha = torch.tensor([[0.5]], dtype=torch.float64)
+
+    forward, forward_diag = forward_module.project_cbf_command_with_residual(
+        target, previous, 1.0, ranges, angles, valid, age, alpha,
+        spec.manifest_sha256,
+    )
+    reverse, reverse_diag = reverse_module.project_cbf_command_with_residual(
+        target, previous, 1.0, ranges, angles, valid, age, alpha,
+        spec.manifest_sha256,
+    )
+    assert forward[0, 0].item() == 0.0
+    assert reverse[0, 0].item() == pytest.approx(-0.15)
+    assert forward_module.configuration_sha256() != reverse_module.configuration_sha256()
+    assert forward_module.manifest_receipt()["effective_command_envelope"] == (
+        forward_envelope.to_manifest()
+    )
+    torch.testing.assert_close(
+        forward_diag["platform_projected_command"], forward
+    )
+    torch.testing.assert_close(
+        reverse_diag["platform_projected_command"], reverse
+    )
+    recomputed, _ = forward_module.diagnose_executed_command(
+        forward, ranges, angles, valid, age, alpha, spec.manifest_sha256
+    )
+    torch.testing.assert_close(
+        forward_diag["residual_platform_projected"], recomputed
+    )
+    with pytest.raises(ValueError, match="outside declared effective command envelope"):
+        forward_module._project_platform_command(
+            target, torch.tensor([[-0.01, 0.0]], dtype=torch.float64), 1.0
+        )
+    outside_capability = replace(
+        reverse_envelope, min_linear_velocity_m_s=-0.151
+    )
+    with pytest.raises(ValueError, match="within platform capability"):
+        UnicycleLookaheadLSECBFLayer(platform, spec, outside_capability)

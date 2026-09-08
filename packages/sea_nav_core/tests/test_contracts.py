@@ -2,11 +2,18 @@ from dataclasses import FrozenInstanceError, replace
 import json
 
 import pytest
+import sea_nav_core
 
 from sea_nav_core import (
-    ADAPTATION_ID, DASHGO_PLATFORM_PROVENANCE, RESULT_CLASSIFICATION,
-    SAFETY_SEMANTICS, ActionSpec, DifferentialDrivePlatformSpec,
-    ObservationSpec, RawSafetyObservationSpec, resolve_ablation_profile,
+    ADAPTATION_ID, DASHGO_PLATFORM_PROVENANCE,
+    DASHGO_FORWARD_SENSOR_ENVELOPE_PROVENANCE,
+    DASHGO_REAL_LASERSCAN_RANGE_PROVENANCE,
+    DASHGO_SIM_CAMERA_RANGE_PROVENANCE,
+    ISAACLAB_CAMERA_DISTANCE_TO_CAMERA, ISAACLAB_CAMERA_DISTANCE_TO_IMAGE_PLANE,
+    ROS_LASERSCAN_RADIAL_RANGE,
+    RESULT_CLASSIFICATION, SAFETY_SEMANTICS, ActionSpec, DifferentialDrivePlatformSpec,
+    EffectiveCommandEnvelopeSpec, ObservationSpec, RawSafetyObservationSpec,
+    resolve_ablation_profile,
 )
 
 
@@ -19,11 +26,24 @@ def raw_safety():
         sensor_frame="front_lidar",
         ray_angles_rad=(-1.0, 0.0, 1.0),
         max_sensor_age_s=0.1,
+        range_min_m=0.15,
+        range_definition=ROS_LASERSCAN_RADIAL_RANGE,
+        range_parameter_provenance=DASHGO_REAL_LASERSCAN_RANGE_PROVENANCE,
+    )
+
+
+def forward_envelope():
+    return EffectiveCommandEnvelopeSpec(
+        profile_id="dashgo_forward_sensor_experiment_v1",
+        min_linear_velocity_m_s=0.0,
+        max_linear_velocity_m_s=0.3,
+        max_abs_yaw_rate_rad_s=1.0,
+        envelope_provenance=DASHGO_FORWARD_SENSOR_ENVELOPE_PROVENANCE,
     )
 
 
 @pytest.mark.parametrize("spec", [
-    platform(), raw_safety(), ActionSpec(),
+    platform(), raw_safety(), forward_envelope(), ActionSpec(),
     ObservationSpec("policy_action", "normalizer-sha256"),
 ])
 def test_exact_manifest_roundtrip_identity_and_hash(spec):
@@ -40,7 +60,8 @@ def test_exact_manifest_roundtrip_identity_and_hash(spec):
 
 
 @pytest.mark.parametrize("spec", [
-    platform(), raw_safety(), ActionSpec(), ObservationSpec("executed_command", "n1"),
+    platform(), raw_safety(), forward_envelope(), ActionSpec(),
+    ObservationSpec("executed_command", "n1"),
 ])
 @pytest.mark.parametrize("mutation", ["extra", "missing", "parameter_extra", "parameter_missing", "version", "identity", "kind"])
 def test_manifests_reject_ambiguous_or_forged_fields(spec, mutation):
@@ -105,11 +126,44 @@ def test_platform_defaults_provenance_and_every_plant_limit_change_identity():
     assert ObservationSpec("policy_action", "n1", fov_deg=180).manifest_sha256 == ObservationSpec("policy_action", "n1", fov_deg=180.0).manifest_sha256
 
 
+def test_effective_command_envelope_separates_forward_experiment_from_reverse_capability():
+    envelope_type = getattr(sea_nav_core, "EffectiveCommandEnvelopeSpec")
+    forward = forward_envelope()
+    reverse_enabled = envelope_type(
+        profile_id="dashgo_reverse_capability_runtime_v1",
+        min_linear_velocity_m_s=-0.15,
+        max_linear_velocity_m_s=0.3,
+        max_abs_yaw_rate_rad_s=1.0,
+        envelope_provenance="declared reverse-capability runtime profile",
+    )
+    assert platform().max_reverse_m_s == 0.15
+    assert forward.min_linear_velocity_m_s == 0.0
+    assert reverse_enabled.min_linear_velocity_m_s == -0.15
+    assert forward.manifest_sha256 != reverse_enabled.manifest_sha256
+    assert type(forward).from_manifest(forward.to_manifest()) == forward
+    with pytest.raises(ValueError):
+        replace(forward, min_linear_velocity_m_s=0.31)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("profile_id", ""), ("profile_id", " profile"),
+    ("min_linear_velocity_m_s", True),
+    ("min_linear_velocity_m_s", float("nan")),
+    ("max_linear_velocity_m_s", 0),
+    ("max_abs_yaw_rate_rad_s", float("inf")),
+    ("envelope_provenance", ""),
+])
+def test_effective_command_envelope_rejects_ambiguous_values(field, value):
+    with pytest.raises(ValueError):
+        replace(forward_envelope(), **{field: value})
+
+
 @pytest.mark.parametrize("field,value", [
     ("sensor_frame", ""), ("sensor_frame", " lidar"),
     ("ray_angles_rad", ()), ("ray_angles_rad", (0.0, float("nan"))),
     ("ray_angles_rad", (True,)), ("max_sensor_age_s", 0),
-    ("max_sensor_age_s", float("inf")), ("range_max_m", -1),
+    ("max_sensor_age_s", float("inf")), ("range_min_m", 0), ("range_max_m", -1),
+    ("range_definition", "anonymous_depth"), ("range_parameter_provenance", ""),
     ("contract_id", "policy_observation_v1"), ("range_units", "normalized"),
     ("angle_units", "deg"), ("age_units", "ms"),
     ("ranges_shape", "[B,246]"), ("angles_shape", "implicit_fov"),
@@ -130,6 +184,52 @@ def test_raw_safety_shape_and_actual_angle_geometry_are_in_identity():
     assert replace(spec, ray_angles_rad=(-1.0, 0.1, 1.0)).manifest_sha256 != spec.manifest_sha256
     restored = RawSafetyObservationSpec.from_manifest(spec.to_manifest())
     assert isinstance(restored.ray_angles_rad, tuple) and restored == spec
+
+
+def test_raw_safety_identity_binds_minimum_range_definition_and_provenance():
+    common = {
+        "sensor_frame": "front_lidar",
+        "ray_angles_rad": (-1.0, 0.0, 1.0),
+        "max_sensor_age_s": 0.1,
+        "range_max_m": 12.0,
+    }
+    real_scan = RawSafetyObservationSpec(
+        **common,
+        range_min_m=0.15,
+        range_definition=ROS_LASERSCAN_RADIAL_RANGE,
+        range_parameter_provenance=DASHGO_REAL_LASERSCAN_RANGE_PROVENANCE,
+    )
+    with pytest.raises(ValueError, match="range_definition"):
+        RawSafetyObservationSpec(
+            **common,
+            range_min_m=0.1,
+            range_definition=ISAACLAB_CAMERA_DISTANCE_TO_IMAGE_PLANE,
+            range_parameter_provenance=DASHGO_SIM_CAMERA_RANGE_PROVENANCE,
+        )
+    simulated_camera = RawSafetyObservationSpec(
+        **common,
+        range_min_m=0.1,
+        range_definition=ISAACLAB_CAMERA_DISTANCE_TO_CAMERA,
+        range_parameter_provenance=(
+            DASHGO_SIM_CAMERA_RANGE_PROVENANCE
+            + ";runtime_override=data_type=distance_to_camera"
+        ),
+    )
+    assert real_scan.manifest_sha256 != simulated_camera.manifest_sha256
+    for field, value in (
+        ("range_min_m", 0.1),
+        ("range_definition", ISAACLAB_CAMERA_DISTANCE_TO_CAMERA),
+        ("range_parameter_provenance", "different-pinned-source"),
+    ):
+        assert replace(real_scan, **{field: value}).manifest_sha256 != real_scan.manifest_sha256
+    for field, value in (
+        ("range_min_m", 0.0),
+        ("range_min_m", 12.0),
+        ("range_definition", "anonymous_depth"),
+        ("range_parameter_provenance", ""),
+    ):
+        with pytest.raises(ValueError):
+            replace(real_scan, **{field: value})
 
 
 @pytest.mark.parametrize("field,value", [
