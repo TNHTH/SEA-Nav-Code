@@ -55,10 +55,12 @@ fast-forward push. At that point the ordinary branch set was exactly:
 The authoritative upstream has a disabled push URL and was not modified.
 
 The later receipt-only commit changes no `packages/sea_nav_core` file. The
-planned annotated acceptance tag is
-`checkpoint/diffdrive-core-d0-accepted-20260908-83041a3`. It remains pending
-until the receipt is committed, the tag is created on that commit, and both
-refs are pushed and read back from the remote.
+annotated acceptance tag
+`checkpoint/diffdrive-core-d0-accepted-20260908-83041a3` was pushed and read
+back from the remote. Its tag object is
+`d2c16df86d722f68576326954a860a410569a74a`; it peels to receipt commit
+`3e62a555c7bf2d567b67e6e713fcec0c4d3c85bd`. The accepted source checkpoint
+remains `83041a34a8efe1f824f0421fe2dc4845930d6900`.
 
 ## Acceptance boundary
 

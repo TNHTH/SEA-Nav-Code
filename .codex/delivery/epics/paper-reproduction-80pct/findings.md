@@ -15,7 +15,7 @@
 | Confirmed facts | remote snapshots are unrelated roots; only `main` is a complete tree; post-sample CBF and PPO smoothness state mutation are real regressions | Git object analysis and CPU/source comparison | confirmed |
 | Candidate hypothesis | the accepted pure-Torch differential-drive core can supply one versioned SEA method adaptation to DashGo while keeping ablations configuration-only | approved design, package contracts, independent reviews | consumer integration and simulator viability remain unverified |
 | Highest validation rung | SEA reproduction at CPU/static Gate A; differential-drive core at D0 source/CPU/artifact acceptance; DashGo at D1 read-only preflight | integrated suites, review receipts, package installation and TorchScript probes | CUDA, Isaac Gym/Lab, ROS 2 runtime, formal metrics, real-time behavior, and hardware remain pending/blocked |
-| Unpublished/unverified work | D0 acceptance tag plus all planned DashGo adapter implementation and runtime evidence | current D0 receipt diff, detached DashGo adapter worktree, and D1 preflight | publish each accepted slice only after tests, committed-tree scan, push, and remote readback |
+| Unpublished/unverified work | all planned DashGo adapter implementation and runtime evidence | detached DashGo adapter worktree and D1 preflight | publish each accepted slice only after tests, committed-tree scan, push, and remote readback |
 
 ## Research Findings
 
