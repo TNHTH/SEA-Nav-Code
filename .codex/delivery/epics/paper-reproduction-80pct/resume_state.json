@@ -1,22 +1,22 @@
 {
   "schema_version": 1,
-  "coord_rev": 10,
+  "coord_rev": 11,
   "repository": "TNHTH/SEA-Nav-Code",
   "branch": "test",
-  "head": "399ce2b08eac40865fd6496d19324f73a3e6cc7e",
-  "head_semantics": "published coordination successor after Tasks 1-6; Task7 and differential-drive work remain detached candidates",
+  "head": "371f354b425bc5037e5832002e68a02896837250",
+  "head_semantics": "published coordination successor after Tasks 1-6; Task7 and differential-drive candidates independently rejected and under fix",
   "phase": "review_integrate_task7_and_diffdrive_then_dashgo_consumer",
-  "next_action": "Finish independent review of Task7 candidate 92ab65d and differential-drive candidate bf409c65. Integrate, verify, scan, push, and read back each accepted checkpoint serially; then move the clean DashGo adapter worktree to DashGo test@10023c2 and implement the registered consumer DAG.",
+  "next_action": "Finish the registered Task7 and differential-drive fix rounds, independently rereview each new commit, then integrate, verify, scan, push and read back each accepted checkpoint serially. After SEA-Nav is frozen, move the DashGo adapter worktree to DashGo test@10023c2 and implement the audited consumer DAG.",
   "active_implementation": {
     "task": 7,
-    "agent": "/root/implement_batch7",
+    "agent": "/root/review_batch7_callers",
     "worktree": "../SEA-Nav-Code-batch7-v2",
     "base": "399ce2b08eac40865fd6496d19324f73a3e6cc7e",
     "head": "92ab65d23590256f3165d8cad6e64698cf11bfe8",
-    "status": "candidate_committed_independent_review_active",
+    "status": "independent_review_failed_fix_round_active",
     "scope_file": "task-7-brief.md",
     "scope_count": 23,
-    "baseline": "writer verification recorded; independent whole review pending"
+    "baseline": "writer 432-pass evidence retained; independent review reproduced three P2 defects and one P3 defect"
   },
   "completed_tasks": [
     1,
@@ -50,7 +50,7 @@
     "repository": "TNHTH/SEA-Nav-Code",
     "base": "399ce2b08eac40865fd6496d19324f73a3e6cc7e",
     "head": "bf409c65ac2d6dc43bfacfd8f99c31cfe5537eb9",
-    "status": "candidate_committed_independent_review_pending"
+    "status": "independent_review_failed_fix_round_registered"
   },
   "dashgo_consumer": {
     "repository": "TNHTH/dashgo-rl-navigation",
@@ -60,7 +60,7 @@
   },
   "acceptance_blocker": {
     "id": "task7_v2_only_independent_review",
-    "status": "pending_new_fixed_revision",
+    "status": "fix_round_active_pending_new_fixed_revision",
     "handoff": "task-7-acceptance-handoff.md",
     "requires": "independent review of the new v2-only fixed revision; old caller review and worker self-review do not substitute"
   },

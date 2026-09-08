@@ -235,3 +235,17 @@ Worker source/log are committed at the exact candidate above. Full ignored/untra
 This appended primary `task-7-report.md` is an authorized **uncommitted coordination change**, not a worker feature-commit path and not a source mutation. Old report evidence is preserved. New independent whole fixed-range review, controller serial integration and frozen-candidate verification remain pending; old caller PASS and this worker's self-checks cannot substitute.
 
 Gym/Lab execution, simulator optimizer continuation, controller interface/provenance, physical replay/reset, accepted `paper_v1`, formal metrics, public redistribution rights and real hardware remain blocked/deferred. Continuation does not restore RNG or exact physical trajectories, and `runtime_ready=False` remains. The separate CBF hotpath P2 is untouched. No integration, push, stable promotion, simulator acceptance or final-project completion is claimed. Source work stops at this fixed boundary pending controller/reviewer direction.
+
+## Independent native-v2 review verdict — 2026-09-08
+
+The independent whole review of `399ce2b08eac40865fd6496d19324f73a3e6cc7e..92ab65d23590256f3165d8cad6e64698cf11bfe8` is **FAIL**, not acceptance. The reviewer changed no file or ref. Its focused CPU selection completed with **173 passed, 4 deselected in 37.58s** after including the established Gate A static import setup; simulator execution remained excluded.
+
+Three reproducible P2 defects require a new fixed revision:
+
+- `OnPolicyRunner.load()` and `apply_model_checkpoint()` mutate model parameters before every later check can succeed. An unexpected model key changes `std` from `0.3` to `123` before strict loading raises; a resume optimizer-group mismatch likewise leaves the model changed. Inference, warm-start, resume and the model-only helper therefore need prevalidation plus all-or-nothing state application.
+- Native-v2 validation accepts Adam states whose moments have the wrong target-parameter shape, whose `amsgrad=True` state lacks `max_exp_avg_sq`, or whose parameter group lacks required fields such as `betas`. Loading succeeds and the next real `learn(1)` fails. Validation must bind group/order/count and conditional state to the target optimizer parameters before mutating anything.
+- A hash-valid checkpoint with the declared/resolved 180-degree configuration can still replace the actor's persistent `cbf_layer.ray_unit_vectors` with a 240-degree buffer. Preflight and apply succeed while the configuration receipt remains unchanged. Config-derived fixed geometry must be compared with the freshly constructed target and rejected before application.
+
+One P3 evidence defect is also assigned: both adapter trainers compute `checkpoint_bytes` from the manifest path (474 bytes in the probe) instead of the manifest-declared payload size (27,002 bytes). They must report the validated payload `byte_size`, or use a separately named manifest-size field.
+
+Benign paths retained positive evidence: same-generation reuse, corrupt-generation refusal without changing the prior manifest, no-dirfd fail-closed before `torch.load`, converter absence, explicit `weights_only=True`, sealed snapshot loading, manifest-last publication, completed-update numbering and existing documentation/parser cases. These successes do not close the four findings above. A single fix writer is active; a fresh independent rereview is mandatory before integration or push.
