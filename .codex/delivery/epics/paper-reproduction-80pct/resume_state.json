@@ -1,23 +1,21 @@
 {
   "schema_version": 1,
-  "coord_rev": 11,
+  "coord_rev": 12,
   "repository": "TNHTH/SEA-Nav-Code",
   "branch": "test",
-  "head": "b94aede1fe3135e0a80eae1ea69021efee37d9fd",
-  "head_semantics": "published coordination successor after Tasks 1-6; Task7 and differential-drive candidates independently rejected and under fix",
+  "head": "406a6ec",
+  "head_semantics": "accepted Task7 functional integration checkpoint; differential-drive candidate remains under fix and review",
   "phase": "review_integrate_task7_and_diffdrive_then_dashgo_consumer",
-  "next_action": "Finish the registered Task7 and differential-drive fix rounds, independently rereview each new commit, then integrate, verify, scan, push and read back each accepted checkpoint serially. After SEA-Nav is frozen, move the DashGo adapter worktree to DashGo test@10023c2 and implement the audited consumer DAG.",
+  "next_action": "Commit, scan, push and read back the accepted Task7 checkpoint; finish and independently rereview the differential-drive fix, then integrate, freeze, verify, scan and publish it. After the SEA core OID is fixed, move the DashGo adapter worktree to the current DashGo test and implement the audited consumer DAG serially.",
   "active_implementation": {
-    "task": 7,
-    "agent": "/root/review_batch7_callers",
-    "worktree": "../SEA-Nav-Code-batch7-v2",
+    "task": "differential_drive_core",
+    "agent": "/root/dashgo_adapter_audit/diffdrive_core_fix",
+    "worktree": "../SEA-Nav-Code-diffdrive-core",
     "base": "399ce2b08eac40865fd6496d19324f73a3e6cc7e",
-    "head": "3b6e97d0004eac6ff3f04be4e7b56acb693db414",
-    "checkpoint_tag": "checkpoint/task7-fix1-unreviewed-20260908-3b6e97d",
-    "status": "fix1_rereview_failed_fix2_active",
-    "scope_file": "task-7-brief.md",
-    "scope_count": 23,
-    "baseline": "writer 432-pass evidence retained; independent review reproduced three P2 defects and one P3 defect"
+    "head": "bf409c65ac2d6dc43bfacfd8f99c31cfe5537eb9",
+    "status": "four_finding_fix_round_active",
+    "scope_file": "diffdrive-core-review.md",
+    "baseline": "writer 155-pass candidate; independent review found four P2 contract and packaging gaps"
   },
   "completed_tasks": [
     1,
@@ -25,7 +23,8 @@
     3,
     4,
     5,
-    6
+    6,
+    7
   ],
   "strict_batch_order": [
     1,
@@ -45,8 +44,8 @@
     ".codex/delivery/epics/paper-reproduction-80pct",
     "docs/superpowers/plans/2026-09-04-sea-nav-reproduction-recovery.md"
   ],
-  "highest_verified_rung": 1,
-  "candidate_oid": null,
+  "highest_verified_rung": 2,
+  "candidate_oid": "406a6ec",
   "differential_drive_candidate": {
     "repository": "TNHTH/SEA-Nav-Code",
     "base": "399ce2b08eac40865fd6496d19324f73a3e6cc7e",
@@ -61,10 +60,10 @@
     "target_runtime": "Isaac Lab v2.0.2 + RSL-RL v3.0.1; ROS2 Humble deployment boundary"
   },
   "acceptance_blocker": {
-    "id": "task7_v2_only_independent_review",
+    "id": "differential_drive_core_review",
     "status": "fix_round_active_pending_new_fixed_revision",
-    "handoff": "task-7-acceptance-handoff.md",
-    "requires": "independent review of the new v2-only fixed revision; old caller review and worker self-review do not substitute"
+    "handoff": "diffdrive-core-review.md",
+    "requires": "independent review and primary integration of the corrected standalone package before DashGo may pin it"
   },
   "final_review_open_inputs": [
     {
@@ -83,11 +82,11 @@
     "public_redistribution_rights"
   ],
   "last_completed_task": {
-    "task": 6,
-    "worker_head": "0efc1934cbefc1a9780baced7846484f29eb776e",
-    "integrated_head": "b5b945513acb4d3e48c401653198442654a387e9",
-    "review": "task-6-rereview-1.md",
-    "primary_tests": "342 passed in 34.53s",
-    "registration_history": "task-6-registration-history.md"
+    "task": 7,
+    "worker_head": "64e270628eb290e27b94167c5b34e538003be03d",
+    "integrated_head": "406a6ec",
+    "review": "controller independent diff review of fix2 after the recorded fix1 rereview",
+    "primary_tests": "529 passed, 2 real-CUDA skips in 55.95s; Gate A 5 passed/4 blocked",
+    "registration_history": "task-7-fix1 and task-7-fix2 ledgers"
   }
 }
