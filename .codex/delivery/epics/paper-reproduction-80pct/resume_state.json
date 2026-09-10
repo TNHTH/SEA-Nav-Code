@@ -1,92 +1,792 @@
 {
-  "schema_version": 1,
-  "coord_rev": 12,
+  "schema_version": 2,
+  "coord_rev": 18,
   "repository": "TNHTH/SEA-Nav-Code",
   "branch": "test",
-  "head": "406a6ec",
-  "head_semantics": "accepted Task7 functional integration checkpoint; differential-drive candidate remains under fix and review",
-  "phase": "review_integrate_task7_and_diffdrive_then_dashgo_consumer",
-  "next_action": "Commit, scan, push and read back the accepted Task7 checkpoint; finish and independently rereview the differential-drive fix, then integrate, freeze, verify, scan and publish it. After the SEA core OID is fixed, move the DashGo adapter worktree to the current DashGo test and implement the audited consumer DAG serially.",
-  "active_implementation": {
-    "task": "differential_drive_core",
-    "agent": "/root/dashgo_adapter_audit/diffdrive_core_fix",
-    "worktree": "../SEA-Nav-Code-diffdrive-core",
-    "base": "399ce2b08eac40865fd6496d19324f73a3e6cc7e",
-    "head": "bf409c65ac2d6dc43bfacfd8f99c31cfe5537eb9",
-    "status": "four_finding_fix_round_active",
-    "scope_file": "diffdrive-core-review.md",
-    "baseline": "writer 155-pass candidate; independent review found four P2 contract and packaging gaps"
+  "observed_pre_g0": {
+    "local_head": "ed4d805c9f9cf5c71bf7957d9875a272ae55ad17",
+    "origin_head": "ed4d805c9f9cf5c71bf7957d9875a272ae55ad17",
+    "ahead_behind": [0, 0],
+    "observed_date": "2026-09-09"
   },
-  "completed_tasks": [
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7
+  "head_semantics": "clean pre-G0 checkpoint; accepted historical CPU work retained, new SEA-only DashGo adaptation not yet implemented",
+  "phase": "G0_lock_sea_dashgo_adaptation_contract",
+  "next_action": "Validate and independently review root AGENTS.md plus the four G0 coordination files, commit and push them, record the remote readback, then begin G1 PPO eligibility.",
+  "scientific_identity": {
+    "algorithm_profile": "sea_nav_paper_method_operational_v1",
+    "source_semantics": "upstream_fbce672c_550d",
+    "platform_profile": "dashgo_d1_primitive_candidate_v1",
+    "runtime_stack": "isaaclab_2_0_2_rsl_rl_1_0_2",
+    "result_classification": "cross_platform_method_adaptation",
+    "validation_identity": "simulation_surrogate_candidate"
+  },
+  "authoritative_source": {
+    "commit": "fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96",
+    "paper_sha256": "600a5040b6579fe63615d87a70f174f3fa0b0d018f74440b6707d23d36dfc2e9"
+  },
+  "observation_contract": {
+    "actor_input_type": "SeaNavActorInput",
+    "policy_obs_shape": ["B", 550],
+    "frame_count": 10,
+    "flatten_order": "oldest_to_newest",
+    "frame_fields": [
+      {"name": "projected_gravity", "dimension": 3},
+      {"name": "previous_executed_command_v_zero_omega", "dimension": 3},
+      {"name": "measured_base_linear_velocity_xyz", "dimension": 3},
+      {"name": "measured_base_angular_velocity_omega_xyz", "dimension": 3},
+      {"name": "log2_clamped_delayed_ranges", "dimension": 41},
+      {"name": "delayed_local_goal_base_xy", "dimension": 2}
+    ],
+    "safety_ranges_m_shape": ["B", 41],
+    "safety_valid_shape": ["B", 41],
+    "safety_valid_dtype": "bool",
+    "safety_age_s_shape": ["B", 1],
+    "valid_no_hit": {"range_m": 3.0, "valid": true},
+    "range_clamp_m": [0.1, 3.0],
+    "raw_safety_isolated_from_normalizer": true,
+    "raw_safety_reconstruction_from_policy_obs_forbidden": true,
+    "fail_closed_conditions": ["any_range_nan_or_inf", "any_valid_range_outside_inclusive_0.1_to_3.0m", "age_nan_or_inf", "age_lt_0", "age_gt_0.18", "all_invalid"],
+    "fail_closed_effects": ["zero_command", "transition_ineligible", "diagnostic"],
+    "partial_invalid_policy": "finite_invalid_rays_are_excluded_from_every_CBF_reduction_and_gradient; at_least_one_valid_ray_is_required",
+    "policy_range_hold_for_invalid_ray": "retain_that_ray_previous_valid_metric_value; when_no_history_use_0.1m_fail_conservative_while_validity_remains_false",
+    "invalid_ray_must_not_be_reclassified_as_valid_no_hit_3m": true,
+    "normal_reset_bootstrap": "clear_delay_queue_install_one_coherent_age_zero_packet_and_atomically_fill_all_ten_history_slots",
+    "replay_reset_bootstrap": "restore_snapshot_history_held_packet_and_delay_queue_without_refilling_history; rebase_packet_timestamps_to_current_simulator_time_preserving_age_and_remaining_arrival_offsets"
+  },
+  "actor_policy_contract": {
+    "network": {
+      "encoder": [550, 512, 256, 128, 16],
+      "actor_input": 71,
+      "actor_backbone": [71, 512, 256, 128],
+      "navigation_head": [128, 128, 2],
+      "alpha_head": [128, 64, 1],
+      "alpha_output": "softplus",
+      "critic": [71, 512, 256, 128, 1],
+      "activation": "ELU",
+      "initial_std": 1.5,
+      "actor_encoder_latent_detached": true,
+      "critic_encoder_latent_detached": false
+    },
+    "distribution": "diagonal_Normal",
+    "tanh_or_jacobian_forbidden": true,
+    "second_post_sample_cbf_forbidden": true,
+    "action_stages": [
+      "nominal_body_twist",
+      "distribution_mean",
+      "policy_action",
+      "clipped_policy_action",
+      "executed_command"
+    ],
+    "ppo_log_prob_action_stage": "policy_action",
+    "api": [
+      "forward_mean(actor_input)",
+      "act(actor_input)",
+      "action_mean_for(actor_input)",
+      "evaluate(policy_obs)",
+      "get_actions_log_prob(policy_action)"
+    ],
+    "action_mean_for_pure_query": {
+      "differentiable": true,
+      "must_not_mutate": ["distribution", "alpha", "u_bar", "u_s", "module_mode", "normalizer_state", "rng"]
+    }
+  },
+  "actor_context_contract": {
+    "ppo_act_signature": "act(obs, critic_obs, actor_context=None)",
+    "ppo_process_env_step_signature": "process_env_step(next_obs,rewards,dones,infos,next_actor_context=None)",
+    "storage_ownership": "detached_cloned_tensor_tree_current_and_next",
+    "row_alignment": "same_permutation_minibatch_filter_and_pair_filter_as_observation",
+    "dashgo_delivery": "explicit_actor_context_keyword_then_construct_SeaNavActorInput",
+    "go2_none_compatibility": "no_legacy_actor_without_keyword_and_allocate_no_context_storage",
+    "dashgo_missing_current_context": "error",
+    "dashgo_nonterminal_pair_missing_next_context": "error",
+    "smoothness_context": {
+      "policy_obs": "linear_with_same_beta",
+      "ranges_m": "geometric_from_raw_current_and_next_with_same_beta",
+      "valid": "logical_and",
+      "age_s": "elementwise_max_current_next",
+      "reconstruct_from_policy_obs": false
+    }
+  },
+  "cbf_contract": {
+    "control_coordinates": ["v", "lookahead_times_omega"],
+    "lookahead_m": 0.2,
+    "footprint_radius_m": 0.203,
+    "safety_margin_m": 0.05,
+    "envelope_radius_m": 0.453,
+    "kappa": 10.0,
+    "epsilon_d": 1.0,
+    "ray_angles_deg": {"start": -120, "stop": 120, "step": 6, "count": 41},
+    "equations": {
+      "h_i": "distance_to_obstacle_from_lookahead_point-envelope_radius",
+      "h": "-log(sum(exp(-kappa*h_i)))/kappa",
+      "eta": "relu(-(Lg_h_dot_q_bar+alpha*h)/(norm(Lg_h)^2+epsilon_d))",
+      "q_s": "q_bar+eta*Lg_h",
+      "u_s": "[q_s_x,q_s_y/lookahead]"
+    },
+    "applies_to": "distribution_mean_only",
+    "hard_safety_claim": false,
+    "preserve_go2_hotpath_max_host_extractions": 1
+  },
+  "execution_projection_contract": {
+    "segment": "previous_executed_command+t*(policy_action-previous_executed_command)",
+    "choose_t": "maximum_t_in_[0,1]_jointly_satisfying_all_constraints",
+    "constraint_order_for_diagnostics": ["body_velocity_envelope", "body_acceleration_envelope", "left_and_right_wheel_limit"],
+    "independent_wheel_clamp_forbidden": true,
+    "body_limits": {"v_mps": [-0.15, 0.3], "omega_radps": [-1.0, 1.0]},
+    "acceleration_limits": {"linear_mps2": 1.0, "angular_radps2": 0.6, "policy_dt_s": 0.02},
+    "wheel_limit_radps": 5.0,
+    "wheel_radius_m": 0.0632,
+    "track_width_m": 0.342,
+    "left_wheel": "(v-omega*track_width/2)/wheel_radius",
+    "right_wheel": "(v+omega*track_width/2)/wheel_radius",
+    "executed_command": "inverse_kinematics_of_actual_joint_targets_or_zero_on_fail_closed"
+  },
+  "ppo_eligibility_contract": {
+    "external_field": "infos.bad_masks",
+    "internal_field": "eligible",
+    "missing_bad_masks": "write_all_eligible_each_step",
+    "ineligible_advantage": 0.0,
+    "ineligible_return": "current_value",
+    "ineligible_truncates_gae": true,
+    "advantage_normalization": "eligible_only_population_variance_zero_safe_one_safe",
+    "filter_before_any_forward": true,
+    "all_bad_minibatch_noop": ["model_parameters", "gradients", "optimizer_state", "learning_rate", "actor_auxiliary_state", "rng"],
+    "eligible_only_components": ["KL", "surrogate", "value", "entropy", "range", "alpha", "intervention"],
+    "smoothness_pair_mask": "eligible_and_not_done",
+    "no_pair_no_rng_draw": true,
+    "metric_denominators": "actual_eligible_samples_or_pairs",
+    "required_counters": ["optimizer_steps", "skipped_all_bad_minibatches", "eligible_samples_seen", "smooth_pairs_seen"]
+  },
+  "loss_ablation_contract": {
+    "Lshield": "0.1*(norm(q_s-q_bar)^2+relu(0.1-alpha)^2)",
+    "Lreg": "1.0*(Lrange+0.05*actor_smooth+0.005*critic_smooth)",
+    "Ltotal": "LPPO+enabled(Lshield)+enabled(Lreg)",
+    "eligible_reduction": {
+      "per_sample_action_reduction": "sum_over_action_dimensions",
+      "batch_reduction": "arithmetic_mean_over_eligible_rows_only",
+      "empty_set": "term_is_skipped_without_forward_or_rng_draw"
+    },
+    "shield_terms": {
+      "intervention_per_sample": "sum((q_s-q_bar)^2,dim=-1)",
+      "alpha_penalty_per_sample": "sum(relu(0.1-alpha)^2,dim=-1)",
+      "reduction": "0.1*mean(intervention_per_sample+alpha_penalty_per_sample over eligible rows)"
+    },
+    "range_term": {
+      "input_action_stage": "distribution_mean",
+      "input_coordinates": ["v", "omega"],
+      "lower_bounds": [-0.15, -1.0],
+      "upper_bounds": [0.3, 1.0],
+      "per_sample": "sum((distribution_mean-clip(distribution_mean,lower_bounds,upper_bounds))^2,dim=-1)",
+      "reduction": "mean_over_eligible_rows"
+    },
+    "smoothness_terms": {
+      "pair_mask": "eligible_and_not_done",
+      "beta": {
+        "distribution": "uniform_half_open[-1,1)",
+        "shape": ["eligible_pair_count", 1],
+        "rng_stream": "smoothness",
+        "one_independent_beta_per_pair": true,
+        "same_beta_for_policy_obs_and_actor_context": true
+      },
+      "interpolated_state": "x_bar=x_current+beta*(x_next-x_current)",
+      "actor_query_inputs": "SeaNavActorInput_current_and_interpolated_SeaNavActorInput_built_with_actor_context_contract",
+      "critic_query_inputs": "current_policy_obs_and_interpolated_policy_obs_only",
+      "actor_per_pair": "mean((action_mean_for(actor_input_current)-action_mean_for(actor_input_bar))^2,dim=-1)",
+      "critic_per_pair": "mean((evaluate(policy_obs_current)-evaluate(policy_obs_bar))^2,dim=-1)",
+      "actor_reduction": "mean_over_eligible_nonterminal_pairs",
+      "critic_reduction": "mean_over_eligible_nonterminal_pairs",
+      "empty_pair_set": "both_smoothness_terms_are_skipped_and_smoothness_rng_is_unchanged"
+    },
+    "profiles": {
+      "full": {"acsi": true, "shield": true, "lreg": true},
+      "without_acsi": {"acsi": false, "shield": true, "lreg": true},
+      "without_shield": {"acsi": true, "shield": false, "lreg": true},
+      "without_lreg": {"acsi": true, "shield": true, "lreg": false}
+    },
+    "without_shield_mean": "u_bar",
+    "without_shield_keeps_platform_projection": true,
+    "canonical_diff_only_named_switch": true
+  },
+  "sensor_timing_contract": {
+    "clock_source": "simulator_time",
+    "physics_hz": 200,
+    "policy_hz": 50,
+    "exteroception_hz": 10,
+    "acquisition_rule": "every_fifth_policy_tick",
+    "packet_fields": ["ranges_m[41]", "local_goal_base[2]"],
+    "packet_timestamp": "single_shared_acquisition_timestamp",
+    "delay_distribution_seconds": {
+      "kind": "uniform_half_open",
+      "low": 0.04,
+      "high": 0.08,
+      "rng_stream": "perception_delay"
+    },
+    "arrival_quantization": "first_policy_tick_at_or_after_acquired_at_plus_delay",
+    "delivery": "sample_and_hold_newest_arrived_packet",
+    "age_definition": "policy_time_minus_acquired_at",
+    "max_age_seconds": 0.18,
+    "normal_reset_bootstrap": "clear_queue_install_coherent_age_zero_packet_and_fill_all_ten_history_frames",
+    "replay_reset_restore": {
+      "restore": ["policy_history_550D", "held_packet", "validity", "delay_queue", "packet_ages", "remaining_arrival_offsets"],
+      "timestamp_rebase": "delta=current_simulator_time-snapshot_simulator_time; add_delta_to_every_acquisition_and_arrival_timestamp",
+      "invariants": ["held_packet_age_preserved", "queued_packet_remaining_delay_preserved", "history_not_refilled", "no_new_delay_draw"],
+      "first_transition_eligibility": "ineligible_exactly_once"
+    }
+  },
+  "reward_contract": {
+    "identity": "paper_table_iii_with_upstream_dt_integration",
+    "classification": "operational_composition_not_paper_exact_or_source_exact",
+    "policy_dt_seconds": 0.02,
+    "apply_weight_times_dt_exactly_once": true,
+    "variables": {
+      "d": "euclidean_norm(current_goal_world_xy-current_root_world_xy)",
+      "theta": "atan2(current_goal_base_y,current_goal_base_x); base_x_is_forward",
+      "phi": "signed_angle_from_base_positive_x_to_the_current_reward_time_raw_metric_ray_selected_by_most_open_ray_tie_break",
+      "most_open_ray_tie_break": "maximum_metric_range_then_minimum_absolute_angle_then_lower_signed_angle",
+      "vx_vy": "measured_root_linear_velocity_rotated_into_base_frame_xy",
+      "omega_xyz": "measured_root_angular_velocity_rotated_into_base_frame_xyz",
+      "delta_p_max": "max_euclidean_distance_from_oldest_position_over_timestamped_2s_base_position_window"
+    },
+    "timers": {
+      "position_history_seconds": 2.0,
+      "position_history_hz": 50,
+      "position_history_samples_including_both_endpoints": 101,
+      "position_history_reference": "p1_is_the_oldest_of_the_101_timestamped_positions",
+      "goal_dwell_seconds": 3.0,
+      "goal_dwell_policy_ticks": 150,
+      "goal_dwell_rule": "consecutive_d_lt_0.5_ticks; reset_to_zero_when_condition_is_false"
+    },
+    "termination_mapping": {
+      "direct_rl_terminated": "goal_success_or_collision_failure",
+      "direct_rl_truncated": "timeout_only",
+      "reward_termination_indicator": "collision_failure_only_including_an_ACSI_selected_collision_transition",
+      "mutually_exclusive_terminal_class_priority": ["collision", "success", "timeout"],
+      "goal_success_receives_termination_cost": false,
+      "timeout_receives_termination_cost": false,
+      "sensor_fail_closed_is_terminal": false,
+      "simulator_integrity_failure": "abort_and_block_run_not_a_training_transition"
+    },
+    "paper_source_operational_disambiguation": {
+      "paper_rterm_wording": "indicator(terminated)",
+      "selected_operational_mapping": "upstream-style collision_or_unsafe_contact termination only; goal success and timeout do not receive rterm",
+      "acsi_collision_transition_terms": ["rterm", "rcoll"],
+      "reward_geometry_source": "current simulator goal_pose_root_state_and_raw_metric_41_ray_measurement; policy observation remains delayed",
+      "all_invalid_ray_reward": "rclear_is_zero_and_transition_is_ineligible",
+      "partial_invalid_ray_reward": "select_phi_from_valid_finite_rays_only"
+    },
+    "terms": {
+      "termination": {"formula": "indicator(collision_failure_termination)", "weight": -100.0},
+      "reach": {"formula": "indicator(d<0.5)/(1+2*d^2)", "weight": 10.0},
+      "velocity": {"formula": "cos(theta)*vx+1/(1+2*d^2)", "weight": 15.0},
+      "clearance": {"formula": "indicator(d>1)*cos(phi)*vx+indicator(d<=1)/(1+2*d^2)", "weight": 15.0},
+      "stuck": {"formula": "indicator(d>1)*indicator(delta_p_max<0.1)*indicator(vx>0)*indicator(abs(omega_z)<1)", "weight": -5.0},
+      "collision": {"formula": "(1+4*(norm([vx,vy])^2+omega_z^2))*sum(beta_k*indicator(norm(f_k)>0.1))", "weight": -4.0},
+      "roll_pitch_angular": {"formula": "norm([omega_x,omega_y])", "weight": -0.05}
+    },
+    "collision_group": {"name": "dashgo_chassis_lidar_structure", "beta": 1.0},
+    "excluded_contacts": ["wheel_floor", "caster_floor"]
+  },
+  "acsi_contract": {
+    "l_goal_type": "per_env_signed_integer",
+    "l_goal_initial": 0,
+    "stored_l_goal_clamped": false,
+    "probability": "0.1+0.4*clip(L_goal,0,1)",
+    "draws_per_new_collision_onset": 1,
+    "draw_uses": "pre_update_l_goal",
+    "draw_order": "after_terminal_state_and_collision_reward_capture_before_reset_partition",
+    "second_terminal_draw": false,
+    "terminal_update": "L_goal+=indicator(d<0.5)-indicator(d>2.0)",
+    "successful_replay_updates_l_goal": false,
+    "normal_reset_updates_once": true,
+    "success_or_timeout_replay_draw": false,
+    "success_or_timeout_l_goal_update_once": true,
+    "inactive_profile_consumes_acsi_rng": false,
+    "replay_snapshot_contains_l_goal": false,
+    "snapshot_schema": [
+      "root_position",
+      "root_quaternion",
+      "root_linear_velocity",
+      "root_angular_velocity",
+      "all_joint_positions",
+      "all_joint_velocities",
+      "goal",
+      "room_identity",
+      "task_generation_identity",
+      "map_hash",
+      "snapshot_simulator_time",
+      "policy_history_550D",
+      "raw_ranges",
+      "held_ranges",
+      "safety_validity",
+      "held_goal",
+      "sensor_acquisition_timestamps",
+      "sensor_arrival_timestamps",
+      "complete_delay_queue",
+      "position_history_2s",
+      "previous_executed_command",
+      "nominal_body_twist",
+      "distribution_mean",
+      "policy_action",
+      "clipped_policy_action",
+      "executed_command",
+      "episode_length",
+      "goal_dwell_timer",
+      "stuck_timer_and_state",
+      "collision_onset_state",
+      "per_env_perception_delay_rng_counter"
+    ],
+    "rollback_ticks_inclusive": [100, 149],
+    "ring_capacity": 180,
+    "transaction": ["select", "reserve", "partition", "restore_physics", "write_simulator", "refresh", "restore_logical_state", "rebase_sensor_timestamps", "validate", "ack"],
+    "replay_history_policy": "restore_snapshot_history_and_queue; do_not_clear_or_single_frame_refill",
+    "sensor_timestamp_rebase": "add_current_simulator_time_minus_snapshot_simulator_time_to_all_acquisition_and_arrival_timestamps",
+    "rl_episode_semantics": "collision_transition_is_done_and_truncates_GAE; successful_replay_resumes_the_saved_simulator_task_as_a_new_PPO_episode_segment_with_parent_lineage",
+    "restored_episode_length_semantics": "restored_environment_clock_enforces_original_task_horizon_while_runner_metrics_start_a_new_segment",
+    "rng_restore_subset": ["perception_delay"],
+    "rng_never_restored": ["policy_sampling", "smoothness", "acsi", "map", "goal", "domain_randomization"],
+    "rng_nonrestore_reason": "trainer_and_curriculum_streams_must_remain_monotonic; task_generation_streams_restore_realized_state_without_rewinding_future_draws",
+    "failure_path": "cancel_then_normal_reset",
+    "collision_transition_kept": true,
+    "first_post_replay_transition_bad": true
+  },
+  "fixture_contract": {
+    "fixture_version": "dashgo_sea_formal_fixture_v1",
+    "generator_id": "sea_room_static_mesh_v1",
+    "room_size_m": [10.0, 10.0],
+    "coarse_grid": {"shape": [20, 20], "cell_m": 0.5},
+    "fine_grid": {"shape": [100, 100], "cell_m": 0.1},
+    "difficulty_levels": {"easy": 3, "medium": 6, "hard": 9},
+    "generator_rule": "level connected clusters of 2_to_3 coarse cells plus 5_times_level singleton placements with overlap merged by max",
+    "fixtures_per_difficulty": 100,
+    "shared_across_profiles_and_training_seeds": true,
+    "master_seed_label": "SEA-Nav|DashGo|formal-eval|v1",
+    "master_seed_label_sha256": "9bde40efea04d77bc1aee29776d70277436157087451001cd46ddcd5af79aa33",
+    "master_seed_uint32_be": 2615034095,
+    "case_rng": {
+      "domain_ascii_with_nul": "SEA_NAV_DASHGO_FIXTURE_V1\u0000",
+      "message_layout": "domain||uint32_be(master_seed)||uint8(difficulty_code)||uint16_be(index)||uint64_be(counter)",
+      "difficulty_codes": {"easy": 1, "medium": 2, "hard": 3},
+      "index_range_inclusive": [0, 99],
+      "counter_initial": 0,
+      "word": "first_8_digest_bytes_as_uint64_be",
+      "continuous_uniform": "a+(b-a)*word/2^64",
+      "integer_uniform": "reject_word_ge_2^64-(2^64_mod_n)_then_word_mod_n",
+      "counter_increment": "once_per_attempt_including_rejections"
+    },
+    "generator_algorithm": {
+      "room_boundary": "occupied_one_cell_border",
+      "cluster_count": "difficulty_level",
+      "cluster_target_cells": "integer_uniform_[2,4)",
+      "cluster_local_shape": [3, 3],
+      "cluster_start_cell": [1, 1],
+      "cluster_existing_cell_order": "insertion_order",
+      "cluster_direction_order": ["up", "down", "left", "right"],
+      "cluster_reject": ["out_of_bounds", "already_occupied"],
+      "cluster_placement_top_left_row_col_inclusive": [1, 16],
+      "singleton_count": "5_times_difficulty_level",
+      "singleton_local_cell": [1, 1],
+      "generation_order": "all_clusters_then_all_singletons_then_start_row_col_then_goal_row_col_then_yaw",
+      "overlap": "binary_max",
+      "scale": "each_coarse_cell_to_5_by_5_fine_cells",
+      "fine_start_goal_row_col_inclusive": [1, 98],
+      "clearance": "all_cells_in_clipped_11_by_11_square_are_free",
+      "distance": "euclidean_cells_strictly_greater_than_35",
+      "line_obstruction": "upstream_Bresenham_dx_gt_dy_tie_rule_start_included_goal_excluded",
+      "connectivity": "start_and_goal_in_same_four_neighbor_free_cell_component",
+      "max_expansion_draws_per_new_cell": 128,
+      "max_start_goal_attempts_per_scene": 65536,
+      "max_scene_attempts": 4096,
+      "failure": "fail_closed"
+    },
+    "rng_golden_vectors": [
+      {"difficulty": "easy", "index": 0, "counter": 0, "sha256": "15fb793e16f7a827755b8adc1a33e36953e629dbfd57e1074b0f33d1b007bcf2", "word": 1583993001531123751},
+      {"difficulty": "easy", "index": 0, "counter": 1, "sha256": "35b1e5f08f98ffba0060cd434e84c0935189ffaef026dfe4a9472fa01eecc0fa", "word": 3869126376252047290},
+      {"difficulty": "hard", "index": 99, "counter": 0, "sha256": "251a8e6e5d4ba8d87f1ff2d351c2ce9d91c4500cf4325b20088b104edc546f15", "word": 2673605933460596952}
+    ],
+    "start_goal_clearance_m": 0.5,
+    "minimum_start_goal_distance_m_exclusive": 3.5,
+    "require_direct_path_obstructed": true,
+    "require_start_goal_connected": true,
+    "require_all_free_cells_connected": false,
+    "initial_yaw_rad": "canonical_integer_microradian_uniform_on[-3.141593,3.141593)",
+    "initial_root_velocity": "zero",
+    "coordinate_contract": {
+      "index_order": "row_col",
+      "row_axis": "positive_world_x",
+      "column_axis": "positive_world_y",
+      "room_metric_origin_m": [-5.0, -5.0],
+      "fine_cell_center_to_xy_m": "x=-5.0+(row+0.5)*0.1; y=-5.0+(col+0.5)*0.1",
+      "yaw_reference": "counterclockwise_about_positive_world_z_from_positive_world_x",
+      "start_goal_storage": "fine_grid_integer_row_col"
+    },
+    "yaw_quantization": {
+      "canonical_unit": "integer_microradians",
+      "minimum_inclusive_urad": -3141593,
+      "maximum_exclusive_urad": 3141593,
+      "sampling": "minimum_inclusive_urad+unbiased_integer_uniform_[0,6283186)",
+      "simulator_value_rad": "yaw_urad/1000000.0",
+      "floating_point_rounding_forbidden": true
+    },
+    "connectivity_contract": {
+      "predicate": "start_and_goal_belong_to_the_same_four_neighbor_free_cell_component",
+      "all_free_cells_must_form_one_component": false,
+      "occupied_threshold": "binary_occupancy_equals_1"
+    },
+    "mesh_height_m": 1.0,
+    "obstacle_prism_footprint": "for_each_occupied_non_wall_fine_cell_closed_xy_bounds_center_plus_or_minus_0.05m_and_z_[0,1]m",
+    "wall_prisms_m": {
+      "west": {"x": [-5.0, -4.5], "y": [-5.0, 5.0], "z": [0.0, 1.0]},
+      "east": {"x": [4.5, 5.0], "y": [-5.0, 5.0], "z": [0.0, 1.0]},
+      "south": {"x": [-5.0, 5.0], "y": [-5.0, -4.5], "z": [0.0, 1.0]},
+      "north": {"x": [-5.0, 5.0], "y": [4.5, 5.0], "z": [0.0, 1.0]}
+    },
+    "floor_slab_m": {"x": [-5.0, 5.0], "y": [-5.0, 5.0], "z": [-0.1, 0.0]},
+    "mesh_union_rule": "union_overlapping_closed_prisms_before_triangulation; wall_corners_not_double_counted",
+    "canonicalization": "RFC8785_JSON_with_integer_micrometers_and_microradians",
+    "canonical_record_order": "difficulty_code_1_2_3_then_fixture_index_0_through_99",
+    "individual_fixture_sha256_rule": "SHA256(RFC8785_bytes(single_fixture_object))",
+    "aggregate_payload_sha256_rule": "SHA256(RFC8785_bytes(array_of_all_300_fixture_objects_in_canonical_record_order))",
+    "aggregate_payload_sha256": null,
+    "individual_fixture_sha256_count_required": 300,
+    "generated_fixture_golden_cases": ["easy_index_0", "medium_index_0", "hard_index_99"],
+    "generated_fixture_golden_sha256": null,
+    "fail_closed_until_payload_hash_committed": true,
+    "fail_closed_until_all_fixture_hashes_and_generated_goldens_committed": true
+  },
+  "checkpoint_selection": {
+    "rule": "final_iteration_2000",
+    "required_completed_ppo_updates": 2000,
+    "must_bind_manifest_hashes": ["code", "resolved_config", "asset", "core", "model"],
+    "forbidden_selection": ["best", "latest", "any_of_last_five", "early_stopped", "evaluation_metric_selected", "replacement_seed"]
+  },
+  "platform_provenance_groups": {
+    "mechanical_fact_candidates": {
+      "status": "candidate_not_calibrated",
+      "dashgo_commit": "98018dd09923495db321a09920dccc09f796f805",
+      "source_hashes": {
+        "configs/robot/dashgo.urdf": "51cb52cc60176405ed24735a4cc648f12fd1924d46f77022ae0e730f4346d892",
+        "drivers/EAI_DRIVER/src/config/my_dashgo_params.yaml": "e1cc89d2220a01e07323c3395b1c675a125c25d4547b9d8f497be07af7cdbd1f",
+        "workspaces/ros2_ws/src/dashgo_rl_ros2/urdf/dashgo_d1_sim.urdf.xacro": "9857b0c4006a8d942ecade413baa2df8b54b6947f5088e5c9ab8f5e925682bb6"
+      },
+      "selected": {
+        "body_radius_m": 0.203,
+        "body_height_m": 0.21,
+        "reported_net_mass_kg": 13.7,
+        "wheel_radius_m": 0.0632,
+        "track_width_m": 0.342,
+        "wheel_width_m": 0.04,
+        "caster_radius_m": 0.03,
+        "caster_x_m": [-0.15, 0.15]
+      }
+    },
+    "driver_interface_candidates": {
+      "status": "provenance_only_out_of_scope",
+      "interfaces": ["cmd_vel", "odom", "base_link", "50Hz_serial_loop", "10Hz_base_controller", "approximately_180_degree_physical_lidar"]
+    },
+    "simulation_operational_assumptions": {
+      "status": "SEA_owned_runtime_contract",
+      "body_velocity_envelope": {"v_mps": [-0.15, 0.3], "omega_radps": [-1.0, 1.0]},
+      "acceleration_envelope": {"linear_mps2": 1.0, "angular_radps2": 0.6},
+      "wheel_limit_radps": {"experiment": 5.0, "asset": 10.0},
+      "dt_seconds": {"physics": 0.005, "policy": 0.02},
+      "ray_count": 41,
+      "ray_fov_deg": [-120.0, 120.0],
+      "ray_range_m": [0.1, 3.0],
+      "cbf_lookahead_m": 0.2,
+      "cbf_safety_margin_m": 0.05,
+      "lidar_pose_xyz_m_yaw_rad": [0.0, 0.0, 0.13, 0.0],
+      "lidar_pose_basis": "selected_simulation_assumption_from_conflicting_source_transforms",
+      "friction_randomization": {"kind": "uniform_half_open", "low": 0.2, "high": 1.25},
+      "velocity_drive": {"stiffness": 0.0, "velocity_limit_sim_radps": 10.0},
+      "actuator_search_order_effort_damping": [[20.0, 2.0], [20.0, 5.0], [20.0, 10.0], [50.0, 2.0], [50.0, 5.0], [50.0, 10.0]],
+      "actuator_selection_rule": "freeze_first_combination_passing_all_G12_kinematic_smokes_before_training",
+      "unverified_until_G4_G12": ["inertia", "center_of_mass", "contact_material", "caster_dynamics"]
+    }
+  },
+  "open_findings": {},
+  "migration_guards": {
+    "cbf_hotpath": {
+      "status": "historical_P2_closed_preservation_required",
+      "owner_batch": "G2",
+      "fix_commit": "7edc7c5ac63cca9dfd0b778d9a47f6baac63ee32",
+      "current_valid_dense_predicate_reductions_per_call": 5,
+      "current_valid_dense_scalar_extractions_per_call": 1,
+      "target_max_scalar_extractions_per_call": 1,
+      "current_discarded_diagnostics": false,
+      "required_compatibility": ["Eq4", "gradients", "invalid_input_errors", "TorchScript_save_load", "Go2_callers"],
+      "fresh_cpu_regression": "50_passed_2026_09_09",
+      "evidence_scope": "CPU_operator_semantics_not_GPU_timing"
+    }
+  },
+  "isaaclab_package_lifecycle_contract": {
+    "package_root": "training/sea_nav_diffdrive_isaaclab",
+    "environment_base": "DirectRLEnv",
+    "forbidden_base_or_runtime_dependency": "sea_nav_current_isaaclab_full_method",
+    "legacy_go2_role": "regression_and_reference_only",
+    "single_static_mesh_members": ["floor", "four_boundary_walls", "all_static_obstacles"],
+    "raycaster_and_collision_share_mesh_identity": true,
+    "step_order": [
+      "receive_current_policy_action",
+      "validate_current_actor_context_and_fail_closed_if_required",
+      "project_current_policy_action_along_segment_from_previous_executed_command",
+      "convert_current_projected_body_command_to_joint_wheel_targets",
+      "apply_current_wheel_targets_for_all_physics_substeps_of_this_policy_tick",
+      "simulate_and_refresh_current_policy_tick",
+      "compute_terminated_and_truncated",
+      "compute_rewards_and_capture_terminal_observation_physics_action_trace_and_metrics",
+      "publish_runner_done_as_or",
+      "select_reserve_and_partition_ACSI_replay_candidates_after_collision_payload_is_captured",
+      "perform_exactly_one_per_row_path_atomic_replay_restore_validate_ack_or_normal_reset",
+      "return_post_reset_observation_with_terminal_payload_in_info"
+    ],
+    "terminal_capture_before_reset": true,
+    "post_reset_cross_episode_smoothness_forbidden": true,
+    "simulator_close": "idempotent_finally_or_context_manager_on_all_success_and_exception_paths"
+  },
+  "runtime_target_contract": {
+    "python": "3.10.x",
+    "torch": "2.5.1",
+    "isaac_sim": "4.5.0",
+    "isaac_lab": "2.0.2",
+    "rsl_rl": "SEA_modified_1.0.2",
+    "rsl_rl_file_constraint": "resolved_path_within_checkout/training/rsl_rl",
+    "forbidden_rsl_rl": ["global_install", "3.x"],
+    "launch_ready_checks": [
+      "python_executable_and_version",
+      "torch_version",
+      "isaac_sim_version",
+      "isaac_lab_version",
+      "rsl_rl_version_and___file__",
+      "SEA_git_commit",
+      "resolved_config_sha256",
+      "asset_manifest_sha256",
+      "fixture_manifest_sha256_when_evaluating",
+      "manifest_schema_and_required_asset_files"
+    ],
+    "launch_ready_semantics": "static_identity_and_hash_readiness_only",
+    "runtime_verified_requirement": "real_construct_reset_step_close_receipt",
+    "forbidden_go2_readiness_requirements": ["locomotion_JIT_actor", "locomotion_JIT_encoder", "locomotion_JIT_state_estimator", "go2.usd"],
+    "missing_gpu_or_isaac": "blocked_not_mocked_pass",
+    "cpu_import_must_not_load": ["isaac", "ROS", "DashGo_Python"]
+  },
+  "runtime_acceptance_ladder": [
+    {"rung": 1, "check": "one_env_construct_reset_step_close"},
+    {"rung": 2, "check": "zero_command_2s", "max_translation_drift_m_exclusive": 0.01, "max_yaw_drift_rad_exclusive": 0.02},
+    {"rung": 3, "check": "forward_reverse_in_place_rotation_arc_and_stop_direction_response_then_freeze_first_actuator_pair"},
+    {"rung": 4, "check": "wheel_and_pose_kinematics", "max_steady_wheel_error_fraction_exclusive": 0.10, "max_2s_pose_error_fraction_exclusive": 0.15},
+    {"rung": 5, "check": "joint_wheel_projection", "wheel_limit_radps": 5.0, "tolerance": 0.000001},
+    {"rung": 6, "check": "shared_mesh_collision_and_exact_41_ray_wall_obstacle_hits"},
+    {"rung": 7, "check": "10Hz_acquisition_40_to_80ms_half_open_delay_50Hz_arrival_hold_and_age"},
+    {"rung": 8, "check": "32_env_forced_collision_replay_row_isolation"},
+    {"rung": 9, "check": "post_replay_first_frame_root_joints_history_rebased_delay_queue_timers_commands_identity_and_exactly_one_ineligible_transition"},
+    {"rung": 10, "check": "minimum_rollout_each_of_four_profiles"},
+    {"rung": 11, "check": "four_iteration_PPO_short_train_finite_loss_gradient_parameters_checkpoint"},
+    {"rung": 12, "check": "resume_continue_training_play_and_exception_close"},
+    {"rung": 13, "check": "eager_torchscript_onnx_save_load_parity", "torchscript_max_abs_diff": 0.00001, "onnxruntime_max_abs_diff": 0.0001}
   ],
-  "strict_batch_order": [
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7
-  ],
-  "task6_scope_extensions": [
-    "tests/test_experiment_config.py: only historical adapter YAML assertions",
-    "sea_nav_current_isaaclab_full_method/adapters/command_delay.py: only alpha-filter recurrence state/output separation; exact requirements in task-6-brief.md"
-  ],
+  "delivery_contract": {
+    "preserve_tag_prefixes": ["archive/", "checkpoint/"],
+    "historical_superseded_tag": "checkpoint/diffdrive-core-d0-accepted-20260908-83041a3",
+    "move_or_rewrite_historical_tag": false,
+    "blocker_receipt_fields": [
+      "failed_command",
+      "environment_identity",
+      "runtime_identity",
+      "local_head_at_failure",
+      "observed_remote_head_before_checkpoint",
+      "highest_verified_rung",
+      "affected_batch",
+      "clean_green_source_sha",
+      "recovery_patch_path",
+      "recovery_patch_sha256",
+      "recovery_patch_inventory",
+      "resume_entrypoint"
+    ],
+    "blocker_recovery_bundle": "commit_and_fast_forward_push_sensitive_scanned_wip.patch_plus_receipt_under_repository_blockers_path; patch_must_apply_check_against_clean_green_source_sha",
+    "final_checkpoint_tag_pattern": "checkpoint/dashgo-sea-sim-v1-<test-short-sha>",
+    "formal_model_count": 12,
+    "release_assets": ["12_formal_models", "complete_evaluation_bundle"],
+    "release_blocked_until_G12": true
+  },
+  "training_contract": {
+    "num_envs": 2048,
+    "rollout_steps": 48,
+    "learning_epochs": 5,
+    "mini_batches": 4,
+    "learning_rate": 0.001,
+    "schedule": "adaptive",
+    "desired_kl": 0.01,
+    "gamma": 0.99,
+    "lambda": 0.95,
+    "max_grad_norm": 1.0,
+    "max_iterations": 2000,
+    "entropy_coefficient": 0.003,
+    "episode_seconds": 60,
+    "training_seeds": [42, 43, 44],
+    "named_rng_streams": [
+      "map",
+      "goal",
+      "domain_randomization",
+      "policy_sampling",
+      "smoothness",
+      "acsi",
+      "perception_delay"
+    ]
+  },
+  "evaluation_contract": {
+    "profiles": [
+      "full",
+      "without_acsi",
+      "without_shield",
+      "without_lreg"
+    ],
+    "difficulties": ["easy", "medium", "hard"],
+    "paired_fixtures_per_difficulty": 100,
+    "fixture_version": "dashgo_sea_formal_fixture_v1",
+    "checkpoint_selection": "final_iteration_2000",
+    "timeout_seconds": 30,
+    "inference": "deterministic_distribution_mean",
+    "acsi_replay": false,
+    "terminal_classes": ["success", "collision", "timeout"],
+    "raw_episode_schema": "jsonl_hash_bound_v1"
+  },
+  "export_contract": {
+    "inputs": {
+      "policy_obs": {"shape": [1, 550], "dtype": "float32"},
+      "raw_ranges": {"shape": [1, 41], "dtype": "float32", "unit": "meter"},
+      "valid": {"shape": [1, 41], "dtype": "bool"},
+      "age": {"shape": [1, 1], "dtype": "float32", "unit": "second"},
+      "previous_executed_command": {"shape": [1, 2], "dtype": "float32", "order": ["v_mps", "omega_radps"]}
+    },
+    "outputs": {
+      "platform_projected_command": {"shape": [1, 2], "dtype": "float32", "order": ["v_mps", "omega_radps"]},
+      "wheel_targets": {"shape": [1, 2], "dtype": "float32", "order": ["left_radps", "right_radps"]},
+      "distribution_mean": {"shape": [1, 2], "dtype": "float32", "order": ["v_mps", "omega_radps"]},
+      "positive_alpha": {"shape": [1, 1], "dtype": "float32"},
+      "diagnostic_status": {"shape": [1], "dtype": "int64", "encoding": "bitmask"}
+    },
+    "diagnostic_bitmask": {
+      "zero": "ok_no_flag",
+      "bit_0_value_1": "any_nonfinite_input_negative_age_or_valid_range_domain_violation_fail_closed",
+      "bit_1_value_2": "stale_age_fail_closed",
+      "bit_2_value_4": "all_rays_invalid_fail_closed",
+      "bit_3_value_8": "partial_invalid_rays_masked_nonfatal",
+      "bit_4_value_16": "body_velocity_projection_active",
+      "bit_5_value_32": "acceleration_projection_active",
+      "bit_6_value_64": "wheel_limit_projection_active",
+      "bit_7_value_128": "internal_numeric_failure_fail_closed"
+    },
+    "fail_closed_outputs": "platform_projected_command_and_wheel_targets_are_exact_zero; distribution_mean_and_positive_alpha_must_remain_finite_or_internal_numeric_failure_is_set",
+    "status_parity": "diagnostic_status_requires_exact_integer_equality_across_eager_TorchScript_and_ONNX",
+    "torchscript_tolerance": 0.00001,
+    "onnxruntime_tolerance": 0.0001
+  },
+  "evidence_protocol": {
+    "embedded_commit_semantics": "A receipt records its already-created parent batch commit and the observed remote SHA.",
+    "receipt_must_not_claim_its_own_sha": true,
+    "receipt_push_readback_is_external_until_the_next_commit": true,
+    "blocker_receipt_schema": "delivery_contract.blocker_receipt_fields"
+  },
+  "git_delivery_contract": {
+    "working_branches": ["main", "stable", "test"],
+    "functional_branch": "test",
+    "advance_main": false,
+    "advance_stable": false,
+    "push_upstream": false,
+    "force_push": false,
+    "origin_fetch_url": "https://github.com/TNHTH/SEA-Nav-Code.git",
+    "origin_push_url": "git@github.com:TNHTH/SEA-Nav-Code.git",
+    "remote_readback": "git ls-remote origin refs/heads/test must_equal_just_pushed_commit"
+  },
   "active_write_owner": "controller",
   "active_owned_paths": [
-    ".codex/delivery/epics/paper-reproduction-80pct",
-    "docs/superpowers/plans/2026-09-04-sea-nav-reproduction-recovery.md"
+    "AGENTS.md",
+    ".codex/delivery/epics/paper-reproduction-80pct/task_plan.md",
+    ".codex/delivery/epics/paper-reproduction-80pct/findings.md",
+    ".codex/delivery/epics/paper-reproduction-80pct/progress.md",
+    ".codex/delivery/epics/paper-reproduction-80pct/resume_state.json"
   ],
-  "highest_verified_rung": 2,
-  "candidate_oid": "406a6ec",
-  "differential_drive_candidate": {
-    "repository": "TNHTH/SEA-Nav-Code",
-    "base": "399ce2b08eac40865fd6496d19324f73a3e6cc7e",
-    "head": "bf409c65ac2d6dc43bfacfd8f99c31cfe5537eb9",
-    "agent": "/root/dashgo_adapter_audit/diffdrive_core_fix",
-    "status": "independent_review_failed_fix_round_registered"
-  },
-  "dashgo_consumer": {
-    "repository": "TNHTH/dashgo-rl-navigation",
-    "primary_head": "10023c294f34dc32a97005103bc30e6aa0f09bf5",
-    "status": "audit_active_no_source_adapter_integrated",
-    "target_runtime": "Isaac Lab v2.0.2 + RSL-RL v3.0.1; ROS2 Humble deployment boundary"
-  },
-  "acceptance_blocker": {
-    "id": "differential_drive_core_review",
-    "status": "fix_round_active_pending_new_fixed_revision",
-    "handoff": "diffdrive-core-review.md",
-    "requires": "independent review and primary integration of the corrected standalone package before DashGo may pin it"
-  },
-  "final_review_open_inputs": [
-    {
-      "id": "cbf_hotpath",
-      "priority": "P2",
-      "report": "cbf-hotpath-review.md",
-      "status": "open; preserve checked input rejection; boundary decision and serial fix/review after Task 7"
-    }
+  "strict_batch_order": [
+    "G0",
+    "G1",
+    "G2",
+    "G3",
+    "G4",
+    "G5",
+    "G6",
+    "G7",
+    "G8",
+    "G9",
+    "G10",
+    "G11",
+    "G12"
   ],
-  "remote_mutated": true,
+  "batch_status": {
+    "G0": "in_progress",
+    "G1": "pending_G0",
+    "G2": "pending_G1",
+    "G3": "pending_G2",
+    "G4": "pending_G3",
+    "G5": "pending_G4",
+    "G6": "pending_G5",
+    "G7": "pending_G6",
+    "G8": "pending_G7",
+    "G9": "pending_G8",
+    "G10": "pending_G9",
+    "G11": "pending_G10",
+    "G12": "blocked_external"
+  },
+  "superseded_routes": [
+    "246D policy observation",
+    "72-ray safety input",
+    "bounded-tanh action distribution",
+    "RSL-RL 3.0.1 runtime",
+    "100k/5M/20M DashGo-consumer training budget",
+    "functional writes into TNHTH/dashgo-rl-navigation",
+    "reuse of DashGo algorithms, trainers, evaluators, or models"
+  ],
+  "historical_completed_work": {
+    "legacy_recovery_batches": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "accepted_diffdrive_d0_commit": "83041a34a8efe1f824f0421fe2dc4845930d6900",
+    "status": "retained_as_historical_evidence_not_the_new_implementation_basis"
+  },
+  "runtime_probe": {
+    "host_python": "3.10.12",
+    "host_torch": "2.6.0+cpu",
+    "cuda_available": false,
+    "isaaclab_available": false,
+    "isaacsim_available": false,
+    "isaacgym_available": false,
+    "highest_current_validation": "cpu_static"
+  },
+  "remote_policy": {
+    "origin_test_tracking": true,
+    "stable_tracking": true,
+    "advance_main": false,
+    "advance_stable": false,
+    "push_upstream": false,
+    "force_push_authorized": false
+  },
   "blocked": [
-    "isaac_gym_preview4_runtime",
-    "isaaclab_runtime",
-    "formal_100_trial_metrics",
+    "target_torch_2_5_1_runtime",
+    "nvidia_gpu_runtime",
+    "isaac_sim_4_5_0_runtime",
+    "isaaclab_2_0_2_runtime",
+    "gpu_smoke_and_short_train",
+    "formal_fixture_payload_individual_hashes_generated_goldens_and_aggregate_hash_until_G4",
+    "actuator_pair_selection_until_G12_motion_smoke",
+    "formal_training_and_100_trial_metrics",
+    "dynamic_obstacle_validation",
+    "ros_and_cmd_vel_integration",
     "real_robot_validation",
-    "public_redistribution_rights"
-  ],
-  "last_completed_task": {
-    "task": 7,
-    "worker_head": "64e270628eb290e27b94167c5b34e538003be03d",
-    "integrated_head": "406a6ec",
-    "review": "controller independent diff review of fix2 after the recorded fix1 rereview",
-    "primary_tests": "529 passed, 2 real-CUDA skips in 55.95s; Gate A 5 passed/4 blocked",
-    "registration_history": "task-7-fix1 and task-7-fix2 ledgers"
-  }
+    "public_release_assets"
+  ]
 }

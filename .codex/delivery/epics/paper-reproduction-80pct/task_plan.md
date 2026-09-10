@@ -1,144 +1,175 @@
-# Task Plan: SEA-Nav reproduction recovery
+# Task Plan: SEA-Nav DashGo differential-drive adaptation
 
 ## Goal
-Complete Batches 1–7 on `test`, verify Rungs 0–2 from a frozen clean commit, publish the authorized three-branch remote state safely, and provide a separately packaged pure-Torch differential-drive SEA adaptation for the DashGo ablation consumer.
 
-## Current Phase
-Phase 7 — implement and publish the DashGo consumer serially; higher SEA simulator/hardware gates remain pending or blocked
+Implement, review, publish, and document a SEA-owned DashGo differential-drive adaptation of the original SEA-Nav method. The result must train, simulate, evaluate, and export inside the pinned Isaac Lab stack while preserving SEA method semantics and keeping every unavailable GPU, simulator, and hardware claim explicitly blocked.
 
-## Acceptance Criteria
-- Local working branches remain exactly `main`, `stable`, and `test`; no temporary named branches are created.
-- Batches land on `test` strictly in order `1→2→3→4→5→6→7`, each with red/green evidence, review, and a focused commit.
-- `test` remains descended from `main@1c5675b` and retains the complete baseline tree.
-- Rungs 0–2 pass from a clean detached checkout of the frozen candidate OID; Isaac Gym and IsaacLab remain explicit `blocked` results when absent.
-- Remote writes use the exact leases recorded in the approved spec, are read back after every mutation, and never push `upstream/11chens-fbce672c`.
-- Every locally accepted checkpoint is committed and pushed to `origin/test` after a committed-tree secret scan; `main` and `stable` remain unchanged without the simulator/deployment evidence required for promotion.
-- DashGo integration keeps `algorithm_profile` and `runtime_stack` independent, preserves the 246-D policy-observation contract, supplies a separate metric `safety` observation group, and records the pinned SEA-Nav core commit in every run/export manifest.
-- Ablations are configuration-only variants of one implementation: `full`, `without_acsi`, `without_shield`, and `without_lreg`; no profile may silently change observation/action geometry, normalization, seeds, episode budgets, or evaluation rules.
+All functional changes land only on `test`. `main` and `stable` remain frozen until separately authorized promotion criteria are met.
 
-## Phases
+## Scientific identity
 
-### Phase 1: Requirements, evidence, and written contract
-- [x] Preserve all three unrelated historical root snapshots with local recovery refs.
-- [x] Rebuild local `test` from complete `main` and retain only the three requested local working branches.
-- [x] Repair and commit the written recovery contract and portable repository guidance.
-- [x] Map Batches 1–7 to concrete files, interfaces, tests, and blocked runtime boundaries.
-- **Status:** complete
+```text
+algorithm_profile      = sea_nav_paper_method_operational_v1
+source_semantics       = upstream_fbce672c_550d
+platform_profile       = dashgo_d1_primitive_candidate_v1
+runtime_stack          = isaaclab_2_0_2_rsl_rl_1_0_2
+result_classification  = cross_platform_method_adaptation
+validation_identity    = simulation_surrogate_candidate
+```
 
-### Phase 2: Executable implementation plan
-- [x] Save `docs/superpowers/plans/2026-09-04-sea-nav-reproduction-recovery.md` with exact TDD steps and commit boundaries.
-- [x] Run spec-coverage, placeholder, and interface-consistency self-review.
-- [x] Commit the implementation plan and this coordination state on `test` (`1259bae`).
-- **Status:** complete
+Authority order:
 
-### Phase 3: Strict serial implementation
-- [x] Batch 1 — portable Gate A and lazy optional `wandb` (`484f682`, reviewed, 31 CPU tests).
-- [x] Batch 2 — parity registry, profiles, typed resolved config, and two-axis identity (`6f5e544`, reviewed, 71 CPU tests).
-- [x] Batch 3 — PPO action/likelihood and auxiliary-state identity (`37f0763`, reviewed, 85 CPU tests).
-- [x] Batch 4 — paper-damped CBF semantics, diagnostics, and golden vectors (`a660d74`, independent spec/quality PASS, 169 CPU tests).
-- [x] Batch 5 — replay ring/reservation/reset partition and CPU policy evidence (`97252ed`, `1ae9187`; scoped review PASS, fresh integrated 212 CPU tests).
-- [x] Batch 6 — scientific runtime consumers, checked startup/evidence, corrected filter and opt-in training trace (`dbc609d`, `b52808d`, `4183d2b`, `b5b9455`; scoped Spec/Quality PASS; fresh integrated342 CPU tests).
-- [x] Batch 7 — checkpoint schema v2, safe loading, and explicit class registries (`a1de6e3`, `caf0f25`, `406a6ec`; integrated 529 passed/2 real-CUDA skips and Gate A five passed/four dependency blockers).
-- **Status:** complete on `test`. The old `2387cf0→c7b9aa3→774027d` chain remains only under an explicitly unaccepted checkpoint tag; `92ab65d→3b6e97d→64e2706` supplied the reviewed v2-only implementation and two corrective rounds.
+1. SEA-Nav paper equations and Tables III–V define the method, rewards, and principal hyperparameters.
+2. Where the paper is silent or internally inconsistent, authoritative source commit `fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96` supplies operational semantics.
+3. Platform changes are limited to differential-drive kinematics, SEA-owned primitive assets, collision groups, sensors, and the execution interface.
+4. Every paper/source/runtime conflict is recorded in the adaptation ledger; no conflict is silently resolved.
 
-### Phase 4: Frozen-candidate verification
-- [ ] Freeze one candidate OID and create a clean detached verification checkout.
-- [ ] Run Rung 0 tree/ref/syntax/asset checks and Rung 1 CPU behavior/security tests.
-- [ ] Run Rung 2 Gate A with reports outside the checkout; verify no dirty output.
-- [ ] Record Isaac Gym, IsaacLab, formal metrics, licensing, and hardware as `blocked`/deferred where prerequisites are absent.
-- [ ] Obtain independent final code review and resolve every P1/P2 finding.
-- **Status:** pending
+## Current phase
 
-### Phase 5: Remote transaction and delivery
-- [x] Fetch and re-check exact remote head leases and authenticated destination identity.
-- [ ] Scan the frozen committed tree for credentials/secrets and record the candidate OID.
-- [x] Push authorized recovery tags; read back exact objects before any branch deletion.
-- [x] Create `stable@1c5675b` as an unqualified bootstrap.
-- [x] Force-update only `origin/test` from exact old `92896ba…` to checkpoint `bf6e4eb…` and read back.
-- [x] Delete only the long historical branch with its full expected-old SHA after recovery refs are remote-visible.
-- [x] Verify remote working branches are exactly `main`, `stable`, and `test` at the published Tasks 1–6 checkpoint.
-- [x] Fast-forward each currently accepted repair slice to `test`; do not advance `stable` without real Isaac smoke/short-train evidence.
-- **Status:** all accepted D0 repair slices are published; `main` and `stable` remain frozen while higher runtime evidence is unavailable
+`G0 — lock the SEA-only DashGo adaptation contract`.
 
-### Phase 6: Differential-drive public core
-- [x] Build a standalone `sea_nav_core` candidate with versioned platform/observation/action contracts and a pure-Torch unicycle-lookahead damped LSE-CBF (`bf409c65`; detached candidate only).
-- [x] Preserve the existing Go2 `ExactLSECBFLayer` behavior and label the new layer `cross_platform_method_adaptation`, never `paper-exact`.
-- [x] Add golden output/gradient/invalid-input/TorchScript tests and an ablation profile resolver for `full`, `without_acsi`, `without_shield`, and `without_lreg`.
-- [x] Publish the accepted package commit to SEA `test`.
-- [ ] Pin that full SEA commit in DashGo and record both repository identities in every run/export manifest.
-- **Status:** D0 accepted and published on `test@83041a34a8efe1f824f0421fe2dc4845930d6900`; higher runtime claims remain excluded
+The previous current goal—246-D observations, bounded-tanh actions, RSL-RL 3.0.1, and a consumer implementation written into the DashGo repository—is superseded and rejected. Those entries remain available in Git history only as historical audit context.
 
-### Phase 7: DashGo differential-drive consumer
-- [ ] Adapt the fixed Isaac Lab v2.0.2 wrapper contract to the pinned RSL-RL v3.0.1 TensorDict API without importing Isaac in CPU tests.
-- [ ] Add pure-query bounded-policy/CBF interfaces, next-observation storage, terminal masks, and normalization that leaves the metric safety group raw.
-- [ ] Add the 72-range/angle/validity/age safety group and replay-aware environment reset transaction, including scan-cache invalidation.
-- [ ] Inject the four named ablation profiles into train/play/export/evaluation, bind manifests to both repository commits, and prohibit replay during formal evaluation.
-- [ ] Repair terminal-state evaluation snapshots and scale the formal matrix to seeds 42/43/44 with 100 episodes per difficulty after the 100k/5M gates.
-- [ ] Keep ROS 2 Humble and real-robot `/cmd_vel` paths unchanged until the simulation/export contract is accepted; then add only offline/launch/config validation with hardware execution explicitly blocked.
-- [ ] Commit, review, test, and push each accepted thin slice on DashGo `test`; do not advance DashGo `main` or `stable` without their own promotion evidence.
-- **Status:** exact implementation mapping under independent read-only audit; no DashGo source adaptation integrated yet
+## Fixed implementation contracts
 
-## Worktree Registration
+- Policy observation is 10 oldest-to-newest frames of 55 values: projected gravity 3, previous executed command `[v,0,omega]` 3, measured linear velocity 3, measured angular velocity 3, delayed `log2(clamp(range,0.1,3.0))` rays 41, and delayed local goal 2. Total: 550-D.
+- CBF inputs are a separate structured actor context containing raw metric ranges `[B,41]`, validity `[B,41]`, and age `[B,1]`; these values never pass through the policy normalizer and are never reconstructed from the 550-D observation.
+- Policy distribution is diagonal Normal with initial std 1.5. PPO stores and scores the same raw sampled `policy_action`; no tanh/Jacobian transform and no second post-sample CBF pass are allowed.
+- Action stages are `nominal_body_twist`, `distribution_mean`, `policy_action`, `clipped_policy_action`, and `executed_command`.
+- Differential-drive CBF uses `q=[v,0.20*omega]`, `kappa=10`, `epsilon_d=1.0`, and an envelope derived from footprint radius, lookahead, and safety margin. It remains a differentiable bias, not a hard-safety guarantee.
+- Table III rewards, Eq. 5/Eq. 8 shield loss, Lreg weights, single-draw ACSI probability, 180-slot replay capacity, and 100–149-tick rollback are frozen as specified in `findings.md`.
+- The only algorithm profiles are `full`, `without_acsi`, `without_shield`, and `without_lreg`; canonical differences may contain only the named component switch.
+- Shared PPO transports a structured tensor-tree context through `act(..., actor_context=None)` and `process_env_step(..., next_actor_context=None)`; legacy Go2 uses the allocation-free `None` route. Storage, minibatching, eligibility, and smoothness keep observation/context rows aligned.
+- DashGo runtime code lives only under the independent `training/sea_nav_diffdrive_isaaclab` package. It cannot inherit the historical Go2 adapter; floor, walls, and obstacles share one static triangle mesh, and DirectRLEnv captures terminal state before reset and closes the simulator on every exit path.
+- G3 launch readiness verifies CPython 3.10, Torch 2.5.1, Isaac Sim 4.5.0, Isaac Lab 2.0.2, repository-local modified RSL-RL 1.0.2 identity, SEA commit, and config/asset hashes. It never depends on Go2 JIT artifacts or `go2.usd` and never upgrades a missing runtime into a pass.
 
-| Worktree | Branch/commit | Owner | Owned paths | Dependencies | Status |
-|---|---|---|---|---|---|
-| `work/SEA-Nav-Code` | `test@83041a34a8efe1f824f0421fe2dc4845930d6900` plus current D0 receipt | controller | D0 receipt/coordination now; later integration remains serial | approved spec and two independent D0 reviews | differential-drive core integrated, tested, scanned, pushed, and read back; receipt tracked here |
-| `work/SEA-Nav-Code-latest-review` | detached `b53d3fe` | read-only source audit | none | none | clean/read-only |
-| `work/SEA-Nav-Code-batch1` | detached `4dec41b` | task1 implementer | Task 1 exact paths | reviewed and integrated as `a58ad21`, `eac2657`, `484f682` | finished, clean and retained; historical worker registration preserved in task-1-registration-history.md |
-| `work/SEA-Nav-Code-batch2` | detached `3359215` | `/root/implement_batch2` | Task 2 exact paths | reviewed and integrated as `ed8e7e7`, `6f5e544` | finished, clean and retained; local registration preserved in task-2-registration-history.md |
-| `work/SEA-Nav-Code-batch3` | detached `9e91c72` | `/root/implement_batch3` | Task 3 exact paths | reviewed and integrated as `37f0763` | finished, porcelain clean and retained; registration preserved in task-3-registration-history.md; ignored verification caches are not final-candidate evidence |
-| `work/SEA-Nav-Code-batch4` | detached `ac0567e` | `/root/implement_batch4` | Task 4 registered paths | reviewed and integrated as `a660d74` | finished, porcelain clean and retained; registration preserved in task-4-registration-history.md |
-| `work/SEA-Nav-Code-batch5` | detached `a7fe32ecbff4aae420dd073a8e2a032d941a0a10` | `/root/implement_batch5` | Task 5 registered replay/reset/ACSI paths | independently reviewed; integrated as `97252ed`, `1ae9187`; primary 212 passed | finished, porcelain clean and retained; registration preserved in task-5-registration-history.md |
-| `work/SEA-Nav-Code-batch6` | detached `0efc1934cbefc1a9780baced7846484f29eb776e` | `/root/implement_batch6` | Task6 registered paths and two narrow extensions | reviewed; four ordered commits integrated through b5b9455; primary342 passed | complete; clean including ignored, registration preserved in task-6-registration-history.md, all commits/worktree retained |
-| `work/SEA-Nav-Code-batch6-review-slice1` | detached `7945a9e6037fee5045cbc12ac59a054ad958b43b` (previous fixed slice `6e097ac`) | `/root/review_batch6_slice1` | no source writes; only primary coordination task-6-slice1-review.md and scoped rereview report | fixed Task 6 clock correction; subsequent Task 6 source remains separate | initial one-P2 review complete; scoped fix re-review, not Task 6 whole integration acceptance |
-| `work/SEA-Nav-Code-batch6-review-full` | detached `844514929726a1cade3303867cc11702b710a04d`; BASE `65dcbbc2b13c92af99a9e7d4cba4110880f9b509` | `/root/review_batch6_full` | only primary coordination task-6-review.md and scoped rereview reports; no source/ref writes | corrected Task 6 brief (29 paths plus two narrow extensions); full fixed diff and final worker report | whole Spec/Quality FAIL, 1 P1 and 4 P2; review tree retained clean; original writer fix round 1/5, no integration |
-| `work/SEA-Nav-Code-batch6-review-fix1` | detached `0efc1934cbefc1a9780baced7846484f29eb776e`; fix BASE `844514929726a1cade3303867cc11702b710a04d` | `/root/review_batch6_full` | only primary task-6-rereview-1.md; no source/ref writes | complete 11-file fix diff and worker postcommit addendum | complete, all5 findings closed; Spec/Quality PASS; clean and retained |
-| `work/SEA-Nav-Code-batch7` | detached `774027d1a975e318ad2f577b457951f51c82bfad`; BASE `562d4ae0b56ca977ea433def6dbd05607284e38b`; fix BASE c7b9aa3 | `/root/implement_batch7` | exact26 inventory; no further writes active; two local registration diffs retained | fixed postcommit433/GateA report read; caller P2 independently closed; full core/converter review incomplete | writer idle, source/log committed and retained, no integration |
-| `work/SEA-Nav-Code-batch7-v2` | detached `64e270628eb290e27b94167c5b34e538003be03d`; BASE candidate `92ab65d`, fix1 `3b6e97d`, project BASE `399ce2b` | `/root/review_batch7_callers` fix2 writer | Task7 application/checkpoint tests and local fix ledgers only; two worker registration diffs retained | fix2 independently read and retested by controller | complete and integrated through `test@406a6ec`; unreviewed fix1 tag retained only as recovery evidence |
-| `work/SEA-Nav-Code-diffdrive-core` | detached `2cd810569008fa923bda088f0f0988292e0c809c`; BASE `399ce2b08eac40865fd6496d19324f73a3e6cc7e` | `/root/dashgo_adapter_audit/diffdrive_core_fix` | only `packages/sea_nav_core/**` and its existing focused tests/docs; retain two local registration diffs outside the functional commit | independent source/CPU PASS in `diffdrive-core-rereview-2.md`; artifact PASS in `diffdrive-core-artifact-review-2.md` | historical accepted candidate retained; integrated and published through SEA `test@83041a3` |
-| `work/dashgo-rl-navigation` | `test@53bd0f0ab0100e295aed1f726c2c3c9f4ffb3b06` | controller | coordination/docs and serial integration only | accepted SEA-Nav differential-drive core commit | clean and synchronized with `origin/test`; D1 preflight published |
-| `work/dashgo-rl-navigation-sea-adapter` | detached `78023cb41984a6af98b9b31b383aed2609beb47e` | future sole DashGo adapter writer | `src/dashgo_rl/sea_nav/**`, focused env/train/eval/export/config/test callers; ROS 2 source excluded initially | current DashGo `test`, accepted integrated SEA-Nav core OID, completed audit mapping | retained for the next thin implementation slice; exact base/status must be rechecked before edits |
-| `work/SEA-Nav-Code-batch7-review-callers-fix1` | detached `774027d1a975e318ad2f577b457951f51c82bfad`; fix BASE `c7b9aa371b8ab3800adea378a7024f043fb58580` | original `/root/review_batch7_callers` | completed primary task-7-callers-rereview-1.md only; no further writes | original terrain P2 ADDRESSED, bounded Spec/Quality PASS; independent119 passed/1 deselected35.89s | complete, retained clean including ignored; not full Task7 acceptance |
-| `work/SEA-Nav-Code-batch7-review-core` | detached `2387cf02d85a1a9a52b0e85da54c7ebad09b0cec`; BASE `562d4ae0b56ca977ea433def6dbd05607284e38b` | `/root/review_batch7_core`; controller owns only bounded functional continuation | controller may write primary task-7-core-functional-review.md and coordination failure record; no source/ref writes | fixed eight-file core snapshot and log; non-adversarial runner/persistence scope only | original reviewer errored at service safety boundary, no report/verdict; full review incomplete, no bypass or second writer |
-| `work/SEA-Nav-Code-batch7-review-callers` | detached `c7b9aa371b8ab3800adea378a7024f043fb58580`; BASE `562d4ae0b56ca977ea433def6dbd05607284e38b` | `/root/review_batch7_callers`; controller read-only ordinary core follow-through | only primary task-7-callers-review.md and controller functional-report addendum; no source/ref writes | fixed caller/README diff and final worker report when available | bounded ordinary caller/documentation review, explicitly excludes converter/security review; original complete core review remains incomplete |
-| Primary read-only CBF hotpath review | source through Task 5 | `/root/cbf_hotpath_review` | only coordination cbf-hotpath-review.md | unchanged CBF source since Task 4 | completed with one open final-review P2; no source mutation |
-| Primary read-only CBF checked-path preparation | fixed source `12e4fff0714f5753e30bf2575e740dc12a32c051`, unchanged at coordination successor `c3db30d` | `/root/cbf_hotpath_review` | only coordination cbf-checked-path-probe.md | prior open CBF P2; Task 6 remains sole source writer | completed bounded in-memory CPU prototype, valid extraction 5→1; no production fix or acceptance |
-| Primary read-only publication preflight | `test` | `/root/publication_preflight` | only coordination publication-preflight.md | no source dependency | read-only remote inspection; no Git/remote mutation |
-| Primary read-only replay performance preparation | `test` | `/root/replay_perf_probe` | only coordination replay-performance-harness.md | no implementation dependency | synthetic CPU instrumentation probe; no production or simulator changes |
-| Primary read-only runtime preflight preparation | `test@5b99f45` | `/root/runtime_preflight_probe` | only coordination runtime-preflight-harness.md | no Task 5 implementation dependency | bounded parser/dependency-boundary CPU test preparation; no source or simulator changes |
-| Primary read-only reward oracle preparation | source through Task 4 | `/root/reward_cpu_oracles` | only coordination reward-cpu-oracles.md | no Task 5 implementation dependency | bounded independent scalar expectations and Torch bool semantics; no source/test/simulator changes |
+## Frozen training, evaluation, and export matrix
 
-Task 4 scope extension: only package-bootstrap root/import-order blocks in the three existing adapter entrypoints (`full_method_runtime_smoke.py`, `train_full_method_ppo.py`, `train_full_method_acsi_replay_ppo.py`) and a focused `tests/test_cbf_import_boundary.py`, to retain a single packaged CBF module identity. No runtime profile/CLI/reset behavior is assigned early. Register this extension in the worker before edits; exact rationale is in task-4-brief.md/sdd-progress.md.
+Formal training is identical across the four profiles except for the named component switch:
 
-## Task 6 exact scope registration
+```text
+num_envs=2048, rollout_steps=48, learning_epochs=5, mini_batches=4
+learning_rate=1e-3, schedule=adaptive, desired_kl=0.01
+gamma=0.99, lambda=0.95, max_grad_norm=1.0
+max_iterations=2000, entropy=0.003, episode=60s
+training_seeds=[42,43,44]
+```
 
-Narrow additional source path: `sea_nav_current_isaaclab_full_method/adapters/command_delay.py`, only alpha state/output separation to match Gym's retained un-clipped filter state; tests/consumer updates stay in already-owned paths. Preserve Task 5 masked reset/mirrors. Exact evidence and constraints in task-6-brief.md. This extends the 29-path inventory by one source file (plus the previously approved narrow historical YAML test migration), not by a parallel implementation batch.
+Map, goal, domain-randomization, policy-sampling, smoothness, ACSI, and perception-delay randomness use separate named generators. Disabling ACSI must not change consumption of any other random stream. The historical 100k/5M/20M schedule is superseded; it is neither a training budget nor an acceptance gate for this adaptation.
 
-Narrow additional test path: only the historical adapter-YAML assertions in `tests/test_experiment_config.py::test_committed_adapter_examples_are_identity_bound_and_not_original_claims`; migrate to real loader/explicit-delta behavior after executable YAML conversion. The adjacent historical manifest assertions and all unrelated integrity tests remain unchanged. Exact rationale in Task 6 brief.
+For every profile and training seed, formal evaluation uses the same precommitted `dashgo_sea_formal_fixture_v1` payload: Easy/Medium/Hard bind upstream generator levels 3/6/9, with 100 shared paired fixtures per difficulty, a fixed label-derived master seed, per-case hash-counter generation, and canonical-content SHA-256. Start/goal clearance, separation, blocked line-of-sight, free-space connectivity, yaw, zero initial velocity, and static-mesh construction are frozen in `findings.md`. Evaluation uses deterministic `distribution_mean`, a 30 s timeout, and ACSI replay disabled. Success, collision, and timeout are mutually exclusive. Only the manifest-bound checkpoint after exactly 2000 completed PPO iterations is eligible; no best/latest/early/evaluation-selected substitution is allowed. Raw per-episode JSONL and aggregate metrics bind code, config, fixture/map, model, and asset hashes.
 
-Task6 historical scope is recorded in task-6-brief.md and preserved worker registration history. Final worker0efc193 independently accepted and integrated through primaryb5b9455; fresh342 tests and GateA verified. All five whole-review findings closed; physics/runtime and accepted-paper boundaries remain blocked. Worker source/log retained and two exact registration files restored after lossless diff preservation; no broader cleanup.
+The export ABI accepts `policy_obs[1,550]`, `raw_ranges[1,41]`, `valid[1,41]`, `age[1,1]`, and `previous_executed_command[1,2]`. It returns `platform_projected_command[1,2]`, `wheel_targets[1,2]`, `distribution_mean[1,2]`, `positive_alpha[1,1]`, and diagnostic status. TorchScript and ONNX parity remain runtime evidence, not a CPU mock claim.
 
-## Task 7 exact scope registration
+## Strict serial delivery DAG
 
-Owner `/root/implement_batch7`; detached BASE will be the coordination-only successor of b5b9455. The explicit26-path inventory in task-7-brief.md covers checkpoint core/registry/runner, every Gym/adapter/initializer manifest caller, isolated operator tool, focused tests and the three existing README usage sections. Preserve Task6 actual shape/reset/trace/seed/runtime boundaries; no CBF/PPO/replay-core or deferred evaluator/CI/deployment ownership. Only worker task-7-log may be committed from its local coordination changes; registration remains uncommitted and primary task-7-report is its sole primary write exception. Must verify clean fresh342 baseline before editing; original checkpoint-contract-audit and real runner/sandbox capability reports are preparation, not Task7 acceptance.
+| Batch | Scope | Commit title | Status |
+|---|---|---|---|
+| G0 | Correct root guidance, plan, findings, progress, and resume state; freeze the SEA-only contract | `docs: lock SEA DashGo adaptation contract` | in progress |
+| G1 | PPO eligibility, actor-context storage ABI, masked GAE/losses, all-bad no-op, pure-query mean | `fix(ppo): enforce transition eligibility` | pending G0 |
+| G2 | `sea_nav_core` 0.4.0; 550-D/Normal/raw-ray contracts; reject obsolete public ABI; preserve the closed CBF hot-path invariant | `feat(core): add SEA 550D differential-drive contracts` | pending G1 |
+| G3 | Exact runtime/package/hash lock, static launch readiness, local-RSL identity, and honest blocked receipts | `fix(runtime): add evidence-driven IsaacLab preflight` | pending G2 |
+| G4 | SEA-owned DashGo primitive, provenance manifest, static room mesh, explicit 41-ray pattern | `feat(isaaclab): add DashGo primitive platform` | pending G3 |
+| G5 | DirectRLEnv pre-reset terminal capture, done/reset/close lifecycle, wheel execution, joint projection, action trace | `feat(isaaclab): add differential-drive execution` | pending G4 |
+| G6 | 55x10 observation history, actor context, timestamped perception delay, wrapper | `feat(isaaclab): add SEA observation pipeline` | pending G5 |
+| G7 | 2-D actor, unicycle CBF, Table III reward and termination semantics | `feat(training): add DashGo SEA policy and rewards` | pending G6 |
+| G8 | ACSI ring plus reserve/ack/cancel and atomic replay/reset | `feat(acsi): add atomic collision-state replay` | pending G7 |
+| G9 | Four ablations, named RNG streams, runner, resume, train/play CLI, and the CPU-testable long-run supervisor contract | `feat(training): add DashGo ablation workflow` | pending G8 |
+| G10 | Formal evaluator, episode schema, TorchScript/ONNX export | `feat(eval): add formal evaluation and export` | pending G9 |
+| G11 | Clean-checkout whole-tree review, documentation, reproducible commands | `docs: prepare DashGo simulation validation` | pending G10 |
+| G12 | Supervised real GPU smoke, short train, formal runs, runtime receipts, release assets and model manifest | `results: publish DashGo SEA simulation receipts` | externally blocked |
 
-## Decisions Made
+G1 through G11 remain strictly serial because PPO, actor, runner, reset, configuration, and evidence paths overlap. Detached worktrees may run only read-only review or independent tests of a frozen candidate. A reviewed CPU/static-green G1-G11 batch may be committed and pushed on this host even when its IsaacLab smoke is unavailable; this publishes implementation evidence only. `runtime_verified`, simulator acceptance, training results, and result promotion remain exclusively gated by the ordered real-stack checks in G12.
 
-| Decision | Rationale |
-|---|---|
-| Use `TNHTH <174231229+TNHTH@users.noreply.github.com>` at repository scope | Matches historical GitHub attribution selected for the two existing recovery commits. |
-| Keep `main` and `stable` unchanged this round | The user required repairs on `test`; simulator/deployment promotion gates are unavailable. |
-| Treat the latest sparse commit as a semantic import source only | It omits 53 complete-tree paths and has unrelated history. |
-| Serialize all seven implementation batches | PPO/CBF/runner and replay/runtime/checkpoint files overlap; path ownership cannot make stale-parent commits safe. |
-| Run CPU-only imports for `rsl_rl`; inspect `legged_gym` statically | `legged_gym` imports proprietary `isaacgym` at module load in this environment. |
-| Bind any force-push to a frozen candidate OID and explicit expected-old remote SHA | Prevents both local-moving-ref and remote-race ambiguity. |
-| Remove the arbitrary legacy checkpoint converter from the accepted Task 7 contract | The user selected native v2 checkpoints plus explicit old-format rejection; executable legacy pickle conversion is not required for reproduction. |
-| Package DashGo support outside vendored `rsl_rl` | Avoids a package-name/version collision with DashGo's RSL-RL 3.0.1 while keeping the algorithm dependency one-way. |
-| Use paper-v1 scientific losses with a named differential-drive adaptation | The user selected paper-v1 as the formal ablation basis; the kinematic change must remain explicit and cannot be relabeled as original Go2 reproduction. |
+### Long-run supervisor contract
 
-## Errors Encountered
+G9 owns a runtime-neutral supervisor and its CPU/static tests. Each run has an immutable run ID and an atomically owned PID file; a fresh heartbeat; append-only event JSONL; explicit `starting/running/succeeded/failed/interrupted` status; stdout/stderr logs; a checkpoint manifest bound to code, config, asset, model, and fixture hashes as applicable; and periodic CPU, RAM, GPU-memory, and GPU-utilization samples with unavailable fields recorded as null rather than invented. Signal, cancellation, and exception handlers must close the simulator and child workers, record the terminal event/status, preserve the last valid checkpoint, and leave no live orphan process.
 
-| Error | Resolution |
-|---|---|
-| HTTPS origin previously lacked usable interactive credentials | Preserve remote state; later use an explicitly verified SSH destination only within the approved transaction. |
-| System Torch import has a NumPy ABI conflict | Use a task-scoped isolated dependency path for CPU verification and record the exact environment; do not modify system packages. |
+G12 must launch every real smoke, short-train, formal-training, and evaluation job through that supervisor. Its receipts must verify PID identity, heartbeat freshness, event/status/log consistency, resource-sample continuity, checkpoint/resume lineage, simulator closure, and zero surviving child processes after normal completion and injected failure. CPU/static tests in G9 validate schemas, state transitions, atomic ownership, stale-PID rejection, and cleanup hooks; they are not long-training or IsaacLab evidence.
+
+## Per-batch publication gate
+
+Every batch follows this transaction:
+
+1. Fetch `origin`; require local `test`, `origin/test`, and the recorded expected SHA to match.
+2. Re-read these coordination files and register exact `owned_paths`.
+3. Implement the smallest green slice and run focused plus inherited CPU/static tests.
+4. Obtain independent detached/read-only review; close all P1/P2 findings.
+5. Run `git diff --check`, exact staged inventory review, and a staged-content sensitive-information scan that emits filenames only.
+6. Commit as `TNHTH <174231229+TNHTH@users.noreply.github.com>`.
+7. Require the repository-local `remote.origin.pushurl` to equal the already verified SSH destination `git@github.com:TNHTH/SEA-Nav-Code.git`, while the canonical fetch/readback URL remains `https://github.com/TNHTH/SEA-Nav-Code.git`. Fast-forward push only `test:refs/heads/test` through `origin`; never push `upstream` and never use ordinary `--force`.
+8. Read back `refs/heads/test` from the canonical origin with `git ls-remote origin refs/heads/test` and require the exact commit before recording success. A transport/authentication failure changes no ref and is reported honestly; credentials are never written into repository files.
+9. Commit and push the resulting receipt immediately when evidence files change; do not accumulate receipts until final delivery. The receipt records the batch commit and the remote readback that it proves, never its own not-yet-created SHA.
+
+If the remote advances concurrently, stop and inspect. A force-with-lease is outside this DAG unless a new exact-old-SHA authorization is obtained.
+
+If an external blocker occurs, do not publish broken source as live source files. First create a recovery bundle under `.codex/delivery/epics/paper-reproduction-80pct/blockers/<batch>-<utc-timestamp>/` containing a sensitive-information-scanned `wip.patch` and blocker receipt. The patch must be generated against `clean_green_source_sha`, cover every intended tracked and newly created owned path, and pass `git apply --check` in a clean detached checkout of that base. Restore only the registered owned paths to the green content with exact-path, non-destructive edits; never use a broad reset or checkout and never disturb unrelated work. Then commit and fast-forward push the recovery bundle itself. The remote checkpoint therefore contains the patch bytes, not merely a local pathname. Every blocker receipt records the exact failed command, environment/runtime identity, local and observed remote SHA, highest verified rung, affected batch, clean-green source SHA, recovery patch repository path/hash, patch inventory, and exact resume/apply command. Read back the checkpoint commit exactly like every other batch; never describe an unpushed local patch as recoverable remote evidence.
+
+All existing `archive/*` and `checkpoint/*` tags are retained. In particular, `checkpoint/diffdrive-core-d0-accepted-20260908-83041a3` is historical/superseded for this 550-D implementation and is never moved or relabeled. The two already verified missing `/tmp` worktree metadata entries may be pruned separately only as metadata; no other detached worktree or ref is removed.
+
+After G12 evidence exists, create immutable `checkpoint/dashgo-sea-sim-v1-<test-short-sha>`. The `test` branch carries source, compact receipts, aggregate results, and a SHA-256 manifest. Exactly 12 formal models (four profiles times three seeds), their checkpoints, and the complete raw evaluation package are GitHub Release assets bound to that tag; no large model is silently committed to Git and no release is created before all hash, runtime, and license gates pass.
+
+## Acceptance criteria
+
+### CPU/static acceptance
+
+- Obsolete 246-D, 72-ray, bounded-tanh, RSL-RL 3.x, and DashGo-code dependency manifests fail closed.
+- 550-D field order, history movement, normal reset bootstrap, and replay bootstrap have golden tests.
+- Raw safety data is isolated from normalized policy observations.
+- The explicit 41-ray pattern covers -120 through +120 degrees at 6-degree intervals and includes 0 degrees.
+- CBF values, gradients, invalid/stale inputs, wheel kinematics, and joint command projection are covered. The valid dense ordinary CBF path uses at most one host scalar extraction, builds no discarded diagnostics, and keeps Go2/TorchScript callers compatible.
+- Normal sampling/log-prob identity and `action_mean_for()` state/RNG purity are covered.
+- Mixed/all-bad eligibility, GAE truncation, every loss/KL filter, and actual metric denominators are covered.
+- ACSI row isolation and reserve/ack/cancel failure recovery are covered.
+- Four-profile canonical diffs contain only the intended switch.
+- Identity/hash tampering fails closed and CPU imports do not load Isaac, ROS, or DashGo Python packages.
+- Existing Go2 CPU/Gate A behavior remains compatible.
+
+### Runtime acceptance
+
+- `launch_ready` means only version, asset, and manifest static readiness.
+- `runtime_verified` is created only by a real Isaac Lab `construct/reset/step/close` execution.
+- Missing NVIDIA GPU, Isaac Sim, or Isaac Lab returns `blocked`, never a mocked pass.
+- G12 must execute the approved motion, RayCaster, perception timing, multi-env replay, four-profile rollout, short-train, resume, cleanup, and export comparison ladder before any simulation result is promoted.
+
+G12 is an ordered fail-closed ladder; a later rung cannot compensate for an earlier failure:
+
+| Rung | Real target-stack evidence required |
+|---:|---|
+| 1 | One environment completes `construct/reset/step/close`. |
+| 2 | Two seconds at zero command: translation drift `<0.01 m`, yaw drift `<0.02 rad`. |
+| 3 | Forward, reverse, in-place rotation, arc, and stop commands all move in the commanded direction and stop. The actuator search order is `(effort,damping)=(20,2),(20,5),(20,10),(50,2),(50,5),(50,10)`; freeze the first full pass. |
+| 4 | Steady wheel-speed error `<10%`; each two-second kinematic pose error `<15%`. |
+| 5 | Joint projection respects both `5 rad/s` experiment wheel limits with tolerance `1e-6` for every step. |
+| 6 | The shared static mesh produces collision and exactly 41 RayCaster hits/valid no-hits over the explicit angles, including walls and every obstacle class. |
+| 7 | Receipts show 10 Hz acquisition, sampled delays in `[0.04,0.08) s`, 50 Hz quantized arrival/hold, and age never mislabeled. |
+| 8 | Thirty-two environments undergo forced collision/replay without cross-row ring, RNG, reservation, or state contamination. |
+| 9 | First frame after replay matches restored root, joints, history, delay queue, timers, and command/action state; the transition is ineligible exactly once. |
+| 10 | Each of the four profiles executes its minimum rollout with only the named component difference. |
+| 11 | Four PPO iterations produce finite losses/gradients/parameters and a valid checkpoint. |
+| 12 | Resume continues training; play works; every injected exception closes the simulator; terminal no cross-episode smoothness pair is used. |
+| 13 | Eager versus TorchScript save-load maximum error is `<=1e-5`; ONNX Runtime maximum error is `<=1e-4`. |
+
+Any wheel direction, joint identity, reset, RayCaster mesh, contact, finite-value, or resource-close failure blocks training; reward tuning cannot waive a rung.
+
+### Claim boundary
+
+Allowed after complete evidence: SEA algorithm adapted to DashGo differential-drive kinematics, trainable and executable in the pinned Isaac Lab primitive surrogate, with reproducible four-way ablation artifacts.
+
+Never implied by this work: a DashGo digital twin, real-robot deployment, compatibility with the current approximately 180-degree physical LiDAR, dynamic-obstacle acceptance, ROS 2 control, or absolute zero-collision safety.
+
+## Worktree registration
+
+| Worktree | Ref | Owner | Owned paths | Status |
+|---|---|---|---|---|
+| `work/SEA-Nav-Code` | `test@ed4d805c9f9cf5c71bf7957d9875a272ae55ad17` | controller | `AGENTS.md`; `.codex/delivery/epics/paper-reproduction-80pct/{task_plan.md,findings.md,progress.md,resume_state.json}` | G0 writer |
+| historical SEA worktrees | detached historical commits | none | none | retained read-only; not evidence for the new implementation |
+| two missing `/tmp` worktrees | detached metadata only | none | none | confirmed prunable; cleanup is separate from functional work |
+| `work/dashgo-rl-navigation` | independent user repository | none | none | hardware-fact source only; no write authorization in this plan |
+
+## Current blockers and next action
+
+- This host has no NVIDIA GPU, Isaac Sim 4.5.0, or Isaac Lab 2.0.2. G12 and every real simulator claim remain `blocked`.
+- Dynamic obstacles are excluded because the pinned RayCaster supports one static mesh.
+- ROS, physical LiDAR adaptation, `cmd_vel`, and real hardware are out of scope for this implementation.
+- Next action after G0 publication: register G1 PPO/storage/test paths, reproduce the eligibility failures, and implement the reviewed fix before any 550-D/core or Isaac package work.
