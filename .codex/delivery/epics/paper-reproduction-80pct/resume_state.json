@@ -9,6 +9,13 @@
     "ahead_behind": [0, 0],
     "observed_date": "2026-09-09"
   },
+  "published_g0": {
+    "contract_commit": "b5c855dcc5a2d953980579257aafa84a1e7517eb",
+    "receipt_commit": "045050ea22bebaaace30f18676b0f6b746f212e6",
+    "remote_test_readback": "045050ea22bebaaace30f18676b0f6b746f212e6",
+    "transport": "origin SSH push URL",
+    "main_stable_unchanged": true
+  },
   "head_semantics": "G0 contract published and remotely verified at b5c855d; accepted historical CPU work retained, new SEA-only DashGo adaptation not yet implemented",
   "phase": "G1_ppo_eligibility",
   "next_action": "Register G1 owned paths at the published G0 head, add RED eligibility/GAE/context tests, then implement and independently review the serial PPO fix before pushing.",

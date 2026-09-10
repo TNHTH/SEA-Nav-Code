@@ -5,6 +5,7 @@
 ### G0 contract correction in progress
 
 - G0 contract commit `b5c855dcc5a2d953980579257aafa84a1e7517eb` was created with the approved TNHTH identity, pushed fast-forward through the repository-local SSH `origin` push URL, and verified by `git ls-remote origin refs/heads/test` to the exact same SHA on 2026-09-10. `main` and `stable` remain unchanged. This is the completed G0 batch receipt; no simulator or training claim is attached.
+- The immediate coordination receipt `045050ea22bebaaace30f18676b0f6b746f212e6` records the already-created G0 publication and its exact remote readback; it was pushed fast-forward and read back at the same SHA. It does not claim a self-referential commit ID.
 
 - Resumed from clean `test@ed4d805c9f9cf5c71bf7957d9875a272ae55ad17`; fetched `origin` and verified exact equality with `origin/test` (ahead/behind `0/0`). Local and remote working branches are exactly `main`, `stable`, and `test`.
 - Configured local tracking for `test -> origin/test` and `stable -> origin/stable`. Repository commit identity is `TNHTH <174231229+TNHTH@users.noreply.github.com>`; upstream push remains disabled.

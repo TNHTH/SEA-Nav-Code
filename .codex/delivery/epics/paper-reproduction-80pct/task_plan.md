@@ -162,7 +162,7 @@ Never implied by this work: a DashGo digital twin, real-robot deployment, compat
 
 | Worktree | Ref | Owner | Owned paths | Status |
 |---|---|---|---|---|
-| `work/SEA-Nav-Code` | `test@b5c855dcc5a2d953980579257aafa84a1e7517eb` | controller | G0 receipt/state; G1 registration and serial integration | G0 complete; G1 registration |
+| `work/SEA-Nav-Code` | `test@045050ea22bebaaace30f18676b0f6b746f212e6` | controller | G0 receipt/state; G1 registration and serial integration | G0 complete; G1 registration |
 | historical SEA worktrees | detached historical commits | none | none | retained read-only; not evidence for the new implementation |
 | two missing `/tmp` worktrees | detached metadata only | none | none | confirmed prunable; cleanup is separate from functional work |
 | `work/dashgo-rl-navigation` | independent user repository | none | none | hardware-fact source only; no write authorization in this plan |
