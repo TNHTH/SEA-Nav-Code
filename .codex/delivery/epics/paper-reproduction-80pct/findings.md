@@ -12,7 +12,7 @@
 
 | Field | Current value | Evidence | Status / limits |
 |---|---|---|---|
-| Repository / branch | `TNHTH/SEA-Nav-Code`, `test@ed4d805c9f9cf5c71bf7957d9875a272ae55ad17` | live Git preflight and fetched `origin/test` on 2026-09-09 | local and remote are equal before G0 |
+| Repository / branch | `TNHTH/SEA-Nav-Code`, `test@b5c855dcc5a2d953980579257aafa84a1e7517eb` | live Git preflight, SSH push, and canonical `git ls-remote` readback on 2026-09-10 | G0 contract commit is remotely verified; G1 is not yet implemented |
 | Working branches | local/remote `main`, `stable`, `test` | live branch inventory | `main/stable@1c5675b` remain frozen |
 | Algorithm identity | `sea_nav_paper_method_operational_v1` | approved contract | cross-platform method adaptation, not paper-exact |
 | Source semantics | `upstream_fbce672c_550d` | local authoritative object `fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96` | source-derived operational behavior |
@@ -22,7 +22,7 @@
 | Scientific source | SEA-Nav arXiv PDF SHA-256 `600a5040b6579fe63615d87a70f174f3fa0b0d018f74440b6707d23d36dfc2e9` | live `sha256sum` | immutable local reference |
 | Host machine | Python 3.10.12, Torch 2.6.0+cpu; CUDA false; Isaac Lab/Sim/Gym absent | live import-spec and Torch probe | CPU/static development only; target Torch 2.5.1 is not installed here |
 | Existing regression evidence | 298 related CPU tests reported at the clean handoff | prior accepted handoff | must be freshly rerun before G1 code |
-| Active unpublished work | G0 edits to root `AGENTS.md` plus four coordination files | live working tree | no source modification yet |
+| Active unpublished work | G1 registration and implementation preparation | live coordination state | functional source remains unchanged until the registered G1 writer starts |
 | DashGo source boundary | read-only repository `98018dd09923495db321a09920dccc09f796f805` with one pre-existing dirty entry | live read-only Git probe | do not modify or reset |
 | Highest possible local rung | CPU/static and packaged runtime preflight | missing GPU/Isaac packages | real simulator gates remain blocked |
 

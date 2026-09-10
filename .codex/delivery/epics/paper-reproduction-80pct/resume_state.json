@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "coord_rev": 18,
+  "coord_rev": 19,
   "repository": "TNHTH/SEA-Nav-Code",
   "branch": "test",
   "observed_pre_g0": {
@@ -9,9 +9,9 @@
     "ahead_behind": [0, 0],
     "observed_date": "2026-09-09"
   },
-  "head_semantics": "clean pre-G0 checkpoint; accepted historical CPU work retained, new SEA-only DashGo adaptation not yet implemented",
-  "phase": "G0_lock_sea_dashgo_adaptation_contract",
-  "next_action": "Validate and independently review root AGENTS.md plus the four G0 coordination files, commit and push them, record the remote readback, then begin G1 PPO eligibility.",
+  "head_semantics": "G0 contract published and remotely verified at b5c855d; accepted historical CPU work retained, new SEA-only DashGo adaptation not yet implemented",
+  "phase": "G1_ppo_eligibility",
+  "next_action": "Register G1 owned paths at the published G0 head, add RED eligibility/GAE/context tests, then implement and independently review the serial PPO fix before pushing.",
   "scientific_identity": {
     "algorithm_profile": "sea_nav_paper_method_operational_v1",
     "source_semantics": "upstream_fbce672c_550d",
@@ -722,8 +722,8 @@
     "G12"
   ],
   "batch_status": {
-    "G0": "in_progress",
-    "G1": "pending_G0",
+    "G0": "complete_published_b5c855dcc5a2d953980579257aafa84a1e7517eb_remote_verified",
+    "G1": "registered_pending_implementation",
     "G2": "pending_G1",
     "G3": "pending_G2",
     "G4": "pending_G3",

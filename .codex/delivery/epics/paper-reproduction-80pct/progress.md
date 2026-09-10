@@ -4,6 +4,8 @@
 
 ### G0 contract correction in progress
 
+- G0 contract commit `b5c855dcc5a2d953980579257aafa84a1e7517eb` was created with the approved TNHTH identity, pushed fast-forward through the repository-local SSH `origin` push URL, and verified by `git ls-remote origin refs/heads/test` to the exact same SHA on 2026-09-10. `main` and `stable` remain unchanged. This is the completed G0 batch receipt; no simulator or training claim is attached.
+
 - Resumed from clean `test@ed4d805c9f9cf5c71bf7957d9875a272ae55ad17`; fetched `origin` and verified exact equality with `origin/test` (ahead/behind `0/0`). Local and remote working branches are exactly `main`, `stable`, and `test`.
 - Configured local tracking for `test -> origin/test` and `stable -> origin/stable`. Repository commit identity is `TNHTH <174231229+TNHTH@users.noreply.github.com>`; upstream push remains disabled.
 - Verified the SEA paper SHA-256 as `600a5040b6579fe63615d87a70f174f3fa0b0d018f74440b6707d23d36dfc2e9` and the local authoritative source object `fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96`.
@@ -25,10 +27,7 @@
 
 ### G0 validation still required
 
-- Re-run Markdown structure, duplicate-key JSON, trailing-whitespace, identity/DAG consistency, and `git diff --check` validation.
-- Obtain independent read-only rereview and close every P1/P2 finding.
-- Verify or set the repository-local origin push URL to the approved SSH destination without storing credentials; then stage exactly root `AGENTS.md` plus the four coordination files, perform the filename-only sensitive-information scan, commit, fast-forward push `origin/test`, and read back the exact remote SHA from canonical origin.
-- Create a second immediate evidence commit that records only the already-created G0 batch commit and its observed remote SHA. Push that receipt and verify its remote SHA externally; the receipt never claims to contain its own commit ID.
+- G0 publication and exact remote readback are complete at `b5c855dcc5a2d953980579257aafa84a1e7517eb`; the next coordination commit records this parent receipt and registers G1. Before G1 source edits, re-run the compact document/identity checks, reproduce the three known PPO failures, and register the exact G1 owned paths.
 
 ## Session: 2026-09-08
 

@@ -26,7 +26,7 @@ Authority order:
 
 ## Current phase
 
-`G0 — lock the SEA-only DashGo adaptation contract`.
+`G1 — enforce PPO transition eligibility and actor-context transport`.
 
 The previous current goal—246-D observations, bounded-tanh actions, RSL-RL 3.0.1, and a consumer implementation written into the DashGo repository—is superseded and rejected. Those entries remain available in Git history only as historical audit context.
 
@@ -65,8 +65,8 @@ The export ABI accepts `policy_obs[1,550]`, `raw_ranges[1,41]`, `valid[1,41]`, `
 
 | Batch | Scope | Commit title | Status |
 |---|---|---|---|
-| G0 | Correct root guidance, plan, findings, progress, and resume state; freeze the SEA-only contract | `docs: lock SEA DashGo adaptation contract` | in progress |
-| G1 | PPO eligibility, actor-context storage ABI, masked GAE/losses, all-bad no-op, pure-query mean | `fix(ppo): enforce transition eligibility` | pending G0 |
+| G0 | Correct root guidance, plan, findings, progress, and resume state; freeze the SEA-only contract | `docs: lock SEA DashGo adaptation contract` | complete and pushed at `b5c855d` (remote readback verified) |
+| G1 | PPO eligibility, actor-context storage ABI, masked GAE/losses, all-bad no-op, pure-query mean | `fix(ppo): enforce transition eligibility` | registered; implementation pending |
 | G2 | `sea_nav_core` 0.4.0; 550-D/Normal/raw-ray contracts; reject obsolete public ABI; preserve the closed CBF hot-path invariant | `feat(core): add SEA 550D differential-drive contracts` | pending G1 |
 | G3 | Exact runtime/package/hash lock, static launch readiness, local-RSL identity, and honest blocked receipts | `fix(runtime): add evidence-driven IsaacLab preflight` | pending G2 |
 | G4 | SEA-owned DashGo primitive, provenance manifest, static room mesh, explicit 41-ray pattern | `feat(isaaclab): add DashGo primitive platform` | pending G3 |
@@ -162,7 +162,7 @@ Never implied by this work: a DashGo digital twin, real-robot deployment, compat
 
 | Worktree | Ref | Owner | Owned paths | Status |
 |---|---|---|---|---|
-| `work/SEA-Nav-Code` | `test@ed4d805c9f9cf5c71bf7957d9875a272ae55ad17` | controller | `AGENTS.md`; `.codex/delivery/epics/paper-reproduction-80pct/{task_plan.md,findings.md,progress.md,resume_state.json}` | G0 writer |
+| `work/SEA-Nav-Code` | `test@b5c855dcc5a2d953980579257aafa84a1e7517eb` | controller | G0 receipt/state; G1 registration and serial integration | G0 complete; G1 registration |
 | historical SEA worktrees | detached historical commits | none | none | retained read-only; not evidence for the new implementation |
 | two missing `/tmp` worktrees | detached metadata only | none | none | confirmed prunable; cleanup is separate from functional work |
 | `work/dashgo-rl-navigation` | independent user repository | none | none | hardware-fact source only; no write authorization in this plan |
@@ -172,4 +172,4 @@ Never implied by this work: a DashGo digital twin, real-robot deployment, compat
 - This host has no NVIDIA GPU, Isaac Sim 4.5.0, or Isaac Lab 2.0.2. G12 and every real simulator claim remain `blocked`.
 - Dynamic obstacles are excluded because the pinned RayCaster supports one static mesh.
 - ROS, physical LiDAR adaptation, `cmd_vel`, and real hardware are out of scope for this implementation.
-- Next action after G0 publication: register G1 PPO/storage/test paths, reproduce the eligibility failures, and implement the reviewed fix before any 550-D/core or Isaac package work.
+- Next action: implement G1 only in the registered PPO/storage/runner/test paths, reproduce the eligibility failures, obtain independent review, and push the green G1 commit before any 550-D/core or Isaac package work.
