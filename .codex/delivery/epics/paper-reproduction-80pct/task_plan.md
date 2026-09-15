@@ -26,9 +26,9 @@ Authority order:
 
 ## Current phase
 
-`G3 — evidence-driven IsaacLab runtime preflight`.
+`G4 — SEA-owned DashGo primitive, room mesh, and frozen formal fixtures`.
 
-G2 is complete and published at `47034ab073d6589c22cc24531576e0e857f1354b` (independent review round 1 NEEDS FIX with 1 P2 + 4 P3, fix round 1, scoped re-review PASS; hot-path guard 50 passed; remote readback verified). The previous current goal remains superseded and rejected as historical audit context only.
+G3 is complete and published at `77d7942f4aa2469a8c8b7316eff379f4d6aaa13f` (review round 1 NEEDS FIX 2 P1 + 3 P2 + 3 P3, fix round, re-review found one regression-class N1, fix round 2, PASS; remote readback verified). G2 remains published at `47034ab`.
 
 G1 is complete and published at `219eccc1ea2c4a20ad69705d802031b6d53e916b` (independent review round 1 NEEDS FIX with 2 P2, fix round 1, scoped re-review PASS; remote readback verified). The previous current goal remains superseded and rejected as historical audit context only.
 
@@ -72,8 +72,8 @@ The export ABI accepts `policy_obs[1,550]`, `raw_ranges[1,41]`, `valid[1,41]`, `
 | G0 | Correct root guidance, plan, findings, progress, and resume state; freeze the SEA-only contract | `docs: lock SEA DashGo adaptation contract` | complete and pushed at `b5c855d` (remote readback verified) |
 | G1 | PPO eligibility, actor-context storage ABI, masked GAE/losses, all-bad no-op, pure-query mean | `fix(ppo): enforce transition eligibility` | complete and pushed at `219eccc` (remote readback verified) |
 | G2 | `sea_nav_core` 0.4.0; 550-D/Normal/raw-ray contracts; reject obsolete public ABI; preserve the closed CBF hot-path invariant | `feat(core): add SEA 550D differential-drive contracts` | complete and pushed at `47034ab` (remote readback verified) |
-| G3 | Exact runtime/package/hash lock, static launch readiness, local-RSL identity, and honest blocked receipts | `fix(runtime): add evidence-driven IsaacLab preflight` | owned paths registered; implementation next |
-| G4 | SEA-owned DashGo primitive, provenance manifest, static room mesh, explicit 41-ray pattern | `feat(isaaclab): add DashGo primitive platform` | pending G3 |
+| G3 | Exact runtime/package/hash lock, static launch readiness, local-RSL identity, and honest blocked receipts | `fix(runtime): add evidence-driven IsaacLab preflight` | complete and pushed at `77d7942` (remote readback verified) |
+| G4 | SEA-owned DashGo primitive, provenance manifest, static room mesh, explicit 41-ray pattern | `feat(isaaclab): add DashGo primitive platform` | owned paths registered; implementation next |
 | G5 | DirectRLEnv pre-reset terminal capture, done/reset/close lifecycle, wheel execution, joint projection, action trace | `feat(isaaclab): add differential-drive execution` | pending G4 |
 | G6 | 55x10 observation history, actor context, timestamped perception delay, wrapper | `feat(isaaclab): add SEA observation pipeline` | pending G5 |
 | G7 | 2-D actor, unicycle CBF, Table III reward and termination semantics | `feat(training): add DashGo SEA policy and rewards` | pending G6 |
@@ -171,22 +171,29 @@ Never implied by this work: a DashGo digital twin, real-robot deployment, compat
 | two missing `/tmp` worktrees | detached metadata only | none | none | confirmed prunable; cleanup is separate from functional work |
 | `work/dashgo-rl-navigation` | independent user repository | none | none | hardware-fact source only; no write authorization in this plan |
 
-### G2 registration amendment and G3 owned-path registration
+### G3 closeout and G4 owned-path registration
 
-The G2 batch additionally updated `packages/sea_nav_core/tests/test_import_boundary.py` (version pin 0.3.0->0.4.0), a compatibility edit required by the version bump; `packages/sea_nav_core/src/sea_nav_core/profiles.py` was registered but needed no change. Both G2 path sets are closed as published at `47034ab`.
+G3 closed at `77d7942`; its two paths are no longer editable in later batches without new registration.
 
-G3 is a single-writer slice on `test`; no detached worktree may edit these paths concurrently:
+G4 is a single-writer slice on `test`; no detached worktree may edit these paths concurrently:
 
 ```text
-tools/sea_runtime_preflight.py
-tests/test_sea_runtime_preflight.py
+training/sea_nav_diffdrive_isaaclab/__init__.py
+training/sea_nav_diffdrive_isaaclab/assets.py
+training/sea_nav_diffdrive_isaaclab/room_mesh.py
+training/sea_nav_diffdrive_isaaclab/fixtures.py
+training/sea_nav_diffdrive_isaaclab/assets/asset_manifest.json
+training/sea_nav_diffdrive_isaaclab/tests/__init__.py
+training/sea_nav_diffdrive_isaaclab/tests/test_assets.py
+training/sea_nav_diffdrive_isaaclab/tests/test_room_mesh.py
+training/sea_nav_diffdrive_isaaclab/tests/test_fixtures.py
 ```
 
-The preflight module and its CPU/static tests are one dependency unit. All inherited regressions (root tests, rsl_rl tests, Gate A static contract, sea_nav_core tests, Go2 CBF hot-path) must remain green but are not owned for edits. G4 and all later source paths remain unowned until G3 is reviewed, committed, and remotely read back.
+The new package's CPU-importable modules must not import Isaac/ROS/DashGo; the package root, asset spec, room-mesh builder, fixture generator, manifest, and their tests are one dependency unit. G4 also owns generating and committing the 300-case `dashgo_sea_formal_fixture_v1` payload with individual hashes, aggregate hash, and generated golden records (easy/0, medium/0, hard/99). All inherited regressions must remain green. G5 and later paths remain unowned until G4 is reviewed, committed, and remotely read back.
 
 ## Current blockers and next action
 
 - This host has no NVIDIA GPU, Isaac Sim 4.5.0, or Isaac Lab 2.0.2. G12 and every real simulator claim remain `blocked`.
 - Dynamic obstacles are excluded because the pinned RayCaster supports one static mesh.
 - ROS, physical LiDAR adaptation, `cmd_vel`, and real hardware are out of scope for this implementation.
-- Next action: implement G3 only in the registered preflight/test paths: exact CPython 3.10/Torch 2.5.1/Isaac Sim 4.5.0/Isaac Lab 2.0.2 checks, repository-local modified RSL-RL 1.0.2 `__file__` identity, SEA commit and config/asset hash readiness, `launch_ready` as static identity only, missing GPU/Isaac returning `blocked` (never a mocked pass), and CPU imports not loading Isaac/ROS/DashGo. Obtain independent review, then push the green G3 commit before any DashGo platform work.
+- Next action: implement G4 only in the registered package paths: the SEA-owned DashGo primitive spec (candidate geometry, actuator search order, collision group, LiDAR pose, 41-ray pattern) with its provenance manifest, the shared single-static-mesh room builder (floor/four walls/obstacle prisms, deterministic triangulation), and the frozen fixture generator (master seed, SHA256 counter stream with golden vectors, RFC8785 integer-only canonicalization, 300 committed cases with individual+aggregate hashes). Obtain independent review, then push the green G4 commit before any DirectRLEnv work.

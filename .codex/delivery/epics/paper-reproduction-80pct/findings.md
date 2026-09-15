@@ -32,11 +32,15 @@ G1 was published as `219eccc1ea2c4a20ad69705d802031b6d53e916b` and read back rem
 
 Published as `47034ab073d6589c22cc24531576e0e857f1354b`; CPU/static evidence only.
 
+## G3 publication record
+
+`tools/sea_runtime_preflight.py` freezes the evidence-driven launch gate: exact version probes (CPython 3.10.x, Torch 2.5.1, isaacsim 4.5.0, isaaclab 2.0.2), SEA-local RSL-RL identity (strict prefix containment inside `training/rsl_rl`, version provenance only from that directory's packaging files, no global-metadata fallback, unknown version fails closed), SEA commit pinning, config/asset/fixture hash probes with per-asset verification, `blocked` for missing runtimes (never mocked), `launch_ready` as static identity only, hard-coded `runtime_verified=false`, `unpinned_checks` for record-mode hashes, exit codes 0/1/3/2, and Go2 JIT/go2.usd explicitly forbidden as requirements. Asset-manifest relative entries resolve against the manifest directory. Published as `77d7942f4aa2469a8c8b7316eff379f4d6aaa13f`; CPU/static evidence only.
+
 ## Current Truth Table
 
 | Field | Current value | Evidence | Status / limits |
 |---|---|---|---|
-| Repository / branch | `TNHTH/SEA-Nav-Code`, `test@47034ab073d6589c22cc24531576e0e857f1354b` | live Git preflight, SSH push, and canonical `git ls-remote` readback on 2026-09-15 | G2 published and remotely verified; G3 runtime preflight is the active single-writer slice |
+| Repository / branch | `TNHTH/SEA-Nav-Code`, `test@77d7942f4aa2469a8c8b7316eff379f4d6aaa13f` | live Git preflight, SSH push, and canonical `git ls-remote` readback on 2026-09-15 | G3 published and remotely verified; G4 DashGo platform assets are the active single-writer slice |
 | Working branches | local/remote `main`, `stable`, `test` | live branch inventory | `main/stable@1c5675b` remain frozen |
 | Algorithm identity | `sea_nav_paper_method_operational_v1` | approved contract | cross-platform method adaptation, not paper-exact |
 | Source semantics | `upstream_fbce672c_550d` | local authoritative object `fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96` | source-derived operational behavior |
@@ -45,8 +49,8 @@ Published as `47034ab073d6589c22cc24531576e0e857f1354b`; CPU/static evidence onl
 | Result classification | `cross_platform_method_adaptation` / `simulation_surrogate_candidate` | approved scientific boundary | no hardware acceptance |
 | Scientific source | SEA-Nav arXiv PDF SHA-256 `600a5040b6579fe63615d87a70f174f3fa0b0d018f74440b6707d23d36dfc2e9` | live `sha256sum` | immutable local reference |
 | Host machine | Python 3.10.12, Torch 2.6.0+cpu; CUDA false; Isaac Lab/Sim/Gym absent | live import-spec and Torch probe | CPU/static development only; target Torch 2.5.1 is not installed here |
-| Existing regression evidence | 917 passed, 2 real-CUDA skips after G2; core package 322; hot-path 50 (2026-09-15) | fresh full CPU/static selection | rerun again after G3 |
-| Active unpublished work | G3 runtime preflight implementation (registered, not started) | `task_plan.md` G3 owned-path registration and `resume_state.json` coord_rev 22 | source edits will be confined to the registered paths; no simulator claim |
+| Existing regression evidence | 942 passed, 2 real-CUDA skips after G3 (2026-09-15) | fresh full CPU/static selection | rerun again after G4 |
+| Active unpublished work | G4 DashGo primitive/room-mesh/fixture implementation (registered, not started) | `task_plan.md` G4 owned-path registration and `resume_state.json` coord_rev 23 | source edits will be confined to the registered paths; no simulator claim |
 | DashGo source boundary | read-only repository `98018dd09923495db321a09920dccc09f796f805` with one pre-existing dirty entry | live read-only Git probe | do not modify or reset |
 | Highest possible local rung | CPU/static and packaged runtime preflight | missing GPU/Isaac packages | real simulator gates remain blocked |
 
