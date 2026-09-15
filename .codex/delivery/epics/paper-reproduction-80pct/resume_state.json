@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "coord_rev": 23,
+  "coord_rev": 24,
   "repository": "TNHTH/SEA-Nav-Code",
   "branch": "test",
   "observed_pre_g0": {
@@ -46,9 +46,19 @@
     "review": "round1_needs_fix_2P1_3P2_3P3_round2_regression_N1_fix_round3_pass",
     "cpu_static_evidence": "preflight_25_passed_full_selection_942_passed_2_skips"
   },
-  "head_semantics": "G3 runtime preflight published and remotely verified at 77d7942; G4 DashGo primitive/assets/fixtures is the next single-writer slice",
-  "phase": "G4_dashgo_platform_assets",
-  "next_action": "G4 owned paths are registered; implement the SEA-owned DashGo primitive spec and asset manifest, the shared static room-mesh builder, and the frozen dashgo_sea_formal_fixture_v1 generator with committed 300-case payload hashes and golden records, then review, commit, push, and read back before G5.",
+  "published_g4": {
+    "batch_commit": "3a75eed385449b858817d7900144d5dab37a2c73",
+    "commit_title": "feat(isaaclab): add DashGo primitive platform",
+    "pushed_from": "50f32161bc94911482ce03aeaf7163a1160c196d",
+    "remote_test_readback": "3a75eed385449b858817d7900144d5dab37a2c73",
+    "transport": "origin SSH push URL",
+    "main_stable_unchanged": true,
+    "review": "round1_needs_fix_2P1_2P2_3P3_generator_corrected_payload_regenerated_rereview_pass",
+    "cpu_static_evidence": "g4_suite_23_passed_full_selection_964_passed_2_skips"
+  },
+  "head_semantics": "G4 DashGo platform assets and frozen fixtures published and remotely verified at 3a75eed; the fixture payload identity is frozen; G5 execution layer is the next single-writer slice",
+  "phase": "G5_execution_layer",
+  "next_action": "G5 owned paths are registered; implement the DirectRLEnv execution slice (current-action processing, joint wheel projection through the sea_nav_core CBF layer, action-stage trace, terminal capture before reset, idempotent simulator close) with CPU-testable pure parts plus AST/static coverage for the Isaac-dependent env module, then review, commit, push, and read back before G6.",
   "scientific_identity": {
     "algorithm_profile": "sea_nav_paper_method_operational_v1",
     "source_semantics": "upstream_fbce672c_550d",
@@ -483,10 +493,14 @@
     "canonical_record_order": "difficulty_code_1_2_3_then_fixture_index_0_through_99",
     "individual_fixture_sha256_rule": "SHA256(RFC8785_bytes(single_fixture_object))",
     "aggregate_payload_sha256_rule": "SHA256(RFC8785_bytes(array_of_all_300_fixture_objects_in_canonical_record_order))",
-    "aggregate_payload_sha256": null,
+    "aggregate_payload_sha256": "10202bfce189bcc88b296f5257b34f40d70346b0e6feb7dc6c065516e5c68165",
     "individual_fixture_sha256_count_required": 300,
     "generated_fixture_golden_cases": ["easy_index_0", "medium_index_0", "hard_index_99"],
-    "generated_fixture_golden_sha256": null,
+    "generated_fixture_golden_sha256": {
+    "easy_index_0": "c74434b25cb399efd4a7c4d3f7995824d35c0ff3d62e1287f16273c0c5ecd7af",
+    "medium_index_0": "510a39364f7f4ee1d77120754d624a08918cb250ec66e26f0f8e6b700fc2bdf4",
+    "hard_index_99": "4b32fd961fbc2ff933947998877b1fcd78aafa58d16c55d7d92e77ee90ef77b1"
+  },
     "fail_closed_until_payload_hash_committed": true,
     "fail_closed_until_all_fixture_hashes_and_generated_goldens_committed": true
   },
@@ -771,8 +785,8 @@
     "G1": "complete_published_219eccc1ea2c4a20ad69705d802031b6d53e916b_remote_verified",
     "G2": "complete_published_47034ab073d6589c22cc24531576e0e857f1354b_remote_verified",
     "G3": "complete_published_77d7942f4aa2469a8c8b7316eff379f4d6aaa13f_remote_verified",
-    "G4": "owned_paths_registered_implementation_next",
-    "G5": "pending_G4",
+    "G4": "complete_published_3a75eed385449b858817d7900144d5dab37a2c73_remote_verified",
+    "G5": "owned_paths_registered_implementation_next",
     "G6": "pending_G5",
     "G7": "pending_G6",
     "G8": "pending_G7",
@@ -826,7 +840,6 @@
     "isaac_sim_4_5_0_runtime",
     "isaaclab_2_0_2_runtime",
     "gpu_smoke_and_short_train",
-    "formal_fixture_payload_individual_hashes_generated_goldens_and_aggregate_hash_until_G4",
     "actuator_pair_selection_until_G12_motion_smoke",
     "formal_training_and_100_trial_metrics",
     "dynamic_obstacle_validation",
