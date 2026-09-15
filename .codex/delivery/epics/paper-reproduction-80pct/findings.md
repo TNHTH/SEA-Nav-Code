@@ -26,11 +26,17 @@ Frozen consequences for later batches:
 
 G1 was published as `219eccc1ea2c4a20ad69705d802031b6d53e916b` and read back remotely; this is CPU/static evidence only.
 
+## G2 publication record
+
+`sea_nav_core` 0.4.0 freezes the SEA implementation-basis contracts: `SeaNavObservationSpec` (55x10 frame-major oldest-to-newest, log2(clamp(.)) delayed range channels, raw-safety isolation flags), `SeaNavActionSpec` (diagonal Normal, initial std 1.5, five action stages, CBF on distribution_mean, DashGo Lreg bounds (-0.15,-1.0)/(0.3,1.0)), `sea_nav_dashgo_raw_safety_spec()` (exactly 41 rays -120..120 deg at 6 deg including 0, [0.1,3.0] m, 0.18 s), `sea_nav_dashgo_candidate_platform_spec()` (frozen candidate geometry with 98018dd provenance), and `SeaNavDashgoContractSet.bind()` which fails closed on the legacy 246-D/tanh ABI, non-41-ray safety geometry, wrong domains/ages, and modified candidate geometry. `observation.py` pins the frame layout (hard [v,0,omega] middle zero), both history bootstraps (normal reset fills all ten slots; replay restores the stored 550-D without refill), per-ray sample-and-hold with the 0.1 m conservative placeholder, the fail-closed raw-safety row reasons, and `SeaNavActorInput`. Review-fixed semantics that later batches must honor: `flatten()`/`frames()` return copies (retained observations never mutate), and only rays marked valid must be finite in hold inputs.
+
+Published as `47034ab073d6589c22cc24531576e0e857f1354b`; CPU/static evidence only.
+
 ## Current Truth Table
 
 | Field | Current value | Evidence | Status / limits |
 |---|---|---|---|
-| Repository / branch | `TNHTH/SEA-Nav-Code`, `test@219eccc1ea2c4a20ad69705d802031b6d53e916b` | live Git preflight, SSH push, and canonical `git ls-remote` readback on 2026-09-15 | G1 published and remotely verified; G2 core contracts are the active single-writer slice |
+| Repository / branch | `TNHTH/SEA-Nav-Code`, `test@47034ab073d6589c22cc24531576e0e857f1354b` | live Git preflight, SSH push, and canonical `git ls-remote` readback on 2026-09-15 | G2 published and remotely verified; G3 runtime preflight is the active single-writer slice |
 | Working branches | local/remote `main`, `stable`, `test` | live branch inventory | `main/stable@1c5675b` remain frozen |
 | Algorithm identity | `sea_nav_paper_method_operational_v1` | approved contract | cross-platform method adaptation, not paper-exact |
 | Source semantics | `upstream_fbce672c_550d` | local authoritative object `fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96` | source-derived operational behavior |
@@ -39,8 +45,8 @@ G1 was published as `219eccc1ea2c4a20ad69705d802031b6d53e916b` and read back rem
 | Result classification | `cross_platform_method_adaptation` / `simulation_surrogate_candidate` | approved scientific boundary | no hardware acceptance |
 | Scientific source | SEA-Nav arXiv PDF SHA-256 `600a5040b6579fe63615d87a70f174f3fa0b0d018f74440b6707d23d36dfc2e9` | live `sha256sum` | immutable local reference |
 | Host machine | Python 3.10.12, Torch 2.6.0+cpu; CUDA false; Isaac Lab/Sim/Gym absent | live import-spec and Torch probe | CPU/static development only; target Torch 2.5.1 is not installed here |
-| Existing regression evidence | 879 passed, 2 real-CUDA skips after the G1 fix round (2026-09-15) | fresh full CPU/static selection | rerun again after G2 |
-| Active unpublished work | G2 sea_nav_core 0.4.0 contract implementation (registered, not started) | `task_plan.md` G2 owned-path registration and `resume_state.json` coord_rev 21 | source edits will be confined to the registered paths; no simulator claim |
+| Existing regression evidence | 917 passed, 2 real-CUDA skips after G2; core package 322; hot-path 50 (2026-09-15) | fresh full CPU/static selection | rerun again after G3 |
+| Active unpublished work | G3 runtime preflight implementation (registered, not started) | `task_plan.md` G3 owned-path registration and `resume_state.json` coord_rev 22 | source edits will be confined to the registered paths; no simulator claim |
 | DashGo source boundary | read-only repository `98018dd09923495db321a09920dccc09f796f805` with one pre-existing dirty entry | live read-only Git probe | do not modify or reset |
 | Highest possible local rung | CPU/static and packaged runtime preflight | missing GPU/Isaac packages | real simulator gates remain blocked |
 
