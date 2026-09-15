@@ -1,0 +1,222 @@
+{
+ "mechanical_fact_candidates": {
+  "body_height_m": 0.21,
+  "body_radius_m": 0.203,
+  "caster_radius_m": 0.03,
+  "caster_x_m": [
+   -0.15,
+   0.15
+  ],
+  "reported_net_mass_kg": 13.7,
+  "track_width_m": 0.342,
+  "wheel_radius_m": 0.0632,
+  "wheel_width_m": 0.04
+ },
+ "platform_profile": "dashgo_d1_primitive_candidate_v1",
+ "primitive_parts": [
+  {
+   "collision_group": "dashgo_chassis_lidar_structure",
+   "height_m": 0.21,
+   "name": "chassis",
+   "origin_xyz_m": [
+    0.0,
+    0.0,
+    0.105
+   ],
+   "radius_m": 0.203,
+   "shape": "cylinder"
+  },
+  {
+   "axis": "y",
+   "collision_group": "dashgo_chassis_lidar_structure",
+   "length_m": 0.04,
+   "name": "wheel_left",
+   "origin_xyz_m": [
+    0.0,
+    -0.171,
+    0.0632
+   ],
+   "radius_m": 0.0632,
+   "shape": "cylinder"
+  },
+  {
+   "axis": "y",
+   "collision_group": "dashgo_chassis_lidar_structure",
+   "length_m": 0.04,
+   "name": "wheel_right",
+   "origin_xyz_m": [
+    0.0,
+    0.171,
+    0.0632
+   ],
+   "radius_m": 0.0632,
+   "shape": "cylinder"
+  },
+  {
+   "collision_group": "dashgo_chassis_lidar_structure",
+   "name": "caster_front",
+   "origin_xyz_m": [
+    0.15,
+    0.0,
+    0.03
+   ],
+   "radius_m": 0.03,
+   "shape": "sphere"
+  },
+  {
+   "collision_group": "dashgo_chassis_lidar_structure",
+   "name": "caster_rear",
+   "origin_xyz_m": [
+    -0.15,
+    0.0,
+    0.03
+   ],
+   "radius_m": 0.03,
+   "shape": "sphere"
+  },
+  {
+   "name": "lidar_frame",
+   "origin_xyz_m": [
+    0.0,
+    0.0,
+    0.13
+   ],
+   "shape": "frame_only",
+   "yaw_rad": 0.0
+  }
+ ],
+ "provenance": {
+  "dashgo_commit": "98018dd09923495db321a09920dccc09f796f805",
+  "source_sha256": {
+   "configs/robot/dashgo.urdf": "51cb52cc60176405ed24735a4cc648f12fd1924d46f77022ae0e730f4346d892",
+   "drivers/EAI_DRIVER/src/config/my_dashgo_params.yaml": "e1cc89d2220a01e07323c3395b1c675a125c25d4547b9d8f497be07af7cdbd1f",
+   "workspaces/ros2_ws/src/dashgo_rl_ros2/urdf/dashgo_d1_sim.urdf.xacro": "9857b0c4006a8d942ecade413baa2df8b54b6947f5088e5c9ab8f5e925682bb6"
+  },
+  "status": "candidate_not_calibrated"
+ },
+ "result_classification": "cross_platform_method_adaptation",
+ "schema_version": 1,
+ "simulation_operational_assumptions": {
+  "actuator_search_order_effort_damping": [
+   [
+    20.0,
+    2.0
+   ],
+   [
+    20.0,
+    5.0
+   ],
+   [
+    20.0,
+    10.0
+   ],
+   [
+    50.0,
+    2.0
+   ],
+   [
+    50.0,
+    5.0
+   ],
+   [
+    50.0,
+    10.0
+   ]
+  ],
+  "actuator_selection_rule": "freeze_first_combination_passing_all_G12_kinematic_smokes",
+  "angular_acceleration_radps2": 0.6,
+  "asset_wheel_limit_radps": 10.0,
+  "cbf_lookahead_m": 0.2,
+  "cbf_safety_margin_m": 0.05,
+  "collision_group": "dashgo_chassis_lidar_structure",
+  "collision_group_beta": 1.0,
+  "excluded_contacts": [
+   "wheel_floor",
+   "caster_floor"
+  ],
+  "experiment_wheel_limit_radps": 5.0,
+  "friction_randomization": [
+   0.2,
+   1.25
+  ],
+  "friction_randomization_kind": "uniform_half_open",
+  "lidar_xyz_yaw": [
+   0.0,
+   0.0,
+   0.13,
+   0.0
+  ],
+  "linear_acceleration_mps2": 1.0,
+  "omega_range_radps": [
+   -1.0,
+   1.0
+  ],
+  "physics_dt_s": 0.005,
+  "policy_dt_s": 0.02,
+  "ray_angles_deg": [
+   -120.0,
+   -114.0,
+   -108.0,
+   -102.0,
+   -96.0,
+   -90.0,
+   -84.0,
+   -78.0,
+   -72.0,
+   -66.0,
+   -60.0,
+   -54.0,
+   -48.0,
+   -42.0,
+   -36.0,
+   -30.0,
+   -24.0,
+   -18.0,
+   -12.0,
+   -6.0,
+   0.0,
+   6.0,
+   12.0,
+   18.0,
+   24.0,
+   30.0,
+   36.0,
+   42.0,
+   48.0,
+   54.0,
+   60.0,
+   66.0,
+   72.0,
+   78.0,
+   84.0,
+   90.0,
+   96.0,
+   102.0,
+   108.0,
+   114.0,
+   120.0
+  ],
+  "ray_count": 41,
+  "ray_fov_deg": [
+   -120.0,
+   120.0
+  ],
+  "ray_range_m": [
+   0.1,
+   3.0
+  ],
+  "unverified_until_g4_g12": [
+   "inertia",
+   "center_of_mass",
+   "contact_material",
+   "caster_dynamics",
+   "actuator_pair_selection"
+  ],
+  "v_range_mps": [
+   -0.15,
+   0.3
+  ],
+  "velocity_drive_stiffness": 0.0
+ },
+ "validation_identity": "simulation_surrogate_candidate"
+}
