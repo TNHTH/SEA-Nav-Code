@@ -329,3 +329,256 @@ class ActionSpec(_ManifestSpec):
     @property
     def action_dim(self):
         return 2
+
+
+# ---------------------------------------------------------------------------
+# SEA 550-D contracts (G2).  These supersede the legacy 246-D/tanh public ABI
+# above as the implementation basis; the legacy specs stay available only as
+# historical evidence and are rejected by SeaNavDashgoContractSet below.
+# ---------------------------------------------------------------------------
+SEA_ALGORITHM_PROFILE = "sea_nav_paper_method_operational_v1"
+SEA_SOURCE_SEMANTICS = "upstream_fbce672c_550d"
+SEA_PLATFORM_PROFILE = "dashgo_d1_primitive_candidate_v1"
+SEA_RUNTIME_STACK = "isaaclab_2_0_2_rsl_rl_1_0_2"
+SEA_RESULT_CLASSIFICATION = "cross_platform_method_adaptation"
+SEA_VALIDATION_IDENTITY = "simulation_surrogate_candidate"
+
+SEA_FRAME_FIELD_ORDER = (
+    "projected_gravity[3],previous_executed_command_v_zero_omega[3],"
+    "measured_base_linear_velocity[3],measured_base_angular_velocity[3],"
+    "log2_clamped_delayed_ranges[41],delayed_local_goal[2]"
+)
+SEA_ACTION_STAGES = (
+    "nominal_body_twist",
+    "distribution_mean",
+    "policy_action",
+    "clipped_policy_action",
+    "executed_command",
+)
+
+
+@dataclass(frozen=True)
+class SeaNavObservationSpec(_ManifestSpec):
+    """SEA 550-D frame-major policy observation ABI.
+
+    Ten oldest-to-newest frames of 55 values.  The LiDAR channels are delayed
+    ``log2(clamp(range_m, 0.1, 3.0))`` values; raw metric safety inputs are a
+    separate contract and can never be reconstructed from this observation.
+    """
+
+    contract_id: str = "sea_nav_550d_frame_history_v1"
+    frame_dim: int = 55
+    history_frames: int = 10
+    delayed_range_transform: str = "log2_clamp_0.1_3.0_m"
+    flatten_order: str = "frame_major_oldest_to_newest"
+    frame_field_order: str = SEA_FRAME_FIELD_ORDER
+    ray_count: int = 41
+    safety_inputs_isolated_from_policy_obs: bool = True
+    raw_safety_reconstruction_forbidden: bool = True
+    kind: ClassVar[str] = "sea_nav_observation_v1"
+
+    def __post_init__(self):
+        _choice("contract_id", self.contract_id, "sea_nav_550d_frame_history_v1")
+        for name, expected in (
+            ("frame_dim", 55), ("history_frames", 10), ("ray_count", 41),
+        ):
+            _integer(name, getattr(self, name))
+            if getattr(self, name) != expected:
+                raise ValueError(name + " changes the SEA 550-D observation ABI")
+        _choice("delayed_range_transform", self.delayed_range_transform,
+                "log2_clamp_0.1_3.0_m")
+        _choice("flatten_order", self.flatten_order,
+                "frame_major_oldest_to_newest")
+        _choice("frame_field_order", self.frame_field_order, SEA_FRAME_FIELD_ORDER)
+        if type(self.safety_inputs_isolated_from_policy_obs) is not bool or not self.safety_inputs_isolated_from_policy_obs:
+            raise ValueError("raw safety inputs must stay isolated from the policy observation")
+        if type(self.raw_safety_reconstruction_forbidden) is not bool or not self.raw_safety_reconstruction_forbidden:
+            raise ValueError("raw safety reconstruction from the policy observation is forbidden")
+
+    @property
+    def obs_dim(self):
+        return self.frame_dim * self.history_frames
+
+
+@dataclass(frozen=True)
+class SeaNavActionSpec(_ManifestSpec):
+    """SEA diagonal-Normal body-twist action contract.
+
+    Distribution is a diagonal Normal with initial std 1.5 on the raw sampled
+    action.  Tanh squashing, Jacobian log-prob correction and any second
+    post-sample CBF pass are forbidden; PPO scores the same ``policy_action``.
+    The CBF applies to ``distribution_mean`` only.
+    """
+
+    contract_id: str = "sea_nav_normal_body_twist_v1"
+    distribution: str = "diagonal_normal"
+    initial_std: float = 1.5
+    command_space: str = "body_v_omega"
+    command_order: str = "v_mps,omega_radps"
+    log_prob_stage: str = "policy_action"
+    cbf_applies_to: str = "distribution_mean"
+    action_stages: tuple = SEA_ACTION_STAGES
+    range_loss_lower: tuple = (-0.15, -1.0)
+    range_loss_upper: tuple = (0.3, 1.0)
+    tanh_forbidden: bool = True
+    jacobian_correction_forbidden: bool = True
+    second_post_sample_cbf_forbidden: bool = True
+    kind: ClassVar[str] = "sea_nav_action_v1"
+
+    def __post_init__(self):
+        _choice("contract_id", self.contract_id, "sea_nav_normal_body_twist_v1")
+        _choice("distribution", self.distribution, "diagonal_normal")
+        _number("initial_std", self.initial_std, strictly_positive=True)
+        if self.initial_std != 1.5:
+            raise ValueError("initial_std changes the SEA Normal action ABI")
+        _choice("command_space", self.command_space, "body_v_omega")
+        _choice("command_order", self.command_order, "v_mps,omega_radps")
+        _choice("log_prob_stage", self.log_prob_stage, "policy_action")
+        _choice("cbf_applies_to", self.cbf_applies_to, "distribution_mean")
+        if tuple(self.action_stages) != SEA_ACTION_STAGES:
+            raise ValueError("action stages change the SEA action ABI")
+        object.__setattr__(self, "action_stages", tuple(self.action_stages))
+        for name in ("range_loss_lower", "range_loss_upper"):
+            value = getattr(self, name)
+            if not isinstance(value, (tuple, list)) or len(value) != 2:
+                raise ValueError(name + " must be a [v, omega] pair")
+            for entry in value:
+                _number(name, entry)
+            object.__setattr__(self, name, (float(value[0]), float(value[1])))
+        if any(low >= high for low, high in zip(self.range_loss_lower, self.range_loss_upper)):
+            raise ValueError("range_loss_lower must be below range_loss_upper")
+        for name in ("tanh_forbidden", "jacobian_correction_forbidden",
+                     "second_post_sample_cbf_forbidden"):
+            if type(getattr(self, name)) is not bool or not getattr(self, name):
+                raise ValueError(name + " is part of the SEA action ABI")
+
+    @property
+    def action_dim(self):
+        return 2
+
+
+def sea_nav_dashgo_raw_safety_spec() -> RawSafetyObservationSpec:
+    """The frozen 41-ray raw safety geometry for the DashGo surrogate."""
+    from .observation import sea_ray_angles_rad
+    return RawSafetyObservationSpec(
+        sensor_frame="dashgo_sim_lidar",
+        ray_angles_rad=sea_ray_angles_rad(),
+        max_sensor_age_s=0.18,
+        range_min_m=0.1,
+        range_max_m=3.0,
+        range_definition=ROS_LASERSCAN_RADIAL_RANGE,
+        range_parameter_provenance=(
+            "SEA simulation operational assumption dashgo_d1_primitive_candidate_v1; "
+            "valid no-hit is the 3.0 m in-domain return"
+        ),
+    )
+
+
+SEA_DASHGO_CANDIDATE_PROVENANCE = (
+    "TNHTH/dashgo-rl-navigation@98018dd09923495db321a09920dccc09f796f805:"
+    "configs/robot/dashgo.urdf#sha256=51cb52cc60176405ed24735a4cc648f12fd1924d46f77022ae0e730f4346d892;"
+    "drivers/EAI_DRIVER/src/config/my_dashgo_params.yaml#sha256=e1cc89d2220a01e07323c3395b1c675a125c25d4547b9d8f497be07af7cdbd1f;"
+    "workspaces/ros2_ws/src/dashgo_rl_ros2/urdf/dashgo_d1_sim.urdf.xacro#sha256=9857b0c4006a8d942ecade413baa2df8b54b6947f5088e5c9ab8f5e925682bb6;"
+    "status=candidate_not_calibrated"
+)
+
+SEA_DASHGO_CANDIDATE_GEOMETRY = {
+    "footprint_radius_m": 0.203,
+    "lookahead_distance_m": 0.20,
+    "safety_margin_m": 0.05,
+    "max_forward_m_s": 0.30,
+    "max_reverse_m_s": 0.15,
+    "max_yaw_rad_s": 1.0,
+    "policy_dt_s": 0.02,
+    "wheel_radius_m": 0.0632,
+    "track_width_m": 0.342,
+    "max_wheel_velocity_rad_s": 5.0,
+    "max_linear_acceleration_mps2": 1.0,
+    "max_angular_acceleration_radps2": 0.6,
+}
+
+
+def sea_nav_dashgo_candidate_platform_spec() -> DifferentialDrivePlatformSpec:
+    """The frozen DashGo primitive candidate platform values (not calibrated)."""
+    return DifferentialDrivePlatformSpec(
+        plant_parameter_provenance=SEA_DASHGO_CANDIDATE_PROVENANCE,
+        **SEA_DASHGO_CANDIDATE_GEOMETRY,
+    )
+
+
+@dataclass(frozen=True)
+class SeaNavDashgoContractSet(_ManifestSpec):
+    """Binding manifest for the SEA DashGo adaptation.
+
+    Accepts only the SEA 550-D/Normal/41-ray contracts above plus the frozen
+    DashGo candidate platform.  The legacy 246-D ``ObservationSpec`` and the
+    bounded-tanh ``ActionSpec`` are explicitly rejected as an implementation
+    basis, and the raw safety geometry must be exactly the 41-ray pattern.
+    """
+
+    algorithm_profile: str = SEA_ALGORITHM_PROFILE
+    source_semantics: str = SEA_SOURCE_SEMANTICS
+    platform_profile: str = SEA_PLATFORM_PROFILE
+    runtime_stack: str = SEA_RUNTIME_STACK
+    result_classification: str = SEA_RESULT_CLASSIFICATION
+    validation_identity: str = SEA_VALIDATION_IDENTITY
+    kind: ClassVar[str] = "sea_nav_dashgo_contract_set_v1"
+
+    def __post_init__(self):
+        for name, expected in (
+            ("algorithm_profile", SEA_ALGORITHM_PROFILE),
+            ("source_semantics", SEA_SOURCE_SEMANTICS),
+            ("platform_profile", SEA_PLATFORM_PROFILE),
+            ("runtime_stack", SEA_RUNTIME_STACK),
+            ("result_classification", SEA_RESULT_CLASSIFICATION),
+            ("validation_identity", SEA_VALIDATION_IDENTITY),
+        ):
+            _choice(name, getattr(self, name), expected)
+
+    @classmethod
+    def bind(cls, observation, action, safety_observation, platform) -> "SeaNavDashgoContractSet":
+        """Validate the four contracts and return the immutable binding."""
+        if not isinstance(observation, SeaNavObservationSpec):
+            raise ValueError(
+                "the legacy 246-D ObservationSpec is not the implementation basis; "
+                "use SeaNavObservationSpec"
+            )
+        if not isinstance(action, SeaNavActionSpec):
+            raise ValueError(
+                "the legacy bounded-tanh ActionSpec is not the implementation basis; "
+                "use SeaNavActionSpec"
+            )
+        if not isinstance(safety_observation, RawSafetyObservationSpec):
+            raise ValueError("safety_observation must be RawSafetyObservationSpec")
+        if not isinstance(platform, DifferentialDrivePlatformSpec):
+            raise ValueError("platform must be DifferentialDrivePlatformSpec")
+        expected_safety = sea_nav_dashgo_raw_safety_spec()
+        if safety_observation.manifest_sha256 != expected_safety.manifest_sha256:
+            raise ValueError(
+                "safety_observation must be exactly the frozen 41-ray "
+                "[-120..120] degree 6-degree-spacing [0.1,3.0] m 0.18 s contract"
+            )
+        expected_platform = sea_nav_dashgo_candidate_platform_spec()
+        if platform.manifest_sha256 != expected_platform.manifest_sha256:
+            raise ValueError(
+                "platform must be exactly the frozen DashGo candidate geometry"
+            )
+        return cls()
+
+    @classmethod
+    def bound_contract_sha256(cls, observation, action, safety_observation,
+                              platform) -> str:
+        """Canonical hash over the four bound contract manifests."""
+        import hashlib
+        cls.bind(observation, action, safety_observation, platform)
+        payload = json.dumps(
+            {
+                "contract_set": cls().to_manifest(),
+                "observation": observation.to_manifest(),
+                "action": action.to_manifest(),
+                "safety_observation": safety_observation.to_manifest(),
+                "platform": platform.to_manifest(),
+            },
+            sort_keys=True, separators=(",", ":"), allow_nan=False,
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
