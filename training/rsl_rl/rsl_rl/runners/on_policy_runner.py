@@ -84,6 +84,24 @@ def _require_wandb() -> ModuleType:
 
 class OnPolicyRunner:
 
+    @staticmethod
+    def _read_actor_context(env, infos=None):
+        """Read an optional structured context without burdening legacy envs."""
+        getter = getattr(env, "get_actor_context", None)
+        if callable(getter):
+            return getter()
+        getter = getattr(env, "get_current_actor_context", None)
+        if callable(getter):
+            return getter()
+        if isinstance(infos, dict):
+            for key in ("actor_context", "current_actor_context"):
+                if key in infos:
+                    return infos[key]
+        for name in ("actor_context", "current_actor_context"):
+            if hasattr(env, name):
+                return getattr(env, name)
+        return None
+
     def __init__(self,
                  env: VecEnv,
                  train_cfg,
@@ -130,7 +148,10 @@ class OnPolicyRunner:
         self.current_learning_iteration = 0
         self.last_checkpoint_manifest = None
 
-        _, _ = self.env.reset()
+        reset_result = self.env.reset()
+        # Some legacy VecEnv implementations return (obs, privileged_obs),
+        # while newer adapters expose context through a getter/attribute.
+        self._actor_context = self._read_actor_context(self.env)
     
     def learn(self, num_learning_iterations, init_at_random_ep_len=False, config=None):
         if type(num_learning_iterations) is not int or num_learning_iterations < 0:
@@ -149,6 +170,7 @@ class OnPolicyRunner:
         obs = self.env.get_observations()
         privileged_obs = self.env.get_privileged_observations()
         infos = self.env.get_extras()
+        self._actor_context = self._read_actor_context(self.env, infos)
         critic_obs = privileged_obs if privileged_obs is not None else obs
         obs, critic_obs = obs.to(self.device), critic_obs.to(self.device)
         self.alg.actor_critic.train() # switch to train mode (for dropout for example)
@@ -167,11 +189,24 @@ class OnPolicyRunner:
             mean_num_sim = 0
             with torch.no_grad():
                 for i in range(self.num_steps_per_env):
-                    actions = self.alg.act(obs, critic_obs)
+                    if self._actor_context is None:
+                        actions = self.alg.act(obs, critic_obs)
+                    else:
+                        actions = self.alg.act(
+                            obs, critic_obs, actor_context=self._actor_context
+                        )
                     obs, privileged_obs, rewards, dones, infos = self.env.step(actions)
                     critic_obs = privileged_obs if privileged_obs is not None else obs
                     obs, critic_obs, rewards, dones = obs.to(self.device), critic_obs.to(self.device), rewards.to(self.device), dones.to(self.device)
-                    self.alg.process_env_step(obs, rewards, dones, infos)
+                    next_actor_context = self._read_actor_context(self.env, infos)
+                    if self._actor_context is None:
+                        self.alg.process_env_step(obs, rewards, dones, infos)
+                    else:
+                        self.alg.process_env_step(
+                            obs, rewards, dones, infos,
+                            next_actor_context=next_actor_context,
+                        )
+                    self._actor_context = next_actor_context
                     if self.log_dir is not None:
                         # Book keeping
                         if 'episode' in infos:
@@ -190,7 +225,12 @@ class OnPolicyRunner:
 
                 # Learning step
                 start = stop
-                self.alg.compute_returns(critic_obs, infos)
+                if self._actor_context is None:
+                    self.alg.compute_returns(critic_obs, infos)
+                else:
+                    self.alg.compute_returns(
+                        critic_obs, infos, last_actor_context=self._actor_context
+                    )
             
             mean_value_loss, mean_surrogate_loss, mean_regularization_loss, mean_smooth_loss, mean_interv_loss = self.alg.update()
             self.current_learning_iteration = it + 1
