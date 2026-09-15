@@ -8,11 +8,29 @@
 - Review, test, commit, push, and remotely verify every green batch immediately.
 - Never upgrade a CPU/static result into an Isaac, GPU, formal-training, dynamic-obstacle, ROS, or real-robot claim.
 
+## G1 pre-source findings
+
+The inherited PPO implementation has five contract violations that are reachable on the CPU path: `RolloutStorage` leaves old `bad_masks` in slots when a transition omits the field; return/advantage computation ignores eligibility and therefore does not truncate GAE at an ineligible transition; `PPO.update()` forwards every minibatch row before applying its mask; all-ineligible minibatches still consume forward/RNG/optimizer state; and smoothness draws interpolation weights and computes losses for terminal or ineligible pairs. Actor context is also absent from storage and the runner call path. G1 will add regression tests for each failure before changing the implementation, then keep the legacy twelve-item minibatch tuple and `actor_context=None` Go2 path compatible.
+
+## G1 review and publication record
+
+Independent review round 1 (2026-09-15) returned NEEDS FIX with two P2: `**kwargs`-signature actors silently swallowed `actor_context` because the TypeError heuristic could never fire for them, and several eligibility clauses were unpinned by tests. Six P3 findings covered mid-rollout context arrival, dead helpers, private-symbol imports, bounds-prefix semantics, 1-D context broadcast, and two per-minibatch host syncs. The fix round added `_declares_actor_context` (explicit-signature check, fail-closed, `__func__`-keyed cache) gating every context-bearing call, nine new tests, a mid-rollout enablement rejection, `ndim>=2` context tensors, public `tree_index`/`tree_map` aliases, dead-code removal, and the documented Go2 prefix convention for `_bounds_for`. Scoped re-review: PASS.
+
+Frozen consequences for later batches:
+
+- Context mode requires actor methods that explicitly declare `actor_context`; the G7 DashGo actor must declare it on `act`/`evaluate`/`action_mean_for`.
+- Context storage must be enabled at rollout step 0; late arrivals fail closed instead of zero-filling.
+- Context tensors must be at least two-dimensional `[batch, ...]`.
+- PPO range bounds still use the legacy Go2 3-tuple; G2's core contracts carry the DashGo range bounds `[-0.15,-1.0]/[0.3,1.0]` and G7 must wire them explicitly instead of relying on the prefix.
+- The two per-minibatch host syncs (`eligible_count`, `pair_count`) are accepted contract cost because the counters require actual host values.
+
+G1 was published as `219eccc1ea2c4a20ad69705d802031b6d53e916b` and read back remotely; this is CPU/static evidence only.
+
 ## Current Truth Table
 
 | Field | Current value | Evidence | Status / limits |
 |---|---|---|---|
-| Repository / branch | `TNHTH/SEA-Nav-Code`, `test@b5c855dcc5a2d953980579257aafa84a1e7517eb` | live Git preflight, SSH push, and canonical `git ls-remote` readback on 2026-09-10 | G0 contract commit is remotely verified; G1 is not yet implemented |
+| Repository / branch | `TNHTH/SEA-Nav-Code`, `test@219eccc1ea2c4a20ad69705d802031b6d53e916b` | live Git preflight, SSH push, and canonical `git ls-remote` readback on 2026-09-15 | G1 published and remotely verified; G2 core contracts are the active single-writer slice |
 | Working branches | local/remote `main`, `stable`, `test` | live branch inventory | `main/stable@1c5675b` remain frozen |
 | Algorithm identity | `sea_nav_paper_method_operational_v1` | approved contract | cross-platform method adaptation, not paper-exact |
 | Source semantics | `upstream_fbce672c_550d` | local authoritative object `fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96` | source-derived operational behavior |
@@ -21,8 +39,8 @@
 | Result classification | `cross_platform_method_adaptation` / `simulation_surrogate_candidate` | approved scientific boundary | no hardware acceptance |
 | Scientific source | SEA-Nav arXiv PDF SHA-256 `600a5040b6579fe63615d87a70f174f3fa0b0d018f74440b6707d23d36dfc2e9` | live `sha256sum` | immutable local reference |
 | Host machine | Python 3.10.12, Torch 2.6.0+cpu; CUDA false; Isaac Lab/Sim/Gym absent | live import-spec and Torch probe | CPU/static development only; target Torch 2.5.1 is not installed here |
-| Existing regression evidence | 298 related CPU tests reported at the clean handoff | prior accepted handoff | must be freshly rerun before G1 code |
-| Active unpublished work | G1 registration and implementation preparation | live coordination state | functional source remains unchanged until the registered G1 writer starts |
+| Existing regression evidence | 879 passed, 2 real-CUDA skips after the G1 fix round (2026-09-15) | fresh full CPU/static selection | rerun again after G2 |
+| Active unpublished work | G2 sea_nav_core 0.4.0 contract implementation (registered, not started) | `task_plan.md` G2 owned-path registration and `resume_state.json` coord_rev 21 | source edits will be confined to the registered paths; no simulator claim |
 | DashGo source boundary | read-only repository `98018dd09923495db321a09920dccc09f796f805` with one pre-existing dirty entry | live read-only Git probe | do not modify or reset |
 | Highest possible local rung | CPU/static and packaged runtime preflight | missing GPU/Isaac packages | real simulator gates remain blocked |
 

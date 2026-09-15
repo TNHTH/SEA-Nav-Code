@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "coord_rev": 19,
+  "coord_rev": 21,
   "repository": "TNHTH/SEA-Nav-Code",
   "branch": "test",
   "observed_pre_g0": {
@@ -16,9 +16,19 @@
     "transport": "origin SSH push URL",
     "main_stable_unchanged": true
   },
-  "head_semantics": "G0 contract published and remotely verified at b5c855d; accepted historical CPU work retained, new SEA-only DashGo adaptation not yet implemented",
-  "phase": "G1_ppo_eligibility",
-  "next_action": "Register G1 owned paths at the published G0 head, add RED eligibility/GAE/context tests, then implement and independently review the serial PPO fix before pushing.",
+  "published_g1": {
+    "batch_commit": "219eccc1ea2c4a20ad69705d802031b6d53e916b",
+    "commit_title": "fix(ppo): enforce transition eligibility",
+    "pushed_from": "b8866cb2d0a753bdeaeaa2e5fb6d3cee4cfe7efd",
+    "remote_test_readback": "219eccc1ea2c4a20ad69705d802031b6d53e916b",
+    "transport": "origin SSH push URL",
+    "main_stable_unchanged": true,
+    "review": "independent_round1_needs_fix_2P2_6P3_fix_round1_scoped_rereview_pass",
+    "cpu_static_evidence": "focused_92_passed_full_selection_879_passed_2_real_cuda_skips"
+  },
+  "head_semantics": "G1 PPO eligibility published and remotely verified at 219eccc; G2 sea_nav_core 0.4.0 contracts are the next single-writer slice",
+  "phase": "G2_sea_core_contracts",
+  "next_action": "G2 owned paths are registered; implement sea_nav_core 0.4.0 SEA 550-D/Normal/raw-ray contracts with golden tests, reject the legacy 246-D/tanh ABI in the new manifest, preserve the Go2 CBF hot-path invariant (tests/test_cbf_hotpath.py stays green), then review, commit, push, and read back before G3.",
   "scientific_identity": {
     "algorithm_profile": "sea_nav_paper_method_operational_v1",
     "source_semantics": "upstream_fbce672c_550d",
@@ -707,7 +717,12 @@
   },
   "active_write_owner": "controller",
   "active_owned_paths": [
-    "AGENTS.md",
+    "packages/sea_nav_core/pyproject.toml",
+    "packages/sea_nav_core/src/sea_nav_core/__init__.py",
+    "packages/sea_nav_core/src/sea_nav_core/contracts.py",
+    "packages/sea_nav_core/src/sea_nav_core/observation.py",
+    "packages/sea_nav_core/src/sea_nav_core/profiles.py",
+    "packages/sea_nav_core/tests/test_sea_observation_contracts.py",
     ".codex/delivery/epics/paper-reproduction-80pct/task_plan.md",
     ".codex/delivery/epics/paper-reproduction-80pct/findings.md",
     ".codex/delivery/epics/paper-reproduction-80pct/progress.md",
@@ -730,8 +745,8 @@
   ],
   "batch_status": {
     "G0": "complete_published_b5c855dcc5a2d953980579257aafa84a1e7517eb_remote_verified",
-    "G1": "registered_pending_implementation",
-    "G2": "pending_G1",
+    "G1": "complete_published_219eccc1ea2c4a20ad69705d802031b6d53e916b_remote_verified",
+    "G2": "owned_paths_registered_implementation_next",
     "G3": "pending_G2",
     "G4": "pending_G3",
     "G5": "pending_G4",
