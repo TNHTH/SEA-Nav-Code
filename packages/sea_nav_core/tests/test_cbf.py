@@ -417,16 +417,17 @@ def test_complete_configuration_receipt_and_persistent_identity_buffers():
         "damping_semantics": "paper_eq4_epsilon_d_fixed_one",
     }
     assert receipt["platform_projection"] == {
-        "kind": "differential_drive_recurrent_feasible_segment_v2",
+        "kind": "differential_drive_raw_segment_common_t_v3",
         "order": [
-            "body_speed_clamp", "per_axis_acceleration_limit",
-            "dtype_inward_acceleration_margin",
-            "wheel_increment_segment_limit",
-            "shared_scale_body_reconstruction",
-            "two_pass_wheel_roundoff_refinement",
-            "rowwise_previous_fallback",
+            "validate_or_zero_previous",
+            "raw_segment_parametrization",
+            "body_speed_halfspaces",
+            "acceleration_halfspaces",
+            "wheel_halfspaces",
+            "common_min_t_in_[0,1]",
+            "inward_float_t_shrink",
         ],
-        "roundoff_policy": "two_machine_eps_inward_then_exact_recurrence_closure",
+        "roundoff_policy": "inward_t_shrink_only_no_independent_axis_clamp",
         "final_residual_source": "recurrent_platform_projected_command",
     }
     assert receipt["command_stages"] == [
@@ -601,7 +602,7 @@ def test_dashgo_projection_recomputes_residual_after_acceleration_limit_and_name
         diagnostics["pre_wheel_limit_angular_velocity_rad_s"], expected_wheels,
     )
     torch.testing.assert_close(
-        diagnostics["wheel_limit_scale"], nominal.new_ones((1, 1)),
+        diagnostics["wheel_limit_scale"], nominal.new_tensor([[0.25]]),
     )
     torch.testing.assert_close(
         diagnostics["projected_wheel_angular_velocity_rad_s"], expected_wheels,
@@ -629,9 +630,10 @@ def test_body_wheel_roundtrip_and_independent_linear_angular_acceleration_limits
         torch.zeros((2, 2), dtype=torch.float64), 0.05,
         raw[1], raw[2], raw[3], raw[4], raw[5], raw[6],
     )
+    # Common-t: yaw accel (±0.03) binds before linear (±0.05) on these rays.
     torch.testing.assert_close(
         projected,
-        torch.tensor([[0.05, -0.03], [-0.05, 0.03]], dtype=torch.float64),
+        torch.tensor([[0.015, -0.03], [-0.015, 0.03]], dtype=torch.float64),
     )
     torch.testing.assert_close(
         module.wheel_angular_velocity_to_body_twist(
@@ -656,34 +658,19 @@ def test_dashgo_joint_wheel_limit_scales_both_wheels_and_recomputes_residual():
         cbf_command, previous, 2.0, ranges, angles, valid, age, alpha,
         raw_spec.manifest_sha256,
     )
-    expected_pre_wheels = torch.tensor(
+    # Common-t on previous→raw: right wheel binds at 5 rad/s.
+    expected_raw_wheels = torch.tensor(
         [[(0.3 - 0.5 * 0.342) / 0.0632,
           (0.3 + 0.5 * 0.342) / 0.0632]],
         dtype=torch.float64,
     )
-    expected_scale = 5.0 / expected_pre_wheels[:, 1:2]
-    expected_wheels = expected_pre_wheels * expected_scale
-    expected_projected = torch.stack(
-        (0.5 * 0.0632 * expected_wheels.sum(dim=1),
-         0.0632 * (expected_wheels[:, 1] - expected_wheels[:, 0]) / 0.342),
-        dim=1,
-    )
-    torch.testing.assert_close(
-        diagnostics["acceleration_limited_body_twist"], cbf_command,
-    )
-    torch.testing.assert_close(
-        diagnostics["pre_wheel_limit_angular_velocity_rad_s"], expected_pre_wheels,
-    )
-    torch.testing.assert_close(
-        diagnostics["previous_wheel_angular_velocity_rad_s"],
-        torch.zeros_like(expected_pre_wheels),
-    )
-    torch.testing.assert_close(diagnostics["wheel_limit_scale"], expected_scale)
-    torch.testing.assert_close(
-        diagnostics["projected_wheel_angular_velocity_rad_s"], expected_wheels,
-    )
+    expected_t = (5.0 / expected_raw_wheels[:, 1:2]).clamp(max=1.0)
+    expected_projected = expected_t * cbf_command
+    torch.testing.assert_close(diagnostics["wheel_limit_scale"], expected_t)
     torch.testing.assert_close(projected, expected_projected)
-    assert expected_wheels.abs().max().item() == pytest.approx(5.0)
+    assert diagnostics["projected_wheel_angular_velocity_rad_s"].abs().max().item() == pytest.approx(5.0)
+    # Shared t on both body axes.
+    assert projected[0, 0].item() / 0.3 == pytest.approx(projected[0, 1].item() / 1.0)
     assert diagnostics["residual_cbf"].item() == pytest.approx(-0.4)
     assert diagnostics["residual_platform_projected"].item() == pytest.approx(
         -expected_projected[0, 0].item() - 0.1
@@ -709,49 +696,42 @@ def test_wheel_segment_projection_preserves_acceleration_for_known_counterexampl
         target, previous, 0.05, ranges, angles, valid, age, alpha,
         raw_spec.manifest_sha256,
     )
-    acceleration_limited = torch.tensor(
-        [[previous[0, 0] + 0.05, previous[0, 1] - 0.03]],
-        dtype=torch.float64,
+    t = diagnostics["wheel_limit_scale"]
+    torch.testing.assert_close(projected, previous + t * (target - previous))
+    assert (projected - previous).abs()[0, 0].item() <= 0.05 + 1e-12
+    assert (projected - previous).abs()[0, 1].item() <= 0.03 + 1e-12
+    assert diagnostics["projected_wheel_angular_velocity_rad_s"].abs().max().item() <= 5.0 + 1e-12
+    assert 0.0 <= t.item() <= 1.0
+
+
+def test_common_t_counterexample_and_stage_active_flags_match_contract():
+    """Scientific §4.3: prev=(0,0),raw=(.3,1)→≈(.0036,.012); flags example."""
+    raw_spec = safety_spec(rays=1, angles=[0.0])
+    module = layer(rays=1, angles=[0.0], safety=raw_spec)
+    ranges = torch.tensor([[0.5], [0.5], [0.5]], dtype=torch.float64)
+    angles = torch.tensor([0.0], dtype=torch.float64)
+    valid = torch.ones((3, 1), dtype=torch.bool)
+    age = torch.zeros((3, 1), dtype=torch.float64)
+    alpha = torch.full((3, 1), 0.5, dtype=torch.float64)
+    previous = torch.tensor(
+        [[0.0, 0.0], [0.3, 0.09], [0.3, 0.0]], dtype=torch.float64
     )
-    previous_wheels = torch.stack(
-        ((previous[:, 0] - 0.5 * 0.342 * previous[:, 1]) / 0.0632,
-         (previous[:, 0] + 0.5 * 0.342 * previous[:, 1]) / 0.0632),
-        dim=1,
+    # Row2 previous is infeasible (v=0.3 ok but leave a nan raw on row2 separately).
+    raw = torch.tensor(
+        [[0.3, 1.0], [0.3, 1.0], [float("nan"), 0.0]], dtype=torch.float64
     )
-    target_wheels = torch.stack(
-        ((acceleration_limited[:, 0] - 0.5 * 0.342 * acceleration_limited[:, 1]) / 0.0632,
-         (acceleration_limited[:, 0] + 0.5 * 0.342 * acceleration_limited[:, 1]) / 0.0632),
-        dim=1,
-    )
-    wheel_delta = target_wheels - previous_wheels
-    per_wheel_scale = torch.where(
-        wheel_delta > 0,
-        (5.0 - previous_wheels) / wheel_delta,
-        torch.where(
-            wheel_delta < 0,
-            (-5.0 - previous_wheels) / wheel_delta,
-            torch.ones_like(wheel_delta),
-        ),
-    )
-    expected_scale = per_wheel_scale.amin(dim=1, keepdim=True).clamp(0.0, 1.0)
-    expected_wheels = previous_wheels + expected_scale * wheel_delta
-    expected_projected = torch.stack(
-        (0.5 * 0.0632 * expected_wheels.sum(dim=1),
-         0.0632 * (expected_wheels[:, 1] - expected_wheels[:, 0]) / 0.342),
-        dim=1,
+    projected, diagnostics = module.project_cbf_command_with_residual(
+        raw, previous, 0.02, ranges, angles, valid, age, alpha,
+        raw_spec.manifest_sha256,
     )
     torch.testing.assert_close(
-        diagnostics["acceleration_limited_body_twist"], acceleration_limited,
+        projected[0], projected.new_tensor([0.0036, 0.012]), atol=1e-6, rtol=0,
     )
-    torch.testing.assert_close(diagnostics["wheel_limit_scale"], expected_scale)
-    torch.testing.assert_close(projected, expected_projected)
-    assert expected_scale.item() < 1.0
-    assert (projected - previous).abs()[0, 0].item() <= 0.05 + 1e-15
-    assert (projected - previous).abs()[0, 1].item() <= 0.03 + 1e-15
-    assert diagnostics["projected_wheel_angular_velocity_rad_s"].abs().max().item() == pytest.approx(5.0)
-    assert diagnostics["residual_platform_projected"].item() == pytest.approx(
-        -projected[0, 0].item() - 0.1
-    )
+    assert diagnostics["projection_active"][0].tolist() == [False, True, False]
+    # Accel and wheel both shrink vs body for (.3,.09)→(.3,1).
+    assert diagnostics["projection_active"][1].tolist() == [False, True, True]
+    torch.testing.assert_close(projected[2], torch.zeros(2, dtype=torch.float64))
+    assert diagnostics["projection_active"][2].tolist() == [False, False, False]
 
 
 def test_projection_preserves_all_declared_bounds_over_random_and_boundary_cases():
@@ -809,9 +789,7 @@ def test_projection_preserves_all_declared_bounds_over_random_and_boundary_cases
     assert (scale[:4] == 0.0).all()
     torch.testing.assert_close(
         projected,
-        previous + scale * (
-            diagnostics["acceleration_limited_body_twist"] - previous
-        ),
+        previous + scale * (targets - previous),
     )
 
 
@@ -950,13 +928,13 @@ def test_float32_two_step_random_projection_recurrence_and_constraint_envelope()
     targets = torch.empty(previous.shape, dtype=torch.float32).uniform_(
         -2.0, 2.0, generator=generator
     )
-    first, _, _, _, _, _, first_wheels = module._project_platform_command(
+    first, _, _, _, _, _, first_wheels, _ = module._project_platform_command(
         targets, previous, 0.05
     )
     second_targets = torch.empty(previous.shape, dtype=torch.float32).uniform_(
         -2.0, 2.0, generator=generator
     )
-    second, _, _, _, _, _, second_wheels = module._project_platform_command(
+    second, _, _, _, _, _, second_wheels, _ = module._project_platform_command(
         second_targets, first, 0.05
     )
 
@@ -1023,10 +1001,10 @@ def test_effective_forward_envelope_is_part_of_the_joint_final_projection():
     torch.testing.assert_close(
         forward_diag["residual_platform_projected"], recomputed
     )
-    with pytest.raises(ValueError, match="outside declared effective command envelope"):
-        forward_module._project_platform_command(
-            target, torch.tensor([[-0.01, 0.0]], dtype=torch.float64), 1.0
-        )
+    zeroed = forward_module._project_platform_command(
+        target, torch.tensor([[-0.01, 0.0]], dtype=torch.float64), 1.0
+    )[0]
+    torch.testing.assert_close(zeroed, torch.zeros_like(target))
     outside_capability = replace(
         reverse_envelope, min_linear_velocity_m_s=-0.151
     )

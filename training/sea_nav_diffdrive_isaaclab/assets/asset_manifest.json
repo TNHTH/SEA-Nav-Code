@@ -1,5 +1,24 @@
 {
+ "artifact_provenance": {
+  "articulation_cfg_source_sha256": "5e378279677a924227da0f0ab018b27df9744aa2bc0466240cf2d4ebf3363c48",
+  "generator_id": "sea_nav_dashgo_primitive_usd_v1",
+  "generator_sha256": "3c868dda99608460a543bc80e3a330034f9d5432a9de5ec89c5f890b0c1eabed",
+  "spec_sha256": "2abddf3b0f56f28c05fdae688e667a06efcc067b8dac6ce133252e476fca8294",
+  "usd_relative_path": "assets/generated/dashgo_primitive_candidate_v1.usda",
+  "usd_sha256": "a42e748cf23a01a7e44fa4a018b98937642a44b89062e8c9cd0c701113fa4f65"
+ },
  "mechanical_fact_candidates": {
+  "base_frame": {
+   "axes": "+x_forward_+y_left_+z_up",
+   "chassis_bottom_world_z_m": 0.04,
+   "composed_com_xyz_m": [
+    0.0,
+    0.0,
+    0.07534452554744524
+   ],
+   "normal_reset_world_z_m": 0.0632,
+   "origin": "driven_wheel_axle_midpoint"
+  },
   "body_height_m": 0.21,
   "body_radius_m": 0.203,
   "caster_radius_m": 0.03,
@@ -7,6 +26,14 @@
    -0.15,
    0.15
   ],
+  "mass_breakdown_kg": {
+   "caster_front": 0.1,
+   "caster_rear": 0.1,
+   "chassis": 12.7,
+   "lidar_frame": 0.0,
+   "wheel_left": 0.4,
+   "wheel_right": 0.4
+  },
   "reported_net_mass_kg": 13.7,
   "track_width_m": 0.342,
   "wheel_radius_m": 0.0632,
@@ -15,67 +42,109 @@
  "platform_profile": "dashgo_d1_primitive_candidate_v1",
  "primitive_parts": [
   {
+   "axis": "z",
    "collision_group": "dashgo_chassis_lidar_structure",
    "height_m": 0.21,
+   "inertia_diag_kg_m2": [
+    0.17751107499999996,
+    0.17751107499999996,
+    0.26167715
+   ],
+   "mass_kg": 12.7,
    "name": "chassis",
    "origin_xyz_m": [
     0.0,
     0.0,
-    0.105
+    0.08179999999999998
    ],
    "radius_m": 0.203,
    "shape": "cylinder"
   },
   {
    "axis": "y",
-   "collision_group": "dashgo_chassis_lidar_structure",
+   "collision_group": "dashgo_wheel_caster",
+   "drive_joint_positive_rolls_forward": true,
+   "inertia_diag_kg_m2": [
+    0.0004527573333333334,
+    0.0007988480000000002,
+    0.0004527573333333334
+   ],
    "length_m": 0.04,
+   "mass_kg": 0.4,
    "name": "wheel_left",
    "origin_xyz_m": [
     0.0,
-    -0.171,
-    0.0632
+    0.171,
+    0.0
    ],
    "radius_m": 0.0632,
    "shape": "cylinder"
   },
   {
    "axis": "y",
-   "collision_group": "dashgo_chassis_lidar_structure",
+   "collision_group": "dashgo_wheel_caster",
+   "drive_joint_positive_rolls_forward": true,
+   "inertia_diag_kg_m2": [
+    0.0004527573333333334,
+    0.0007988480000000002,
+    0.0004527573333333334
+   ],
    "length_m": 0.04,
+   "mass_kg": 0.4,
    "name": "wheel_right",
    "origin_xyz_m": [
     0.0,
-    0.171,
-    0.0632
+    -0.171,
+    0.0
    ],
    "radius_m": 0.0632,
    "shape": "cylinder"
   },
   {
-   "collision_group": "dashgo_chassis_lidar_structure",
+   "actuated": false,
+   "collision_group": "dashgo_wheel_caster",
+   "inertia_diag_kg_m2": [
+    3.6e-05,
+    3.6e-05,
+    3.6e-05
+   ],
+   "mass_kg": 0.1,
    "name": "caster_front",
    "origin_xyz_m": [
     0.15,
     0.0,
-    0.03
+    -0.03320000000000001
    ],
    "radius_m": 0.03,
    "shape": "sphere"
   },
   {
-   "collision_group": "dashgo_chassis_lidar_structure",
+   "actuated": false,
+   "collision_group": "dashgo_wheel_caster",
+   "inertia_diag_kg_m2": [
+    3.6e-05,
+    3.6e-05,
+    3.6e-05
+   ],
+   "mass_kg": 0.1,
    "name": "caster_rear",
    "origin_xyz_m": [
     -0.15,
     0.0,
-    0.03
+    -0.03320000000000001
    ],
    "radius_m": 0.03,
    "shape": "sphere"
   },
   {
+   "inertia_diag_kg_m2": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "mass_kg": 0.0,
    "name": "lidar_frame",
+   "notes": "LiDAR geometry belongs to chassis rigid body; no extra mass",
    "origin_xyz_m": [
     0.0,
     0.0,
@@ -130,6 +199,7 @@
   "cbf_safety_margin_m": 0.05,
   "collision_group": "dashgo_chassis_lidar_structure",
   "collision_group_beta": 1.0,
+  "drive_joint_positive_rolls_forward": true,
   "excluded_contacts": [
    "wheel_floor",
    "caster_floor"
@@ -206,8 +276,6 @@
    3.0
   ],
   "unverified_until_g4_g12": [
-   "inertia",
-   "center_of_mass",
    "contact_material",
    "caster_dynamics",
    "actuator_pair_selection"
@@ -216,7 +284,8 @@
    -0.15,
    0.3
   ],
-  "velocity_drive_stiffness": 0.0
+  "velocity_drive_stiffness": 0.0,
+  "wheel_caster_collision_group": "dashgo_wheel_caster"
  },
  "validation_identity": "simulation_surrogate_candidate"
 }

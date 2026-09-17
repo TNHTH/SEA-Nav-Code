@@ -44,7 +44,7 @@ The frozen formal-evaluation fixture identity is now committed truth: 300 ordere
 
 | Field | Current value | Evidence | Status / limits |
 |---|---|---|---|
-| Repository / branch | `TNHTH/SEA-Nav-Code`, `test@3a75eed385449b858817d7900144d5dab37a2c73` | live Git preflight, SSH push, and canonical `git ls-remote` readback on 2026-09-15 | G4 published and remotely verified; fixture payload frozen; G5 execution layer is the active single-writer slice |
+| Repository / branch | `TNHTH/SEA-Nav-Code`, candidate `issue/1-sea-dashgo-milestone-a` @ `10b224b` (test tip still `10b224b` / historically includes `3a75eed` fixtures) | live Git + Milestone A worktree | G4 **data** frozen; G4 **cfg incomplete**; G5 drafts quarantined outside candidate |
 | Working branches | local/remote `main`, `stable`, `test` | live branch inventory | `main/stable@1c5675b` remain frozen |
 | Algorithm identity | `sea_nav_paper_method_operational_v1` | approved contract | cross-platform method adaptation, not paper-exact |
 | Source semantics | `upstream_fbce672c_550d` | local authoritative object `fbce672c22d432e0ba8c9ef1b1e822f8fbd3ec96` | source-derived operational behavior |
@@ -54,7 +54,7 @@ The frozen formal-evaluation fixture identity is now committed truth: 300 ordere
 | Scientific source | SEA-Nav arXiv PDF SHA-256 `600a5040b6579fe63615d87a70f174f3fa0b0d018f74440b6707d23d36dfc2e9` | live `sha256sum` | immutable local reference |
 | Host machine | Python 3.10.12, Torch 2.6.0+cpu; CUDA false; Isaac Lab/Sim/Gym absent | live import-spec and Torch probe | CPU/static development only; target Torch 2.5.1 is not installed here |
 | Existing regression evidence | 964 passed, 2 real-CUDA skips after G4; G4 suite 23 (2026-09-15) | fresh full CPU/static selection | rerun again after G5 |
-| Active unpublished work | G5 execution-layer implementation (registered, not started) | `task_plan.md` G5 owned-path registration and `resume_state.json` coord_rev 24 | source edits will be confined to the registered paths; no simulator claim |
+| Active unpublished work | Milestone A0 ledger/contract mirror; next A1 projection repair | package function-cards A0–A9; Issue #1 ContractApproval | A0–A2 exclude G5 untracked; no simulator claim |
 | DashGo source boundary | read-only repository `98018dd09923495db321a09920dccc09f796f805` with one pre-existing dirty entry | live read-only Git probe | do not modify or reset |
 | Highest possible local rung | CPU/static and packaged runtime preflight | missing GPU/Isaac packages | real simulator gates remain blocked |
 

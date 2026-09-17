@@ -1,0 +1,129 @@
+#usda 1.0
+(
+    defaultPrim = "dashgo_primitive"
+    metersPerUnit = 1
+    upAxis = "Z"
+    doc = "SEA DashGo primitive candidate; not calibrated hardware"
+)
+
+def Xform "dashgo_primitive" (
+    kind = "component"
+)
+{
+    custom string sea_platform_profile = "dashgo_d1_primitive_candidate_v1"
+    custom bool sea_enabled_self_collisions = 0
+
+    def Xform "chassis"
+    {
+        double3 xformOp:translate = (0, 0, 0.0818)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        custom double sea_mass_kg = 12.7
+        custom double3 sea_inertia_diag_kg_m2 = (0.177511075, 0.177511075, 0.26167715)
+        def Cylinder "geom"
+        {
+            double radius = 0.203
+            double height = 0.21
+            uniform token axis = "z"
+        }
+        custom string sea_collision_group = "dashgo_chassis_lidar_structure"
+    }
+
+    def Xform "wheel_left"
+    {
+        double3 xformOp:translate = (0, 0.171, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        custom double sea_mass_kg = 0.4
+        custom double3 sea_inertia_diag_kg_m2 = (0.000452757333333, 0.000798848, 0.000452757333333)
+        def Cylinder "geom"
+        {
+            double radius = 0.0632
+            double height = 0.04
+            uniform token axis = "y"
+        }
+        custom string sea_collision_group = "dashgo_wheel_caster"
+    }
+
+    def Xform "wheel_right"
+    {
+        double3 xformOp:translate = (0, -0.171, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        custom double sea_mass_kg = 0.4
+        custom double3 sea_inertia_diag_kg_m2 = (0.000452757333333, 0.000798848, 0.000452757333333)
+        def Cylinder "geom"
+        {
+            double radius = 0.0632
+            double height = 0.04
+            uniform token axis = "y"
+        }
+        custom string sea_collision_group = "dashgo_wheel_caster"
+    }
+
+    def Xform "caster_front"
+    {
+        double3 xformOp:translate = (0.15, 0, -0.0332)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        custom double sea_mass_kg = 0.1
+        custom double3 sea_inertia_diag_kg_m2 = (3.6e-05, 3.6e-05, 3.6e-05)
+        def Sphere "geom"
+        {
+            double radius = 0.03
+        }
+        custom bool sea_actuated = 0
+        custom string sea_collision_group = "dashgo_wheel_caster"
+    }
+
+    def Xform "caster_rear"
+    {
+        double3 xformOp:translate = (-0.15, 0, -0.0332)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        custom double sea_mass_kg = 0.1
+        custom double3 sea_inertia_diag_kg_m2 = (3.6e-05, 3.6e-05, 3.6e-05)
+        def Sphere "geom"
+        {
+            double radius = 0.03
+        }
+        custom bool sea_actuated = 0
+        custom string sea_collision_group = "dashgo_wheel_caster"
+    }
+
+    def Xform "lidar_frame"
+    {
+        double3 xformOp:translate = (0, 0, 0.13)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        custom double sea_mass_kg = 0
+        custom double3 sea_inertia_diag_kg_m2 = (0, 0, 0)
+        custom string sea_role = "lidar_frame_only"
+        custom double sea_yaw_rad = 0
+    }
+
+    def PhysicsRevoluteJoint "wheel_left_joint"
+    {
+        rel physics:body1 = </dashgo_primitive/chassis>
+        rel physics:body0 = </dashgo_primitive/wheel_left>
+        uniform token physics:axis = "Y"
+        custom bool sea_positive_rolls_forward = 1
+    }
+
+    def PhysicsRevoluteJoint "wheel_right_joint"
+    {
+        rel physics:body1 = </dashgo_primitive/chassis>
+        rel physics:body0 = </dashgo_primitive/wheel_right>
+        uniform token physics:axis = "Y"
+        custom bool sea_positive_rolls_forward = 1
+    }
+
+    def PhysicsSphericalJoint "caster_front_joint"
+    {
+        rel physics:body1 = </dashgo_primitive/chassis>
+        rel physics:body0 = </dashgo_primitive/caster_front>
+        custom bool sea_actuated = 0
+    }
+
+    def PhysicsSphericalJoint "caster_rear_joint"
+    {
+        rel physics:body1 = </dashgo_primitive/chassis>
+        rel physics:body0 = </dashgo_primitive/caster_rear>
+        custom bool sea_actuated = 0
+    }
+
+}

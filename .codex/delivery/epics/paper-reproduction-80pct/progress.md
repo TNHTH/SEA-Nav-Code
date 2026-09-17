@@ -1,5 +1,15 @@
 # Progress Log
 
+## Session: 2026-09-17 — Milestone A0 ledger correction and SEA onboarding readiness
+
+- Dual Issue #22 merged to `test` via `merge_to_test` (PR #25, merge `d0de2aa`); SEA project `sea-nav-dashgo` / `TNHTH/SEA-Nav-Code` registered in local governance registry without advancing SEA main/stable and without changing active release `1.0.6er-c44992ec223c`.
+- Created isolated candidate worktree `/home/twyc/work_ws/worktrees/sea-issue-1-dashgo-milestone-a` on branch `issue/1-sea-dashgo-milestone-a` at approved base `10b224b7a875030ed62d6cec01fd8a32484cf02c`; candidate stays free of the five G5 drafts.
+- Verified five G5 drafts byte-identical to HANDOFF `recovery/20260916T015704Z/g5-original` and copied durable hashes into the execution evidence tree.
+- Corrected four ledgers: G4 fixture/data remains published/frozen; G4 ArticulationCfg marked incomplete (hash-dict factory); G5 marked incomplete with known CPU failure and quarantined until A3.
+- Added approved Issue #1 contract mirror and SEA tests profile under `docs/governance/`.
+- Next: A1 co-linear projection repair (do not claim G4 cfg or G5 train complete).
+
+
 ## Session: 2026-09-15 — G4 DashGo platform assets and frozen fixtures
 
 - Implemented the new `training/sea_nav_diffdrive_isaaclab` package in the registered paths: `assets.py` (SEA-owned primitive parts from the frozen candidate geometry, provenance-bound asset manifest with the 98018dd source hashes, actuator search order, collision group, friction kind, fail-closed IsaacLab factories), `room_mesh.py` (deterministic outward-wound shared triangle mesh: floor slab + disjoint wall-ring decomposition + row-run-merged interior obstacle prisms), `fixtures.py` (the frozen `dashgo_sea_formal_fixture_v1` generator), the committed asset manifest, and the committed 300-case payload with individual/aggregate hashes and generated goldens.

@@ -1,0 +1,34 @@
+schema_version: 1
+profile_id: sea-nav-dashgo-cpu-candidate
+repository_id: TNHTH/SEA-Nav-Code
+diff_base: 10b224b7a875030ed62d6cec01fd8a32484cf02c
+tests:
+  SEA_CPU_STATIC_FULL:
+    tier: 1
+    timeout_seconds: 1800
+    cwd_profile: repo
+    argv:
+      - /home/twyc/Documents/Codex/2026-09-04/https-github-com-tnhth-sea-nav-2/work/sea-nav-cpu-venv/bin/python
+      - -B
+      - -c
+      - >-
+        import os,pathlib,sys;
+        r=pathlib.Path.cwd();
+        os.environ['PYTHONDONTWRITEBYTECODE']='1';
+        os.environ.pop('PYTEST_ADDOPTS',None);
+        os.environ['PYTEST_DISABLE_PLUGIN_AUTOLOAD']='1';
+        p=[r/'training',r/'training/rsl_rl',r/'packages/sea_nav_core/src',r/'training/sea_nav_diffdrive_isaaclab'];
+        os.environ['PYTHONPATH']=os.pathsep.join(map(str,p));
+        sys.path[:0]=list(map(str,p));
+        import pytest;
+        sys.exit(pytest.main(['-q','-rs','-p','no:cacheprovider','tests','training/rsl_rl/tests','sea_nav_current_isaaclab_full_method/tests/gate_a_static_contract.py','packages/sea_nav_core/tests','training/sea_nav_diffdrive_isaaclab/tests']))
+  SEA_DIFF_CHECK:
+    tier: 1
+    timeout_seconds: 60
+    cwd_profile: repo
+    argv:
+      - git
+      - diff
+      - --check
+      - 10b224b7a875030ed62d6cec01fd8a32484cf02c
+      - HEAD

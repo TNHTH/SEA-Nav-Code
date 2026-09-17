@@ -8,6 +8,11 @@ from rsl_rl.experiment_config import build_policy_kwargs, build_ppo_kwargs
 from rsl_rl.modules.cbf_actor_critic import DifferentiableSafeActorCritic
 from rsl_rl.algorithms.ppo import PPO
 
+try:
+    from actor_critic import SeaNavDiffDriveActorCritic
+except ImportError:  # pragma: no cover - optional until adapter is on PYTHONPATH
+    SeaNavDiffDriveActorCritic = None
+
 
 _POLICY_MAP = {
     "num_rays": "num_rays", "history_frames": "his_len",
@@ -96,3 +101,29 @@ def build_actor_critic(config, **overrides):
 def build_ppo(config, actor_critic, **overrides):
     return PPO(actor_critic, **ppo_constructor_kwargs(
         build_ppo_kwargs(config), config.identity.implementation_delta, **overrides))
+
+
+_DASHGO_ACTOR_OPTIONS = {
+    "num_actions", "actor_hidden_dims", "critic_hidden_dims", "encoder_hidden_dims",
+    "activation", "init_noise_std", "cbf_adapter",
+}
+
+
+def register_dashgo_policy_class() -> bool:
+    """Register the 2D DashGo actor in the on-policy runner registry."""
+    if SeaNavDiffDriveActorCritic is None:
+        return False
+    from rsl_rl.runners.on_policy_runner import POLICY_REGISTRY
+    name = SeaNavDiffDriveActorCritic.POLICY_CLASS_NAME
+    if name not in POLICY_REGISTRY:
+        POLICY_REGISTRY[name] = SeaNavDiffDriveActorCritic
+    return True
+
+
+def build_dashgo_actor_critic(**overrides):
+    if SeaNavDiffDriveActorCritic is None:
+        raise ImportError("SeaNavDiffDriveActorCritic is unavailable on PYTHONPATH")
+    unknown = set(overrides) - _DASHGO_ACTOR_OPTIONS
+    if unknown:
+        raise ValueError("unknown DashGo actor override: " + ", ".join(sorted(unknown)))
+    return SeaNavDiffDriveActorCritic(**overrides)
