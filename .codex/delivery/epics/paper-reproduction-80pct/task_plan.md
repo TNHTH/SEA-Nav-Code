@@ -26,13 +26,13 @@ Authority order:
 
 ## Current phase
 
-`G5 — DirectRLEnv execution: wheel targets, joint projection, action trace`.
+`Milestone A / A0–A9 — SEA DashGo CPU/static candidate on issue/1-sea-dashgo-milestone-a`.
 
-G4 is complete and published at `3a75eed385449b858817d7900144d5dab37a2c73` (review round 1 found two P1 generator deviations; generator corrected, payload regenerated, re-review independently reproduced all 300 records; PASS; remote readback verified). The 300-case `dashgo_sea_formal_fixture_v1` payload with aggregate `10202bfce...` and its goldens are now frozen evaluation truth.
+Historical G0–G3 publications on `test` remain valid remote facts. G4 **fixture/manifest data** remains frozen at `3a75eed385449b858817d7900144d5dab37a2c73` (300-case `dashgo_sea_formal_fixture_v1`, aggregate `10202bfce...`), but G4 **ArticulationCfg / USD spawner** is incomplete: `isaaclab_dashgo_articulation_config()` still returns a hash dict after the Isaac import gate and is not a real cfg factory (A2 repair). G5 has five untracked drafts with a known CPU failure (`test_execution` projection_active); drafts stay outside this candidate until A3.
 
-G1 is complete and published at `219eccc1ea2c4a20ad69705d802031b6d53e916b` (independent review round 1 NEEDS FIX with 2 P2, fix round 1, scoped re-review PASS; remote readback verified). The previous current goal remains superseded and rejected as historical audit context only.
+G1 remains published at `219eccc1ea2c4a20ad69705d802031b6d53e916b`. The previous current goal—246-D observations, bounded-tanh actions, RSL-RL 3.0.1, and a consumer implementation written into the DashGo repository—is superseded and rejected. Those entries remain available in Git history only as historical audit context.
 
-The previous current goal—246-D observations, bounded-tanh actions, RSL-RL 3.0.1, and a consumer implementation written into the DashGo repository—is superseded and rejected. Those entries remain available in Git history only as historical audit context.
+Next implementation card after A0 ledger/contract mirror: **A1** (co-linear projection / core CBF repair).
 
 ## Fixed implementation contracts
 
@@ -73,8 +73,8 @@ The export ABI accepts `policy_obs[1,550]`, `raw_ranges[1,41]`, `valid[1,41]`, `
 | G1 | PPO eligibility, actor-context storage ABI, masked GAE/losses, all-bad no-op, pure-query mean | `fix(ppo): enforce transition eligibility` | complete and pushed at `219eccc` (remote readback verified) |
 | G2 | `sea_nav_core` 0.4.0; 550-D/Normal/raw-ray contracts; reject obsolete public ABI; preserve the closed CBF hot-path invariant | `feat(core): add SEA 550D differential-drive contracts` | complete and pushed at `47034ab` (remote readback verified) |
 | G3 | Exact runtime/package/hash lock, static launch readiness, local-RSL identity, and honest blocked receipts | `fix(runtime): add evidence-driven IsaacLab preflight` | complete and pushed at `77d7942` (remote readback verified) |
-| G4 | SEA-owned DashGo primitive, provenance manifest, static room mesh, explicit 41-ray pattern | `feat(isaaclab): add DashGo primitive platform` | complete and pushed at `3a75eed` (remote readback verified; fixture payload frozen) |
-| G5 | DirectRLEnv pre-reset terminal capture, done/reset/close lifecycle, wheel execution, joint projection, action trace | `feat(isaaclab): add differential-drive execution` | owned paths registered; implementation next |
+| G4 | SEA-owned DashGo primitive, provenance manifest, static room mesh, explicit 41-ray pattern | `feat(isaaclab): add DashGo primitive platform` | data/fixtures published at `3a75eed` (frozen); **cfg incomplete** — ArticulationCfg factory still hash-dict (Milestone A2) |
+| G5 | DirectRLEnv pre-reset terminal capture, done/reset/close lifecycle, wheel execution, joint projection, action trace | `feat(isaaclab): add differential-drive execution` | five drafts untracked; known CPU fail; **incomplete** until Milestone A3 |
 | G6 | 55x10 observation history, actor context, timestamped perception delay, wrapper | `feat(isaaclab): add SEA observation pipeline` | pending G5 |
 | G7 | 2-D actor, unicycle CBF, Table III reward and termination semantics | `feat(training): add DashGo SEA policy and rewards` | pending G6 |
 | G8 | ACSI ring plus reserve/ack/cancel and atomic replay/reset | `feat(acsi): add atomic collision-state replay` | pending G7 |
@@ -171,11 +171,11 @@ Never implied by this work: a DashGo digital twin, real-robot deployment, compat
 | two missing `/tmp` worktrees | detached metadata only | none | none | confirmed prunable; cleanup is separate from functional work |
 | `work/dashgo-rl-navigation` | independent user repository | none | none | hardware-fact source only; no write authorization in this plan |
 
-### G4 closeout and G5 owned-path registration
+### G4 data closeout vs cfg gap; G5 draft quarantine
 
-G4 closed at `3a75eed`; the frozen fixture payload/hash identity is recorded in `resume_state.json` (`aggregate_payload_sha256` and `generated_fixture_golden_sha256` are no longer null; the corresponding entry was removed from `blocked`).
+G4 **fixture/manifest data** closed at `3a75eed`; the frozen fixture payload/hash identity is recorded in `resume_state.json`. G4 **asset cfg** remains open for Milestone A2 (`asset_builder` / real `ArticulationCfg`, not hash-dict returns).
 
-G5 is a single-writer slice on `test`; no detached worktree may edit these paths concurrently:
+G5 drafts exist only in the primary `test` worktree (and verified external backups). The Milestone A candidate worktree `issue/1-sea-dashgo-milestone-a` must stay free of those five paths until A3 claims them:
 
 ```text
 training/sea_nav_diffdrive_isaaclab/execution.py
@@ -185,11 +185,9 @@ training/sea_nav_diffdrive_isaaclab/tests/test_execution.py
 training/sea_nav_diffdrive_isaaclab/tests/test_env_static.py
 ```
 
-`execution.py` and `trace.py` must stay CPU-import-safe (no Isaac imports); `env.py` may import Isaac Lab at module import and is covered by AST/static tests plus the G12 runtime ladder. All inherited regressions must remain green. G6 and later paths remain unowned until G5 is reviewed, committed, and remotely read back.
-
 ## Current blockers and next action
 
 - This host has no NVIDIA GPU, Isaac Sim 4.5.0, or Isaac Lab 2.0.2. G12 and every real simulator claim remain `blocked`.
 - Dynamic obstacles are excluded because the pinned RayCaster supports one static mesh.
 - ROS, physical LiDAR adaptation, `cmd_vel`, and real hardware are out of scope for this implementation.
-- Next action: implement G5 in the registered paths: the pure execution/projection layer over the sea_nav_core CBF joint projection (current-tick wheel targets, segment projection from the previous executed command, fail-closed sensor gating), the action-stage trace recorder (all five stages per tick), and the DirectRLEnv module with terminal capture before reset and idempotent close (Isaac import allowed there; AST/static tests only on CPU). Obtain independent review, then push the green G5 commit before the observation pipeline.
+- Milestone A next action: finish A0 (ledgers + Issue #1 contract/profile mirror + clean-candidate V2), then A1 co-linear projection repair in `sea_nav_core` before A2 cfg / A3 DirectRLEnv.

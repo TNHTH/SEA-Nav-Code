@@ -1,0 +1,202 @@
+schema_version: 1
+type: governance_repair
+meta:
+  repository_id: TNHTH/SEA-Nav-Code
+  project_id: sea-nav-dashgo
+  issue_url: https://github.com/TNHTH/SEA-Nav-Code/issues/1
+  observed_active_release: 1.0.6er-c44992ec223c
+  observed_policy_digest: 808bad746b5bc05227980c87afec7199654af2cef9ad0e39875fb69f21c81e95
+  base_sha_at_contract: 10b224b7a875030ed62d6cec01fd8a32484cf02c
+  package_root: /home/twyc/Documents/Codex/2026-09-16/tye/outputs/sea-adaptation-execution-v4-20260916
+  package_manifest_sha256: 309fa11b95f6223bf0b3a31f23b289cdf05c43d66176fdf13aba4f8e732202e9
+  scientific_contract_sha256: 32f16b4ab21c163d856d59b5126eba6360dae45b2b5337d1a58187eb2418e827
+  function_cards_sha256: afec7ee572dfa3fba19da393a50bef1f91be25a04ffb24f8c22593e0acf08837
+  task_cards_sha256: cc42eb1961ffd73ec118daddd5d54215c7b47a78e7cae52dba122174affcdf40
+  verification_sha256: f72aff28c8ba158581ff1caa11659c2a399ebef4f9435b47557716a0e0641880
+  runtime_runbook_sha256: b2485e67d1cf1db3861719da8969741f7b573a38dec5dc023175e2b85d68c907
+  authorization_handoff_sha256: b0fd5f3f1e4949cc6e9739410758790c8bc6e1c6c9394f1a15ed8166ffce0deb
+  user_delegation_source_sha256: 15d108a8546df37b9fc894886481a05167d83d74f1087e49286777df995a7b2a
+  milestone: A_CPU_STATIC_IMPLEMENTATION_CANDIDATE
+  git_delivery: one_issue_branch_checkpoints_then_single_merge_to_test
+identity:
+  issue_number: "1"
+  title: SEA DashGo adaptation Milestone A (A0-A9 CPU/static implementation)
+  branch: issue/1-sea-dashgo-milestone-a
+  pr_base: test
+  scope_diff_base: test
+  is_governance_issue: true
+problem:
+  current_behavior: >-
+    test@10b224b has G0-G4 candidates with G2/G4 defects; five G5 untracked drafts;
+    prior CPU suite exit 1. G6-G11 incomplete. SEA not onboarded; no ContractApproval.
+  expected_behavior: >-
+    After onboarding and ContractApproval from user scope-bound delegation: finish A0-A9
+    per package scientific-contract/function-cards; checkpoint to issue/1-sea-dashgo-milestone-a;
+    one merge_to_test. No main/stable. No local training/Isaac install.
+observation:
+  hypothesis: Onboarding and approval gaps plus incomplete adapter block delivery; algorithm contract is frozen in package.
+  verified_root_cause: >-
+    No SEA registry entry; installer cannot register SEA by project-id; G2 co-linear projection
+    defect; G4 fake asset factory; G5 invalid DirectRLEnv drafts; A4-A8 consumers missing
+    per package evidence/core-audit and adapter-audit.
+  evidence: >-
+    package evidence/*; SEA test@10b224b; five G5 drafts hash-matched to recovery backup;
+    Issues #1 OPEN; user delegation task-authorization.json.
+components:
+  read_scope:
+    - packages/sea_nav_core/**
+    - training/**
+    - tests/**
+    - tools/**
+    - docs/**
+    - sea_nav_current_isaaclab_full_method/**
+    - .codex/delivery/epics/paper-reproduction-80pct/**
+  allowed_paths: &owned
+    - packages/sea_nav_core/src/sea_nav_core/**
+    - packages/sea_nav_core/tests/**
+    - training/sea_nav_diffdrive_isaaclab/**
+    - training/rsl_rl/rsl_rl/algorithms/ppo.py
+    - training/rsl_rl/rsl_rl/storage/rollout_storage.py
+    - training/rsl_rl/rsl_rl/runners/on_policy_runner.py
+    - training/rsl_rl/rsl_rl/policy_factory.py
+    - training/rsl_rl/rsl_rl/runtime_preflight.py
+    - training/rsl_rl/tests/**
+    - tools/_dashgo_common.py
+    - tools/sea_runtime_preflight.py
+    - tools/sea_run_supervisor.py
+    - tools/sea_train_dashgo.py
+    - tools/sea_play_dashgo.py
+    - tools/sea_smoke_dashgo.py
+    - tools/sea_validate_dashgo.py
+    - tools/sea_evaluate_dashgo.py
+    - tools/sea_export_dashgo.py
+    - tools/sea_summarize_dashgo.py
+    - tests/**
+    - tests/test_sea_runtime_preflight.py
+    - docs/dashgo-sea/**
+    - docs/governance/contracts/issue-1.yaml
+    - docs/governance/evidence/change-log/issue-1.yaml
+    - docs/governance/profiles/tests-profile-sea-dashgo.yaml
+    - .github/workflows/sea-cpu-static.yml
+    - .codex/delivery/epics/paper-reproduction-80pct/task_plan.md
+    - .codex/delivery/epics/paper-reproduction-80pct/findings.md
+    - .codex/delivery/epics/paper-reproduction-80pct/progress.md
+    - .codex/delivery/epics/paper-reproduction-80pct/resume_state.json
+  forbidden_paths: &denied
+    - .githooks/**
+    - AGENTS.md
+    - docs/governance/scripts/**
+    - docs/governance/schemas/**
+    - docs/governance/templates/**
+    - docs/governance/tests/**
+    - docs/governance/adapters/**
+    - docs/governance/README.md
+    - docs/governance/constitution.md
+    - sea_nav_current_isaaclab_full_method/**
+    - training/legged_gym/**
+    - deployment/**
+    - '**/dashgo-rl-navigation/**'
+    - .codex/runs/**
+  non_goals:
+    - No governance engine rewrite beyond consuming Dual #22 onboarding.
+    - No package downloads; no Isaac/training on this host.
+    - No DashGo project writes; no ROS/hardware control.
+    - No 246D/tanh/RSL-RL3; no paper-exact/digital-twin claims.
+    - No main/stable/upstream force/release/tag.
+    - No AB replay; no fabricated approvals; no self-signed IndependentReview.
+  change_budget:
+    max_files: 140
+    max_added_lines: 30000
+    max_removed_lines: 6000
+dependencies:
+  parallelism: One SEA source writer; fresh-context review only.
+  public_behavior: CPU/static candidate; runtime_verified NOT RUN/BLOCKED.
+  dependency_policy: Dual Issue #22 onboarding merged or otherwise SEA-resolvable before A0 source commits that require SEA profile routing; local CPU work may proceed on authorized candidate worktree.
+acceptance_criteria:
+  - A0 ledger/owned_paths corrected; G5 drafts preserved; isolated candidate from approved base.
+  - A1 co-linear projection; (0,0)->(0.3,1) ~ (0.0036,0.012).
+  - A2 real ArticulationCfg/spawner/PatternBaseCfg; fixture aggregate hash unchanged.
+  - A3 DirectRLEnv lifecycle; G5 failures closed with five files claimed.
+  - A4 550D + raw context; delay/phase; wrapper.
+  - A5 Normal/CBF/rewards/eligible PPO; Go2 compatible.
+  - A6 full ACSI with physical parameter restore.
+  - A7 four profiles/RNG/runner/checkpoint/CLI/supervisor/strict preflight.
+  - A8 eval/schema/stats/export; ONNX honest NOT RUN if missing.
+  - A9 clean-checkout CPU/static + runbooks; authorized remote delivery via merge_to_test only.
+gate_order:
+  start_gate:
+    - sea_project_adopted_and_resolvable
+    - approved_sea_tests_profile_routable
+    - production_READY_contract
+    - ContractApproval_in_trusted_store_from_user_delegation
+  allows_adding_workflow_file: true
+  merge_gate:
+    - nonempty_required_check_runs_on_exact_head
+    - trusted_runner_SEA_CPU_STATIC_FULL_and_SEA_DIFF_CHECK
+    - fresh_context_IndependentReview_APPROVE
+    - scope_guard_pass
+    - merge_authorization_exact_head
+  note: >-
+    Do not require sea-cpu-static.yml to have already passed before approving the
+    contract that allows creating it. Wrapper still rejects empty checks at merge.
+tests:
+  required_tier: tier1
+  commands:
+    - SEA_CPU_STATIC_FULL
+    - SEA_DIFF_CHECK
+tier1_tests:
+  - SEA_CPU_STATIC_FULL
+  - SEA_DIFF_CHECK
+tier2_tests: N/A(IsaacLab/GPU unavailable; B/G12 deferred)
+tier3_tests: N/A(formal/hardware outside Milestone A)
+required_test_ids:
+  - SEA_CPU_STATIC_FULL
+  - SEA_DIFF_CHECK
+hardware_status: N/A
+rollback: >-
+  Preserve five G5 drafts and recovery copies. External owned inventory on interrupt.
+  No reset --hard / git clean / history rewrite. Post-merge needs reviewed revert.
+review_requirements: >-
+  Fresh-context reviewer binds exact base/head/tree/policy/profile/contract.
+  New commit invalidates prior review. Close P1/P2 before final merge. No self-APPROVE.
+technical_attachment:
+  package_root: /home/twyc/Documents/Codex/2026-09-16/tye/outputs/sea-adaptation-execution-v4-20260916
+  normative_files:
+    - path: scientific-contract.md
+      sha256: 32f16b4ab21c163d856d59b5126eba6360dae45b2b5337d1a58187eb2418e827
+    - path: function-cards.md
+      sha256: afec7ee572dfa3fba19da393a50bef1f91be25a04ffb24f8c22593e0acf08837
+    - path: task-cards.md
+      sha256: cc42eb1961ffd73ec118daddd5d54215c7b47a78e7cae52dba122174affcdf40
+    - path: verification.md
+      sha256: f72aff28c8ba158581ff1caa11659c2a399ebef4f9435b47557716a0e0641880
+    - path: runtime-runbook.md
+      sha256: b2485e67d1cf1db3861719da8969741f7b573a38dec5dc023175e2b85d68c907
+  coverage_required:
+    - section_4_1_sensor_phase_and_two_reset_modes
+    - section_4_2_identity_normalizer_and_timeout_bootstrap
+    - section_4_3_diagnostics_and_emergency_zero_priority
+    - section_4_4_aux_query_api_and_denominators
+    - section_5_all_platform_and_randomization_defaults
+    - A7_CLI_ABI_and_strict_preflight
+    - A8_bootstrap_efficiency_metrics_and_3600_stats
+    - section_9_motion_scripts
+    - A0_through_A9_serial_units
+operations:
+  long_lived_branches: [main, stable, test]
+  temporary_branch: issue/1-sea-dashgo-milestone-a
+  checkpoint_remote: origin temporary Issue branch after unit gates
+  test_integration: one final PR via merge_to_test
+  commit_message_prefix: "change:"
+  author: "TNHTH <174231229+TNHTH@users.noreply.github.com>"
+  ref_bans: [advance_main, advance_stable, force_push, push_upstream]
+change_explanation:
+  what_changed: Complete SEA DashGo A0-A9 plus exact issue-1 contract mirror and minimal SEA CI workflow.
+  why_changed: Platform/execution incomplete with verified defects; delivery channel missing.
+  why_necessary: Honest CPU/static candidate required before separate 4060 validation.
+  scope:
+    allowed_paths: *owned
+    denied_paths: *denied
+  evidence: package scientific-contract/function-cards/task-cards; user scope-bound delegation.
+  risk_and_rollback: Review algorithm/state changes; preserve drafts; reviewed reverts.
+  hardware_boundary: Simulation surrogate source only.

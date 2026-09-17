@@ -1,0 +1,136 @@
+schema_version: 1
+issue: '#1'
+entries:
+- change_id: S1-core
+  paths:
+  - packages/sea_nav_core/src/sea_nav_core/cbf.py
+  - packages/sea_nav_core/tests/test_cbf.py
+  what_changed: >-
+    Common-t CBF projection and sea_nav_core contracts/tests.
+  why_changed: Milestone A CPU/static implementation gaps on test@10b224b.
+  why_necessary: >-
+    Honest candidate required before Isaac/train gates; merge_to_test needs owned-path coverage.
+- change_id: S2-adapter
+  paths:
+  - training/sea_nav_diffdrive_isaaclab/acsi.py
+  - training/sea_nav_diffdrive_isaaclab/actor_critic.py
+  - training/sea_nav_diffdrive_isaaclab/asset_builder.py
+  - training/sea_nav_diffdrive_isaaclab/assets.py
+  - training/sea_nav_diffdrive_isaaclab/assets/asset_manifest.json
+  - training/sea_nav_diffdrive_isaaclab/assets/generated/dashgo_primitive_candidate_v1.usda
+  - training/sea_nav_diffdrive_isaaclab/cbf_adapter.py
+  - training/sea_nav_diffdrive_isaaclab/checkpoint.py
+  - training/sea_nav_diffdrive_isaaclab/cli.py
+  - training/sea_nav_diffdrive_isaaclab/configs/__init__.py
+  - training/sea_nav_diffdrive_isaaclab/configs/ablation_profiles.py
+  - training/sea_nav_diffdrive_isaaclab/configs/base.py
+  - training/sea_nav_diffdrive_isaaclab/configs/formal_train.py
+  - training/sea_nav_diffdrive_isaaclab/configs/smoke_4060.py
+  - training/sea_nav_diffdrive_isaaclab/env.py
+  - training/sea_nav_diffdrive_isaaclab/env_cfg.py
+  - training/sea_nav_diffdrive_isaaclab/episode_schema.py
+  - training/sea_nav_diffdrive_isaaclab/evaluation.py
+  - training/sea_nav_diffdrive_isaaclab/execution.py
+  - training/sea_nav_diffdrive_isaaclab/export.py
+  - training/sea_nav_diffdrive_isaaclab/observation_pipeline.py
+  - training/sea_nav_diffdrive_isaaclab/perception_delay.py
+  - training/sea_nav_diffdrive_isaaclab/ray_pattern.py
+  - training/sea_nav_diffdrive_isaaclab/rewards.py
+  - training/sea_nav_diffdrive_isaaclab/rng.py
+  - training/sea_nav_diffdrive_isaaclab/runner.py
+  - training/sea_nav_diffdrive_isaaclab/scene_builder.py
+  - training/sea_nav_diffdrive_isaaclab/snapshot.py
+  - training/sea_nav_diffdrive_isaaclab/static_api.py
+  - training/sea_nav_diffdrive_isaaclab/statistics.py
+  - training/sea_nav_diffdrive_isaaclab/supervisor.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_acsi.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_actor_critic.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_asset_builder.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_assets.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_checkpoint.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_cli.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_env_reset.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_env_static.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_episode_schema.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_evaluation.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_execution.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_export.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_observation_pipeline.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_perception_delay.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_profiles.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_ray_pattern.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_rewards.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_rng.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_runner.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_scene_builder.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_snapshot.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_static_api.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_statistics.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_supervisor.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_trace.py
+  - training/sea_nav_diffdrive_isaaclab/tests/test_wrapper.py
+  - training/sea_nav_diffdrive_isaaclab/trace.py
+  - training/sea_nav_diffdrive_isaaclab/wrapper.py
+  what_changed: >-
+    DashGo adapter A2–A9 modules, configs, and CPU tests.
+  why_changed: Milestone A CPU/static implementation gaps on test@10b224b.
+  why_necessary: >-
+    Honest candidate required before Isaac/train gates; merge_to_test needs owned-path coverage.
+- change_id: S3-rsl
+  paths:
+  - training/rsl_rl/rsl_rl/algorithms/ppo.py
+  - training/rsl_rl/rsl_rl/policy_factory.py
+  what_changed: >-
+    DashGo policy factory registration and PPO timeout bootstrap.
+  why_changed: Milestone A CPU/static implementation gaps on test@10b224b.
+  why_necessary: >-
+    Honest candidate required before Isaac/train gates; merge_to_test needs owned-path coverage.
+- change_id: S4-tools
+  paths:
+  - tools/_dashgo_common.py
+  - tools/sea_evaluate_dashgo.py
+  - tools/sea_export_dashgo.py
+  - tools/sea_play_dashgo.py
+  - tools/sea_run_supervisor.py
+  - tools/sea_smoke_dashgo.py
+  - tools/sea_summarize_dashgo.py
+  - tools/sea_train_dashgo.py
+  - tools/sea_validate_dashgo.py
+  what_changed: >-
+    DashGo CLI entrypoints and shared helper.
+  why_changed: Milestone A CPU/static implementation gaps on test@10b224b.
+  why_necessary: >-
+    Honest candidate required before Isaac/train gates; merge_to_test needs owned-path coverage.
+- change_id: S5-docs
+  paths:
+  - docs/dashgo-sea/README.md
+  - docs/dashgo-sea/adaptation-ledger.md
+  - docs/dashgo-sea/cpu-acceptance.md
+  - docs/dashgo-sea/runtime-4060-and-formal.md
+  - docs/governance/contracts/issue-1.yaml
+  - docs/governance/evidence/change-log/issue-1.yaml
+  - docs/governance/profiles/tests-profile-sea-dashgo.yaml
+  what_changed: >-
+    dashgo-sea manuals, issue-1 contract mirror, change-log.
+  why_changed: Milestone A CPU/static implementation gaps on test@10b224b.
+  why_necessary: >-
+    Honest candidate required before Isaac/train gates; merge_to_test needs owned-path coverage.
+- change_id: S6-ci
+  paths:
+  - .github/workflows/sea-cpu-static.yml
+  what_changed: >-
+    Minimal sea-cpu-static workflow for terminal check-runs.
+  why_changed: Milestone A CPU/static implementation gaps on test@10b224b.
+  why_necessary: >-
+    Honest candidate required before Isaac/train gates; merge_to_test needs owned-path coverage.
+- change_id: S8-codex
+  paths:
+  - .codex/delivery/epics/paper-reproduction-80pct/findings.md
+  - .codex/delivery/epics/paper-reproduction-80pct/progress.md
+  - .codex/delivery/epics/paper-reproduction-80pct/resume_state.json
+  - .codex/delivery/epics/paper-reproduction-80pct/task_plan.md
+  what_changed: >-
+    Epic delivery notes for paper-reproduction milestone A.
+  why_changed: Milestone A CPU/static implementation gaps on test@10b224b.
+  why_necessary: >-
+    Honest candidate required before Isaac/train gates; merge_to_test needs owned-path coverage.

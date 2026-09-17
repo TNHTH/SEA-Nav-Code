@@ -417,13 +417,18 @@ class PPO:
             self.transition.bad_masks = torch.zeros(
                 next_obs.shape[0], dtype=torch.bool, device=self.device
             )
-        # Bootstrapping on time outs
+        # Bootstrapping on time outs uses reset-before terminal critic values.
         if 'time_outs' in infos:
             time_outs = torch.as_tensor(
                 infos['time_outs'], device=self.device
             ).reshape(-1, 1)
+            bootstrap_values = self.transition.values
+            if 'timeout_bootstrap_values' in infos:
+                bootstrap_values = torch.as_tensor(
+                    infos['timeout_bootstrap_values'], device=self.device
+                ).reshape(-1, 1)
             self.transition.rewards += self.gamma * torch.squeeze(
-                self.transition.values * time_outs, 1
+                bootstrap_values * time_outs, 1
             )
 
         # Record the transition

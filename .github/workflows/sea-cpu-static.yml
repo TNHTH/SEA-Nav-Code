@@ -1,0 +1,31 @@
+# Minimal required check-run for merge_to_test terminal CI gate.
+# Full CPU suite is recorded by local trusted_runner (sea-nav-cpu-venv); CI
+# only proves a completed success conclusion exists on the exact head.
+name: sea-cpu-static
+
+on:
+  pull_request:
+    branches: [test]
+  push:
+    branches: [issue/**]
+
+jobs:
+  syntax-and-inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stdlib compile of candidate packages
+        run: |
+          python3 -m compileall -q \
+            packages/sea_nav_core/src \
+            training/sea_nav_diffdrive_isaaclab \
+            training/rsl_rl/rsl_rl \
+            tools
+      - name: Refuse train-ready false claim in env_cfg
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path("training/sea_nav_diffdrive_isaaclab/env_cfg.py").read_text()
+          assert "TRAIN_READY = False" in text, "TRAIN_READY must remain False for this candidate"
+          print("TRAIN_READY=False confirmed")
+          PY
